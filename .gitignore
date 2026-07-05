@@ -2,3 +2,20 @@
 runs/
 .vscode/
 
+# 数据合成 pipeline 的生成物 / 原料(保留目录结构,忽略内容)
+data_pipeline/ingest/*
+data_pipeline/raw/*
+data_pipeline/out/*
+data_pipeline/vis/*
+!data_pipeline/**/.gitkeep
+
+# LISA 训练数据(样本不入库,保留目录骨架)
+dataset/reason_seg/ReasonSeg/train/*
+dataset/reason_seg/ReasonSeg/val/*
+dataset/reason_seg/ReasonSeg/explanatory/*
+!dataset/**/.gitkeep
+!dataset/README.md
+
+# SAM / GroundingDINO 权重
+*.pth
+

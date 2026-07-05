@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>场景 A · 施工安全巡检 Agent — 工具调用流程图</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --ink: #1f2733;
+    --muted: #5b6b7c;
+    --line: #e2e6eb;
+    --accent: #6c8ebf;
+    --lisa: #d79b00;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 40px 24px 80px; }
+  header h1 { font-size: 26px; margin: 0 0 6px; }
+  header p { color: var(--muted); margin: 0 0 4px; }
+  .badge {
+    display: inline-block; font-size: 12px; padding: 2px 10px; border-radius: 999px;
+    background: #eef2f7; color: var(--muted); margin-right: 8px;
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 24px 28px; margin: 28px 0; box-shadow: 0 1px 3px rgba(20,30,50,.04);
+  }
+  .card h2 { font-size: 19px; margin: 0 0 4px; }
+  .card .sub { color: var(--muted); font-size: 14px; margin: 0 0 18px; }
+  .mermaid { display: flex; justify-content: center; overflow-x: auto; }
+  .note {
+    margin-top: 18px; padding: 12px 16px; border-left: 4px solid var(--accent);
+    background: #f2f6fb; border-radius: 0 8px 8px 0; font-size: 14px; color: var(--ink);
+  }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; font-size: 13px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+  .dot { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+  .key-line {
+    background: linear-gradient(90deg, #fff6e6, #fff);
+    border: 1px solid #f0d8a8; border-radius: 10px; padding: 14px 18px; margin-top: 20px;
+    font-size: 14px;
+  }
+  .key-line b { color: var(--lisa); }
+  footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 40px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <span class="badge">面试项目 · 主打场景 A</span>
+      <span class="badge">多模态 · Agent 应用</span>
+    </div>
+    <h1>施工安全隐患巡检 + 整改闭环 Agent</h1>
+    <p>LISA(推理分割,已 LoRA 微调)作为视觉工具,被 LLM 规划器按需编排</p>
+  </header>
+
+  <div class="card">
+    <h2>图 1 · 整体工具调用流程(ReAct 编排 + 闭环)</h2>
+    <p class="sub">规划器居中决策;LISA 只是被编排的一个工具,不是系统本身</p>
+    <pre class="mermaid">
+flowchart TD
+    A["📷 输入<br/>工地照片 + 元数据<br/>(工区 / 位置 / 施工阶段)"] --> B{{"🧠 LLM 规划器<br/>ReAct 循环"}}
+
+    B -->|"① 我该查哪些隐患?"| T1["🔧 retrieve_regulation<br/>RAG 检索规范条文<br/>(JGJ59 等)"]
+    T1 -->|"该场景检查项清单"| B
+
+    B -->|"② 逐项定位隐患"| T2["🔧 segment_hazard ⭐<br/>微调后 LISA<br/>像素级掩码 + 坐标"]
+    T2 -->|"候选隐患区域"| B
+
+    B -->|"③ 这是误报吗?"| T3["🔧 verify_region<br/>VLM 二次确认<br/>过滤误报"]
+    T3 -->|"确认 / 否决"| B
+
+    B -->|"④ 重复 / 已整改?"| T4["🔧 query_history<br/>查历史隐患台账<br/>(状态记忆)"]
+    T4 -->|"历史匹配结果"| B
+
+    B -->|"⑤ 处理完毕"| T5["🔧 create_work_order<br/>生成整改工单<br/>位置+条文+等级+期限"]
+    T5 --> O["📋 输出<br/>整改工单 + 更新台账"]
+
+    O -.->|"下一周期:整改后照片"| A
+    O -.->|"复查同一位置"| L["✅ 整改闭环追踪"]
+
+    classDef llm fill:#6c8ebf,stroke:#3a5a8c,color:#fff,stroke-width:1px;
+    classDef lisa fill:#d79b00,stroke:#333,color:#fff,stroke-width:1px;
+    classDef tool fill:#82b366,stroke:#333,color:#fff,stroke-width:1px;
+    classDef io fill:#e1d5e7,stroke:#333,color:#000,stroke-width:1px;
+    class B llm;
+    class T2 lisa;
+    class T1,T3,T4,T5 tool;
+    class A,O,L io;
+    </pre>
+    <div class="legend">
+      <span><i class="dot" style="background:#6c8ebf"></i>LLM 规划器(大脑)</span>
+      <span><i class="dot" style="background:#d79b00"></i>LISA ⭐(唯一需微调)</span>
+      <span><i class="dot" style="background:#82b366"></i>现成工具(RAG / VLM / DB / 模板)</span>
+      <span><i class="dot" style="background:#e1d5e7"></i>输入 / 输出</span>
+    </div>
+    <div class="key-line">
+      ⭐ = 唯一需要<b>微调</b>的组件;其余全用现成能力拼装。这张图的作用:让面试官一眼看到
+      —— <b>LISA 是被规划器编排的一个工具,不是系统本身。</b>直接堵住"这不就是个微调模型吗"的追问。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>图 2 · 一次巡检的时序图(工具调用顺序)</h2>
+    <p class="sub">用 loop(逐检查项)+ alt(有隐患才验证)体现 Agent 的条件分支与多步循环</p>
+    <pre class="mermaid">
+sequenceDiagram
+    participant U as 巡检输入
+    participant P as LLM 规划器
+    participant R as 规范库 RAG
+    participant L as LISA(微调)⭐
+    participant V as VLM 验证
+    participant H as 历史台账
+    participant W as 工单系统
+
+    U->>P: 工地照片 + 元数据
+    P->>R: retrieve_regulation("脚手架区域")
+    R-->>P: 检查项[临边防护, 安全帽, 脚手板...]
+
+    loop 每个检查项
+        P->>L: segment_hazard(img, "圈出未防护的临边")
+        L-->>P: 掩码 + 坐标(候选隐患)
+        alt 有候选隐患
+            P->>V: verify_region(img, 掩码)
+            V-->>P: 确认为真隐患
+            P->>H: query_history(位置, 类型)
+            H-->>P: 无历史 / 重复 / 已整改
+        end
+    end
+
+    P->>W: create_work_order(隐患列表)
+    W-->>U: 整改工单 + 更新台账
+
+    Note over U,W: 下一周期送入整改后照片 → 复查同位置 → 闭环
+    </pre>
+    <div class="note">
+      时序图的价值:展示这是"调用 → 看结果 → 再决策"的<strong>多步循环</strong>,而非线性流水线
+      —— 这正是"为什么必须做成 Agent"的直观证据。
+    </div>
+  </div>
+
+  <footer>
+    Agent 应用开发岗 · 面试准备 · 场景 A 架构图 &nbsp;|&nbsp; 详见 MS.md
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: "base",
+    themeVariables: {
+      fontFamily: '-apple-system, "Segoe UI", "Microsoft YaHei", sans-serif',
+      fontSize: "14px",
+      primaryColor: "#eef2f7",
+      primaryBorderColor: "#c7d0da",
+      lineColor: "#8a97a6"
+    },
+    flowchart: { curve: "basis", padding: 12 },
+    sequence: { actorMargin: 46, boxMargin: 8 }
+  });
+</script>
+</body>
+</html>
