@@ -1,6 +1,7 @@
 **/__pycache__
 runs/
 .vscode/
+data/
 
 # 数据合成 pipeline 的生成物 / 原料(保留目录结构,忽略内容)
 data_pipeline/ingest/*
