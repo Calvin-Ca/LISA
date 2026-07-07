@@ -3,19 +3,21 @@ Organize COCO image files by category.
 
 Input layout:
   data/
-    001/_annotations.coco.json
-    001/<images...>
-    002/_annotations.coco.json
+    001/train/_annotations.coco.json
+    001/train/<images...>
+    002/train/_annotations.coco.json
     ...
 
 Output layout:
-  data_by_category/
+  data/data_by_category/
     001/
-      no-helmet/
-        001__image_a.jpg -> ../../data/001/image_a.jpg
+      train/
+        no-helmet/
+          001__train__image_a.jpg -> ../../../001/train/image_a.jpg
     002/
-      helmet_missing/
-        002__image_b.jpg -> ../../data/002/image_b.jpg
+      train/
+        helmet_missing/
+          002__train__image_b.jpg -> ../../../002/train/image_b.jpg
 
 Images with multiple categories are linked/copied into multiple category folders.
 If image files are not present yet, the script still writes a manifest that can be
@@ -38,6 +40,18 @@ def safe_name(name: str) -> str:
     """Make a category name safe as a directory name."""
     name = name.strip().replace(" ", "_")
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", name).strip("._") or "unknown"
+
+
+def dataset_key(data_root: Path, ann_path: Path) -> str:
+    """Use the annotation folder path relative to data_root as dataset key."""
+    rel_dir = ann_path.parent.relative_to(data_root)
+    return "__".join(safe_name(part) for part in rel_dir.parts)
+
+
+def output_dataset_dir(data_root: Path, output_root: Path, ann_path: Path) -> Path:
+    """Mirror the annotation folder path under output_root."""
+    rel_dir = ann_path.parent.relative_to(data_root)
+    return output_root.joinpath(*rel_dir.parts)
 
 
 def find_image_path(dataset_dir: Path, file_name: str) -> Path | None:
@@ -76,13 +90,15 @@ def place_file(src: Path, dst: Path, mode: str, overwrite: bool) -> None:
 
 def organize_dataset(
     ann_path: Path,
+    data_root: Path,
     output_root: Path,
     mode: str,
     skip_empty_categories: bool,
     overwrite: bool,
 ) -> tuple[list[dict], Counter]:
     dataset_dir = ann_path.parent
-    dataset_name = dataset_dir.name
+    dataset_name = dataset_key(data_root, ann_path)
+    dataset_output_dir = output_dataset_dir(data_root, output_root, ann_path)
     data = json.loads(ann_path.read_text(encoding="utf-8"))
 
     images = {img["id"]: img for img in data.get("images", [])}
@@ -114,7 +130,7 @@ def organize_dataset(
             category_name = category["name"]
             category_dir = safe_name(category_name)
             dst_name = f"{dataset_name}__{Path(file_name).name}"
-            dst = output_root / dataset_name / category_dir / dst_name
+            dst = dataset_output_dir / category_dir / dst_name
 
             status = "missing"
             if src is not None:
@@ -156,7 +172,12 @@ def main() -> None:
         description="Organize COCO images into category directories."
     )
     parser.add_argument("--data-root", default="data", type=Path)
-    parser.add_argument("--output-root", default="data_by_category", type=Path)
+    parser.add_argument("--output-root", default=None, type=Path)
+    parser.add_argument(
+        "--ann-glob",
+        default="**/_annotations.coco.json",
+        help="Glob pattern under data-root for COCO annotation files.",
+    )
     parser.add_argument(
         "--mode",
         default="symlink",
@@ -171,7 +192,9 @@ def main() -> None:
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
 
-    ann_paths = sorted(args.data_root.glob("*/_annotations.coco.json"))
+    args.output_root = args.output_root or args.data_root / "data_by_category"
+    ann_paths = sorted(args.data_root.glob(args.ann_glob))
+    ann_paths = [p for p in ann_paths if args.output_root not in p.parents]
     if not ann_paths:
         raise FileNotFoundError(f"No COCO annotation files found under {args.data_root}")
 
@@ -182,14 +205,16 @@ def main() -> None:
     for ann_path in ann_paths:
         rows, stats = organize_dataset(
             ann_path=ann_path,
+            data_root=args.data_root,
             output_root=args.output_root,
             mode=args.mode,
             skip_empty_categories=not args.include_empty_categories,
             overwrite=args.overwrite,
         )
         all_rows.extend(rows)
-        all_stats[ann_path.parent.name] = dict(stats)
-        print(f"[{ann_path.parent.name}] {dict(stats)}")
+        key = dataset_key(args.data_root, ann_path)
+        all_stats[key] = dict(stats)
+        print(f"[{key}] {dict(stats)}")
 
     manifest_path = args.output_root / "manifest.csv"
     with manifest_path.open("w", encoding="utf-8", newline="") as f:
