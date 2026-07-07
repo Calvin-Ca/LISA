@@ -12,14 +12,8 @@ Default output:
     val/<name>.jpg + <name>.json
 
 Phase-1 category policy:
-  keep:
-    helmet_missing / no helmet -> no_helmet
-    no jacket -> no_jacket
-    harness_missing -> harness_missing
-    guardrail_missing -> guardrail_missing
-    opening_unprotected -> opening_unprotected
-  drop:
-    safe, unsafe, equipment_proximity, poor_housekeeping
+  keep all annotated COCO categories. Each original category is converted into
+  a normalized sample key, and no category is filtered by default.
 
 Each output json follows the LabelMe-like format expected by
 utils/data_processing.py::get_mask_from_json.
@@ -30,6 +24,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import re
 import random
 import shutil
 from collections import Counter, defaultdict
@@ -42,25 +37,13 @@ from config import QC, SAM_CHECKPOINT, SAM_MODEL_TYPE
 from box_to_mask import BoxToMask, box_mask_iou
 
 
-PHASE1_CATEGORY_TO_HAZARD = {
-    "helmet_missing": "no_helmet",
-    "no helmet": "no_helmet",
-    "no jacket": "no_jacket",
-    "harness_missing": "harness_missing",
-    "guardrail_missing": "guardrail_missing",
-    "opening_unprotected": "opening_unprotected",
-}
-
-EXCLUDED_CATEGORIES = {
-    "safe",
-    "unsafe",
-    "equipment_proximity",
-    "poor_housekeeping",
-    "objects",
-    "Safe-Unsafe-No_Helmet-No_Jacket",
-}
-
 INSTRUCTION_BANK = {
+    "helmet_missing": [
+        "圈出图中没有佩戴安全帽的工人。",
+        "标出未按规定佩戴安全帽的作业人员。",
+        "现场哪些人员存在未戴安全帽的安全隐患?请分割出来。",
+        "把没有做好头部防护、未戴安全帽的人分割出来。",
+    ],
     "no_helmet": [
         "圈出图中没有佩戴安全帽的工人。",
         "标出未按规定佩戴安全帽的作业人员。",
@@ -91,7 +74,48 @@ INSTRUCTION_BANK = {
         "图中哪些洞口或临边没有做防护?请分割出来。",
         "把缺少防护、可能导致坠落的开口区域分割出来。",
     ],
+    "equipment_proximity": [
+        "标出人员或设备距离过近、存在碰撞风险的区域。",
+        "圈出施工现场设备邻近作业人员的危险区域。",
+        "图中哪些位置存在设备靠近人员的安全隐患?请分割出来。",
+    ],
+    "poor_housekeeping": [
+        "标出现场材料堆放混乱或文明施工不到位的区域。",
+        "圈出施工现场杂乱、可能影响通行安全的位置。",
+        "图中哪些区域存在场地整理不到位的安全隐患?请分割出来。",
+    ],
+    "safe": [
+        "圈出图中被标注为安全状态的作业人员或区域。",
+        "标出现场处于安全状态的目标。",
+        "请分割图中符合安全要求的目标区域。",
+    ],
+    "unsafe": [
+        "圈出图中被标注为不安全状态的作业人员或区域。",
+        "标出现场存在不安全状态的目标。",
+        "请分割图中存在安全风险的目标区域。",
+    ],
 }
+
+
+def normalize_category_name(category_name: str) -> str:
+    """Convert a source COCO category name into a stable sample key."""
+    name = category_name.strip().lower().replace(" ", "_").replace("-", "_")
+    name = re.sub(r"[^a-z0-9_]+", "_", name)
+    name = re.sub(r"_+", "_", name).strip("_")
+    return name or "unknown"
+
+
+def sample_instruction(category_name: str, sample_key: str, rng: random.Random) -> str:
+    if sample_key in INSTRUCTION_BANK:
+        return rng.choice(INSTRUCTION_BANK[sample_key])
+    readable_name = category_name.replace("_", " ").replace("-", " ")
+    return rng.choice(
+        [
+            f"请分割图中的 {readable_name} 目标。",
+            f"标出图中属于 {readable_name} 的区域。",
+            f"圈出现场中与 {readable_name} 相关的目标。",
+        ]
+    )
 
 
 def find_image_path(split_dir: Path, file_name: str) -> Path | None:
@@ -187,32 +211,26 @@ def build_split(
             continue
         height, width = image.shape[:2]
 
-        hazard_boxes: dict[str, list[list[float]]] = defaultdict(list)
-        source_categories: dict[str, set[str]] = defaultdict(set)
+        sample_boxes: dict[str, list[list[float]]] = defaultdict(list)
+        source_categories: dict[str, str] = {}
         for ann in annotations:
             category_name = categories[ann["category_id"]]["name"]
-            hazard = PHASE1_CATEGORY_TO_HAZARD.get(category_name)
-            if not hazard:
-                if category_name in EXCLUDED_CATEGORIES:
-                    stats[f"drop_category_{category_name}"] += 1
-                else:
-                    stats[f"skip_unmapped_{category_name}"] += 1
-                continue
+            sample_key = normalize_category_name(category_name)
 
             box = clip_xywh_to_xyxy(ann["bbox"], width, height)
             if box is None:
                 stats["drop_invalid_box"] += 1
                 continue
-            hazard_boxes[hazard].append(box)
-            source_categories[hazard].add(category_name)
+            sample_boxes[sample_key].append(box)
+            source_categories[sample_key] = category_name
 
-        if not hazard_boxes:
-            stats["skip_no_kept_hazard"] += 1
+        if not sample_boxes:
+            stats["skip_no_valid_category"] += 1
             continue
 
         if dry_run:
-            for hazard, boxes in hazard_boxes.items():
-                stats[f"dryrun_{hazard}"] += len(boxes)
+            for sample_key, boxes in sample_boxes.items():
+                stats[f"dryrun_{sample_key}"] += len(boxes)
             continue
 
         assert b2m is not None
@@ -220,7 +238,7 @@ def build_split(
         image_area = height * width
         b2m.set_image(image_rgb)
 
-        for hazard, boxes in hazard_boxes.items():
+        for sample_key, boxes in sample_boxes.items():
             masks = b2m.boxes_to_masks(np.array(boxes, dtype=np.float32))
 
             shapes = []
@@ -241,9 +259,10 @@ def build_split(
                 stats["drop_empty_shapes"] += 1
                 continue
 
-            instruction = rng.choice(INSTRUCTION_BANK[hazard])
+            category_name = source_categories[sample_key]
+            instruction = sample_instruction(category_name, sample_key, rng)
             stem = Path(image_info["file_name"]).stem
-            out_name = f"{split}__{stem}__{hazard}"
+            out_name = f"{split}__{stem}__{sample_key}"
             out_image = split_out / f"{out_name}.jpg"
             out_json = split_out / f"{out_name}.json"
 
@@ -256,15 +275,15 @@ def build_split(
                     "split": split,
                     "image_id": image_id,
                     "file_name": image_info["file_name"],
-                    "hazard": hazard,
-                    "source_categories": sorted(source_categories[hazard]),
+                    "sample_key": sample_key,
+                    "source_category": category_name,
                 },
             }
             out_json.write_text(
                 json.dumps(anno, ensure_ascii=False, indent=2), encoding="utf-8"
             )
 
-            stats[f"ok_{hazard}"] += 1
+            stats[f"ok_{sample_key}"] += 1
             stats["ok_samples"] += 1
             manifest_rows.append(
                 {
@@ -272,8 +291,8 @@ def build_split(
                     "sample": out_name,
                     "source_image_id": image_id,
                     "source_file_name": image_info["file_name"],
-                    "hazard": hazard,
-                    "source_categories": "|".join(sorted(source_categories[hazard])),
+                    "sample_key": sample_key,
+                    "source_category": category_name,
                     "instruction": instruction,
                     "shapes": len(shapes),
                     "manual_check_required": split == "val",
@@ -324,8 +343,7 @@ def main() -> None:
         print(f"[{split}] {dict(stats)}")
 
     args.output_root.mkdir(parents=True, exist_ok=True)
-    summary["kept_category_mapping"] = PHASE1_CATEGORY_TO_HAZARD
-    summary["excluded_categories"] = sorted(EXCLUDED_CATEGORIES)
+    summary["category_policy"] = "keep_all"
     (args.output_root / "phase1_build_summary.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
     )
