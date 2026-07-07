@@ -1,7 +1,9 @@
 **/__pycache__
+.DS_Store
 runs/
 .vscode/
 data/
+data_by_category/
 
 # 数据合成 pipeline 的生成物 / 原料(保留目录结构,忽略内容)
 data_pipeline/ingest/*
@@ -19,4 +21,3 @@ dataset/reason_seg/ReasonSeg/explanatory/*
 
 # SAM / GroundingDINO 权重
 *.pth
-
