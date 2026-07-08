@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import textwrap
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -59,12 +58,41 @@ def load_font(size: int) -> ImageFont.ImageFont:
         "/System/Library/Fonts/PingFang.ttc",
         "/System/Library/Fonts/STHeiti Light.ttc",
         "/Library/Fonts/Arial Unicode.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansSC-Regular.ttf",
+        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+        "/usr/share/fonts/truetype/arphic/uming.ttc",
+        "/usr/share/fonts/truetype/arphic/ukai.ttc",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     ]
     for path in candidates:
         if Path(path).exists():
             return ImageFont.truetype(path, size=size)
     return ImageFont.load_default()
+
+
+def wrap_by_pixel_width(
+    text: str, draw: ImageDraw.ImageDraw, font: ImageFont.ImageFont, max_width: int
+) -> list[str]:
+    lines = []
+    current = ""
+    for char in text:
+        if char == "\n":
+            lines.append(current)
+            current = ""
+            continue
+        candidate = current + char
+        if current and draw.textlength(candidate, font=font) > max_width:
+            lines.append(current)
+            current = char
+        else:
+            current = candidate
+    if current:
+        lines.append(current)
+    return lines or [""]
 
 
 def normalize_points(points: list[list[float]]) -> list[tuple[float, float]]:
@@ -98,26 +126,41 @@ def draw_shapes(image: Image.Image, json_path: Path) -> tuple[Image.Image, str, 
     return Image.alpha_composite(image.convert("RGBA"), overlay), instruction, shape_count
 
 
-def draw_text_panel(canvas: Image.Image, instruction: str, json_name: str, shape_count: int) -> None:
+def draw_text_panel(
+    canvas: Image.Image,
+    instruction: str,
+    json_name: str,
+    shape_count: int,
+    panel_height: int,
+) -> None:
     draw = ImageDraw.Draw(canvas)
     title_font = load_font(18)
-    text_font = load_font(16)
-    draw.rectangle((0, 0, canvas.width, 84), fill=(24, 24, 24))
+    text_font = load_font(18)
+    draw.rectangle((0, 0, canvas.width, panel_height), fill=(24, 24, 24))
     draw.text((12, 10), json_name, fill=(235, 235, 235), font=title_font)
     meta = f"target/ignore polygons: {shape_count}"
     draw.text((12, 34), meta, fill=(180, 220, 255), font=text_font)
-    for idx, line in enumerate(textwrap.wrap(instruction, width=52)[:2]):
-        draw.text((12, 56 + idx * 20), line, fill=(210, 240, 210), font=text_font)
+    lines = wrap_by_pixel_width(instruction, draw, text_font, canvas.width - 24)
+    max_lines = max(1, (panel_height - 60) // 24)
+    for idx, line in enumerate(lines[:max_lines]):
+        draw.text((12, 60 + idx * 24), line, fill=(210, 240, 210), font=text_font)
 
 
-def visualize_pair(image_path: Path, json_path: Path, output_dir: Path) -> Path:
+def visualize_pair(
+    image_path: Path,
+    json_path: Path,
+    output_dir: Path,
+) -> Path:
     image = Image.open(image_path).convert("RGB")
     annotated, instruction, shape_count = draw_shapes(image, json_path)
 
-    canvas = Image.new("RGB", (image.width * 2, image.height + 84), (255, 255, 255))
-    canvas.paste(image, (0, 84))
-    canvas.paste(annotated.convert("RGB"), (image.width, 84))
-    draw_text_panel(canvas, instruction, json_path.name, shape_count)
+    panel_height = 132
+    canvas = Image.new(
+        "RGB", (image.width * 2, image.height + panel_height), (255, 255, 255)
+    )
+    canvas.paste(image, (0, panel_height))
+    canvas.paste(annotated.convert("RGB"), (image.width, panel_height))
+    draw_text_panel(canvas, instruction, json_path.name, shape_count, panel_height)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"{json_path.stem}_lisa_vis.jpg"
