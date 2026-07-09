@@ -577,6 +577,12 @@ def write_markdown_summary(path, summary):
         f.write("\n".join(lines) + "\n")
 
 
+def markdown_relative_link(target_path, markdown_path):
+    if not target_path:
+        return ""
+    return os.path.relpath(target_path, start=Path(markdown_path).parent)
+
+
 def write_sorted_samples_markdown(path, rows):
     sorted_rows = sorted(rows, key=lambda row: (row["iou"], row["dice"], row["image"]))
     lines = [
@@ -589,7 +595,8 @@ def write_sorted_samples_markdown(path, rows):
         prompt = str(row.get("prompt", "")).replace("|", "\\|")
         image = str(row["image"]).replace("|", "\\|")
         visualization_path = row.get("visualization_path", "")
-        visualization = f"[view]({visualization_path})" if visualization_path else ""
+        visualization_link = markdown_relative_link(visualization_path, path)
+        visualization = f"[view]({visualization_link})" if visualization_link else ""
         lines.append(
             "| {rank} | `{image}` | {iou:.4f} | {dice:.4f} | {precision:.4f} | "
             "{recall:.4f} | {target_area} | {pred_area} | {prompt} | {visualization} |".format(
