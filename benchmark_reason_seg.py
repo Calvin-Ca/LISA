@@ -27,6 +27,7 @@ from utils.utils import (DEFAULT_IM_END_TOKEN, DEFAULT_IM_START_TOKEN,
 
 
 FONT_PATH_OVERRIDE = None
+RESOLVED_FONT_PATH = None
 
 
 def parse_args(args):
@@ -58,8 +59,11 @@ def parse_args(args):
     parser.add_argument("--save_masks", action="store_true", default=False)
     parser.add_argument(
         "--font_path",
-        default=None,
-        help="Optional .ttf/.ttc/.otf font path for drawing Chinese labels.",
+        default=os.environ.get("LISA_BENCHMARK_FONT_PATH"),
+        help=(
+            "Optional .ttf/.ttc/.otf font path for drawing Chinese labels. "
+            "Can also be set with LISA_BENCHMARK_FONT_PATH."
+        ),
     )
     return parser.parse_args(args)
 
@@ -375,7 +379,9 @@ def overlay_mask(image_rgb, mask, color, alpha=0.5):
 
 
 def load_font(size):
+    global RESOLVED_FONT_PATH
     if FONT_PATH_OVERRIDE:
+        RESOLVED_FONT_PATH = FONT_PATH_OVERRIDE
         return ImageFont.truetype(FONT_PATH_OVERRIDE, size=size)
     candidates = [
         "/System/Library/Fonts/PingFang.ttc",
@@ -393,7 +399,9 @@ def load_font(size):
     ]
     for path in candidates:
         if Path(path).exists():
+            RESOLVED_FONT_PATH = path
             return ImageFont.truetype(path, size=size)
+    RESOLVED_FONT_PATH = "PIL_default"
     return ImageFont.load_default()
 
 
@@ -564,6 +572,7 @@ def summarize(rows, args, elapsed_seconds):
         "dataset_dir": args.dataset_dir,
         "val_dataset": args.val_dataset,
         "precision": args.precision,
+        "font_path": RESOLVED_FONT_PATH,
         "mask_threshold": args.mask_threshold,
         "num_samples": len(rows),
         "gIoU": avg("iou"),
@@ -611,6 +620,7 @@ def write_markdown_summary(path, summary):
         f"- Dataset: `{summary['dataset_dir']}` / `{summary['val_dataset']}`",
         f"- Samples: `{summary['num_samples']}`",
         f"- Precision: `{summary['precision']}`",
+        f"- Font: `{summary.get('font_path')}`",
         f"- Mask threshold: `{summary['mask_threshold']}`",
         "",
         "| Metric | Value |",
