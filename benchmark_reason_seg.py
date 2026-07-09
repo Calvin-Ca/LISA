@@ -365,7 +365,7 @@ def overlay_mask(image_rgb, mask, color, alpha=0.5):
     return result.astype(np.uint8)
 
 
-def make_visualization(image_path, pred_mask, gt_mask, save_path, title_text):
+def make_visualization(image_path, pred_mask, gt_mask, save_path, title_text, label_text):
     image_bgr = cv2.imread(str(image_path))
     if image_bgr is None:
         return False
@@ -407,9 +407,12 @@ def make_visualization(image_path, pred_mask, gt_mask, save_path, title_text):
 
     vis = cv2.hconcat(labeled_panels)
     cv2.rectangle(vis, (0, vis.shape[0] - 34), (vis.shape[1], vis.shape[0]), (0, 0, 0), -1)
+    display_text = title_text
+    if label_text:
+        display_text = "{} | Label: {}".format(title_text, label_text)
     cv2.putText(
         vis,
-        title_text[:180],
+        display_text[:220],
         (10, vis.shape[0] - 10),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.55,
@@ -418,6 +421,9 @@ def make_visualization(image_path, pred_mask, gt_mask, save_path, title_text):
         cv2.LINE_AA,
     )
     cv2.imwrite(str(save_path), vis)
+    sidecar_path = Path(save_path).with_suffix(".txt")
+    with sidecar_path.open("w", encoding="utf-8") as f:
+        f.write(display_text + "\n")
     return True
 
 
@@ -463,6 +469,7 @@ def write_csv(path, rows):
         "false_negative_area",
         "pred_mask_path",
         "visualization_path",
+        "visualization_label_path",
     ]
     all_fields = set()
     for row in rows:
@@ -697,8 +704,16 @@ def main(args):
                         f"IoU={metrics['iou']:.3f} Dice={metrics['dice']:.3f} "
                         f"P={metrics['precision']:.3f} R={metrics['recall']:.3f}"
                     )
-                    if make_visualization(image_path, pred_mask, gt_mask, vis_path, title_text):
+                    if make_visualization(
+                        image_path,
+                        pred_mask,
+                        gt_mask,
+                        vis_path,
+                        title_text,
+                        prompt_text,
+                    ):
                         row["visualization_path"] = str(vis_path)
+                        row["visualization_label_path"] = str(vis_path.with_suffix(".txt"))
 
     elapsed_seconds = (datetime.now() - started_at).total_seconds()
     summary = summarize(rows, args, elapsed_seconds)
