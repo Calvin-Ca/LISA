@@ -1,5 +1,6 @@
 import argparse
 import csv
+import glob
 import json
 import os
 import sys
@@ -9,13 +10,17 @@ from pathlib import Path
 import cv2
 import numpy as np
 import torch
+import torch.nn.functional as F
 import tqdm
 import transformers
-from transformers import BitsAndBytesConfig
+from transformers import BitsAndBytesConfig, CLIPImageProcessor
 
 from model.LISA import LISAForCausalLM
 from model.llava import conversation as conversation_lib
-from utils.dataset import ValDataset, collate_fn
+from model.llava.constants import DEFAULT_IMAGE_TOKEN
+from model.llava.mm_utils import tokenizer_image_token
+from model.segment_anything.utils.transforms import ResizeLongestSide
+from utils.data_processing import get_mask_from_json
 from utils.utils import (DEFAULT_IM_END_TOKEN, DEFAULT_IM_START_TOKEN,
                          dict_to_cuda)
 
@@ -52,6 +57,160 @@ def torch_dtype_from_precision(precision):
     if precision == "fp16":
         return torch.float16
     return torch.float32
+
+
+class ReasonSegValDataset(torch.utils.data.Dataset):
+    pixel_mean = torch.Tensor([123.675, 116.28, 103.53]).view(-1, 1, 1)
+    pixel_std = torch.Tensor([58.395, 57.12, 57.375]).view(-1, 1, 1)
+    img_size = 1024
+    ignore_label = 255
+
+    def __init__(self, base_image_dir, tokenizer, vision_tower, val_dataset, image_size=1024):
+        splits = val_dataset.split("|")
+        if len(splits) != 2:
+            raise ValueError("ReasonSeg benchmark expects --val_dataset like 'ReasonSeg|val'")
+        ds, split = splits
+        self.images = sorted(
+            glob.glob(os.path.join(base_image_dir, "reason_seg", ds, split, "*.jpg"))
+        )
+        if len(self.images) == 0:
+            raise FileNotFoundError(
+                "No jpg files found under {}".format(
+                    os.path.join(base_image_dir, "reason_seg", ds, split)
+                )
+            )
+        self.image_size = image_size
+        self.tokenizer = tokenizer
+        self.transform = ResizeLongestSide(image_size)
+        self.clip_image_processor = CLIPImageProcessor.from_pretrained(vision_tower)
+
+    def __len__(self):
+        return len(self.images)
+
+    def preprocess(self, x):
+        x = (x - self.pixel_mean) / self.pixel_std
+        h, w = x.shape[-2:]
+        padh = self.img_size - h
+        padw = self.img_size - w
+        return F.pad(x, (0, padw, 0, padh))
+
+    def __getitem__(self, idx):
+        image_path = self.images[idx]
+        image = cv2.imread(image_path)
+        if image is None:
+            raise FileNotFoundError("Failed to read image: {}".format(image_path))
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        json_path = image_path.replace(".jpg", ".json")
+        mask_json, sampled_sents, is_sentence = get_mask_from_json(json_path, image)
+        sampled_sents = [sampled_sents[0]]
+
+        conversations = []
+        conv = conversation_lib.default_conversation.copy()
+        for text in sampled_sents:
+            conv.messages = []
+            text = text.strip()
+            if is_sentence:
+                question = DEFAULT_IMAGE_TOKEN + "\n {} Please output segmentation mask.".format(text)
+            else:
+                question = (
+                    DEFAULT_IMAGE_TOKEN
+                    + "\n What is {} in this image? Please output segmentation mask.".format(text)
+                )
+            conv.append_message(conv.roles[0], question)
+            conv.append_message(conv.roles[1], "[SEG].")
+            conversations.append(conv.get_prompt())
+
+        image_clip = self.clip_image_processor.preprocess(image, return_tensors="pt")[
+            "pixel_values"
+        ][0]
+        image = self.transform.apply_image(image)
+        resize = image.shape[:2]
+        image = self.preprocess(torch.from_numpy(image).permute(2, 0, 1).contiguous())
+
+        masks = torch.from_numpy(np.stack([mask_json], axis=0))
+        labels = torch.ones(masks.shape[1], masks.shape[2]) * self.ignore_label
+        inference = True
+        return (
+            image_path,
+            image,
+            image_clip,
+            conversations,
+            masks,
+            labels,
+            resize,
+            None,
+            None,
+            inference,
+        )
+
+
+def collate_reason_seg(batch, tokenizer=None, use_mm_start_end=True):
+    image_path_list = []
+    images_list = []
+    images_clip_list = []
+    conversation_list = []
+    masks_list = []
+    label_list = []
+    resize_list = []
+    offset_list = [0]
+    cnt = 0
+    inferences = []
+
+    for (
+        image_path,
+        images,
+        images_clip,
+        conversations,
+        masks,
+        label,
+        resize,
+        _questions,
+        _sampled_classes,
+        inference,
+    ) in batch:
+        image_path_list.append(image_path)
+        images_list.append(images)
+        images_clip_list.append(images_clip)
+        conversation_list.extend(conversations)
+        masks_list.append(masks.float())
+        label_list.append(label)
+        resize_list.append(resize)
+        cnt += len(conversations)
+        offset_list.append(cnt)
+        inferences.append(inference)
+
+    if use_mm_start_end:
+        replace_token = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN
+        conversation_list = [
+            conversation.replace(DEFAULT_IMAGE_TOKEN, replace_token)
+            for conversation in conversation_list
+        ]
+
+    input_ids = [
+        tokenizer_image_token(prompt, tokenizer, return_tensors="pt")
+        for prompt in conversation_list
+    ]
+    input_ids = torch.nn.utils.rnn.pad_sequence(
+        input_ids, batch_first=True, padding_value=tokenizer.pad_token_id
+    )
+    attention_masks = input_ids.ne(tokenizer.pad_token_id)
+
+    return {
+        "image_paths": image_path_list,
+        "images": torch.stack(images_list, dim=0),
+        "images_clip": torch.stack(images_clip_list, dim=0),
+        "input_ids": input_ids,
+        "labels": input_ids.clone(),
+        "attention_masks": attention_masks,
+        "masks_list": masks_list,
+        "label_list": label_list,
+        "resize_list": resize_list,
+        "offset": torch.LongTensor(offset_list),
+        "questions_list": [None for _ in batch],
+        "sampled_classes_list": [None for _ in batch],
+        "inference": inferences[0],
+        "conversation_list": conversation_list,
+    }
 
 
 def load_model_and_tokenizer(args):
@@ -407,7 +566,7 @@ def main(args):
     conversation_lib.default_conversation = conversation_lib.conv_templates[args.conv_type]
     model, tokenizer = load_model_and_tokenizer(args)
 
-    dataset = ValDataset(
+    dataset = ReasonSegValDataset(
         args.dataset_dir,
         tokenizer,
         args.vision_tower,
@@ -424,12 +583,10 @@ def main(args):
         shuffle=False,
         num_workers=args.workers,
         pin_memory=False,
-        collate_fn=lambda batch: collate_fn(
+        collate_fn=lambda batch: collate_reason_seg(
             batch,
             tokenizer=tokenizer,
-            conv_type=args.conv_type,
             use_mm_start_end=args.use_mm_start_end,
-            local_rank=args.local_rank,
         ),
     )
 
