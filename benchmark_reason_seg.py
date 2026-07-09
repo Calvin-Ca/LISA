@@ -577,6 +577,39 @@ def write_markdown_summary(path, summary):
         f.write("\n".join(lines) + "\n")
 
 
+def write_sorted_samples_markdown(path, rows):
+    sorted_rows = sorted(rows, key=lambda row: (row["iou"], row["dice"], row["image"]))
+    lines = [
+        "# Samples Sorted By IoU",
+        "",
+        "| Rank | Sample | IoU | Dice | Precision | Recall | Target Area | Pred Area | Prompt | Visualization |",
+        "| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |",
+    ]
+    for rank, row in enumerate(sorted_rows, start=1):
+        prompt = str(row.get("prompt", "")).replace("|", "\\|")
+        image = str(row["image"]).replace("|", "\\|")
+        visualization_path = row.get("visualization_path", "")
+        visualization = f"[view]({visualization_path})" if visualization_path else ""
+        lines.append(
+            "| {rank} | `{image}` | {iou:.4f} | {dice:.4f} | {precision:.4f} | "
+            "{recall:.4f} | {target_area} | {pred_area} | {prompt} | {visualization} |".format(
+                rank=rank,
+                image=image,
+                iou=row["iou"],
+                dice=row["dice"],
+                precision=row["precision"],
+                recall=row["recall"],
+                target_area=row["target_area"],
+                pred_area=row["pred_area"],
+                prompt=prompt,
+                visualization=visualization,
+            )
+        )
+
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+
 def main(args):
     args = parse_args(args)
     output_dir = Path(args.output_dir)
@@ -663,8 +696,11 @@ def main(args):
     elapsed_seconds = (datetime.now() - started_at).total_seconds()
     summary = summarize(rows, args, elapsed_seconds)
 
+    sorted_rows = sorted(rows, key=lambda row: (row["iou"], row["dice"], row["image"]))
     write_csv(output_dir / "per_sample_metrics.csv", rows)
     write_jsonl(output_dir / "per_sample_metrics.jsonl", rows)
+    write_csv(output_dir / "per_sample_metrics_by_iou.csv", sorted_rows)
+    write_sorted_samples_markdown(output_dir / "samples_by_iou.md", sorted_rows)
     with open(output_dir / "summary.json", "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
     write_markdown_summary(output_dir / "summary.md", summary)
