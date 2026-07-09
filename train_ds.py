@@ -98,6 +98,12 @@ def parse_args(args):
     parser.add_argument("--use_mm_start_end", action="store_true", default=True)
     parser.add_argument("--auto_resume", action="store_true", default=True)
     parser.add_argument(
+        "--reinit_lisa_modules",
+        action="store_true",
+        default=False,
+        help="reinitialize LISA modules even when loading a LISA checkpoint",
+    )
+    parser.add_argument(
         "--conv_type",
         default="llava_v1",
         type=str,
@@ -116,6 +122,8 @@ def main(args):
         writer = None
 
     # Create model
+    pretrained_config = transformers.AutoConfig.from_pretrained(args.version)
+    has_pretrained_lisa_modules = hasattr(pretrained_config, "train_mask_decoder")
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         args.version,
         cache_dir=None,
@@ -149,7 +157,11 @@ def main(args):
     elif args.precision == "fp16":
         torch_dtype = torch.half
     model = LISAForCausalLM.from_pretrained(
-        args.version, torch_dtype=torch_dtype, low_cpu_mem_usage=True, **model_args
+        args.version,
+        config=pretrained_config,
+        torch_dtype=torch_dtype,
+        low_cpu_mem_usage=True,
+        **model_args,
     )
     model.config.eos_token_id = tokenizer.eos_token_id
     model.config.bos_token_id = tokenizer.bos_token_id
@@ -161,8 +173,14 @@ def main(args):
     model.get_model().initialize_vision_modules(model.get_model().config)
     vision_tower = model.get_model().get_vision_tower()
     vision_tower.to(dtype=torch_dtype, device=args.local_rank)
-    if not args.eval_only:
+    should_initialize_lisa_modules = (
+        not args.eval_only
+        and (not has_pretrained_lisa_modules or args.reinit_lisa_modules)
+    )
+    if should_initialize_lisa_modules:
         model.get_model().initialize_lisa_modules(model.get_model().config)
+    elif has_pretrained_lisa_modules and args.local_rank == 0:
+        print("Using LISA modules loaded from checkpoint.")
 
     for p in vision_tower.parameters():
         p.requires_grad = False
