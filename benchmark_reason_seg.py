@@ -36,7 +36,11 @@ def parse_args(args):
     parser.add_argument("--image_size", default=1024, type=int)
     parser.add_argument("--model_max_length", default=512, type=int)
     parser.add_argument("--out_dim", default=256, type=int)
-    parser.add_argument("--vision-tower", default="openai/clip-vit-large-patch14")
+    parser.add_argument(
+        "--vision-tower",
+        default=None,
+        help="CLIP vision tower path/name; defaults to the value in model config",
+    )
     parser.add_argument("--local-rank", default=0, type=int)
     parser.add_argument("--conv_type", default="llava_v1", choices=["llava_v1", "llava_llama_2"])
     parser.add_argument("--use_mm_start_end", action="store_true", default=True)
@@ -57,6 +61,24 @@ def torch_dtype_from_precision(precision):
     if precision == "fp16":
         return torch.float16
     return torch.float32
+
+
+def resolve_vision_tower(args):
+    config = transformers.AutoConfig.from_pretrained(args.version)
+    if args.vision_tower:
+        config.vision_tower = args.vision_tower
+        config.mm_vision_tower = args.vision_tower
+    elif hasattr(config, "vision_tower"):
+        args.vision_tower = config.vision_tower
+    elif hasattr(config, "mm_vision_tower"):
+        args.vision_tower = config.mm_vision_tower
+        config.vision_tower = args.vision_tower
+    else:
+        raise ValueError(
+            "Cannot resolve CLIP vision tower. Pass --vision-tower with a local "
+            "openai/clip-vit-large-patch14 directory."
+        )
+    return config
 
 
 class ReasonSegValDataset(torch.utils.data.Dataset):
@@ -214,6 +236,7 @@ def collate_reason_seg(batch, tokenizer=None, use_mm_start_end=True):
 
 
 def load_model_and_tokenizer(args):
+    model_config = resolve_vision_tower(args)
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         args.version,
         cache_dir=None,
@@ -262,6 +285,7 @@ def load_model_and_tokenizer(args):
 
     model = LISAForCausalLM.from_pretrained(
         args.version,
+        config=model_config,
         low_cpu_mem_usage=True,
         **model_args,
         **model_kwargs,
@@ -465,6 +489,7 @@ def summarize(rows, args, elapsed_seconds):
     summary = {
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "model": args.version,
+        "vision_tower": args.vision_tower,
         "dataset_dir": args.dataset_dir,
         "val_dataset": args.val_dataset,
         "precision": args.precision,
