@@ -13,6 +13,7 @@ import torch
 import torch.nn.functional as F
 import tqdm
 import transformers
+from PIL import Image, ImageDraw, ImageFont
 from transformers import BitsAndBytesConfig, CLIPImageProcessor
 
 from model.LISA import LISAForCausalLM
@@ -23,6 +24,9 @@ from model.segment_anything.utils.transforms import ResizeLongestSide
 from utils.data_processing import get_mask_from_json
 from utils.utils import (DEFAULT_IM_END_TOKEN, DEFAULT_IM_START_TOKEN,
                          dict_to_cuda)
+
+
+FONT_PATH_OVERRIDE = None
 
 
 def parse_args(args):
@@ -52,6 +56,11 @@ def parse_args(args):
     parser.add_argument("--save_visualizations", action="store_true", default=False)
     parser.add_argument("--max_visualizations", default=40, type=int)
     parser.add_argument("--save_masks", action="store_true", default=False)
+    parser.add_argument(
+        "--font_path",
+        default=None,
+        help="Optional .ttf/.ttc/.otf font path for drawing Chinese labels.",
+    )
     return parser.parse_args(args)
 
 
@@ -365,6 +374,72 @@ def overlay_mask(image_rgb, mask, color, alpha=0.5):
     return result.astype(np.uint8)
 
 
+def load_font(size):
+    if FONT_PATH_OVERRIDE:
+        return ImageFont.truetype(FONT_PATH_OVERRIDE, size=size)
+    candidates = [
+        "/System/Library/Fonts/PingFang.ttc",
+        "/System/Library/Fonts/STHeiti Light.ttc",
+        "/Library/Fonts/Arial Unicode.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansSC-Regular.ttf",
+        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+        "/usr/share/fonts/truetype/arphic/uming.ttc",
+        "/usr/share/fonts/truetype/arphic/ukai.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    ]
+    for path in candidates:
+        if Path(path).exists():
+            return ImageFont.truetype(path, size=size)
+    return ImageFont.load_default()
+
+
+def wrap_by_pixel_width(text, draw, font, max_width):
+    lines = []
+    current = ""
+    for char in text:
+        if char == "\n":
+            lines.append(current)
+            current = ""
+            continue
+        candidate = current + char
+        if current and draw.textlength(candidate, font=font) > max_width:
+            lines.append(current)
+            current = char
+        else:
+            current = candidate
+    if current:
+        lines.append(current)
+    return lines or [""]
+
+
+def append_text_footer(vis_bgr, text):
+    footer_height = 86
+    margin_x = 12
+    line_height = 25
+    font = load_font(20)
+    vis_rgb = cv2.cvtColor(vis_bgr, cv2.COLOR_BGR2RGB)
+    image = Image.fromarray(vis_rgb)
+    canvas = Image.new("RGB", (image.width, image.height + footer_height), (0, 0, 0))
+    canvas.paste(image, (0, 0))
+
+    draw = ImageDraw.Draw(canvas)
+    lines = wrap_by_pixel_width(text, draw, font, image.width - margin_x * 2)
+    max_lines = footer_height // line_height
+    for idx, line in enumerate(lines[:max_lines]):
+        draw.text(
+            (margin_x, image.height + 8 + idx * line_height),
+            line,
+            fill=(255, 255, 255),
+            font=font,
+        )
+
+    return cv2.cvtColor(np.array(canvas), cv2.COLOR_RGB2BGR)
+
+
 def make_visualization(image_path, pred_mask, gt_mask, save_path, title_text, label_text):
     image_bgr = cv2.imread(str(image_path))
     if image_bgr is None:
@@ -405,21 +480,10 @@ def make_visualization(image_path, pred_mask, gt_mask, save_path, title_text, la
         )
         labeled_panels.append(panel_bgr)
 
-    vis = cv2.hconcat(labeled_panels)
-    cv2.rectangle(vis, (0, vis.shape[0] - 34), (vis.shape[1], vis.shape[0]), (0, 0, 0), -1)
     display_text = title_text
     if label_text:
         display_text = "{} | Label: {}".format(title_text, label_text)
-    cv2.putText(
-        vis,
-        display_text[:220],
-        (10, vis.shape[0] - 10),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.55,
-        (255, 255, 255),
-        1,
-        cv2.LINE_AA,
-    )
+    vis = append_text_footer(cv2.hconcat(labeled_panels), display_text)
     cv2.imwrite(str(save_path), vis)
     sidecar_path = Path(save_path).with_suffix(".txt")
     with sidecar_path.open("w", encoding="utf-8") as f:
@@ -625,7 +689,9 @@ def write_sorted_samples_markdown(path, rows):
 
 
 def main(args):
+    global FONT_PATH_OVERRIDE
     args = parse_args(args)
+    FONT_PATH_OVERRIDE = args.font_path
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     vis_dir = output_dir / "visualizations"
