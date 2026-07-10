@@ -3,6 +3,8 @@ import csv
 import glob
 import json
 import os
+import re
+import shlex
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -57,6 +59,15 @@ def parse_args(args):
     parser.add_argument("--save_visualizations", action="store_true", default=False)
     parser.add_argument("--max_visualizations", default=40, type=int)
     parser.add_argument("--save_masks", action="store_true", default=False)
+    parser.add_argument(
+        "--record_exp",
+        action="store_true",
+        default=False,
+        help=(
+            "Update exp/runs/<name>/EXPERIMENT.md and command.sh after the run. "
+            "This is automatic when --output_dir is exp/runs/<name>/outputs."
+        ),
+    )
     parser.add_argument(
         "--font_path",
         default=os.environ.get("LISA_BENCHMARK_FONT_PATH"),
@@ -698,6 +709,166 @@ def write_sorted_samples_markdown(path, rows):
         f.write("\n".join(lines) + "\n")
 
 
+def is_exp_outputs_dir(output_dir):
+    parts = Path(output_dir).parts
+    return len(parts) >= 4 and parts[-1] == "outputs" and parts[-3] == "runs"
+
+
+def shell_quote(value):
+    return shlex.quote(str(value))
+
+
+def shell_quote_token(value):
+    value = str(value)
+    for env_name in ["BASE_MODEL", "SAM_CKPT", "CLIP_TOWER", "LISA_BENCHMARK_FONT_PATH"]:
+        env_value = os.environ.get(env_name)
+        if env_value and value == env_value:
+            return '"${}"'.format(env_name)
+    return shell_quote(value)
+
+
+def format_command_script(argv):
+    env_parts = []
+    cuda_visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
+    if cuda_visible_devices:
+        env_parts.append("CUDA_VISIBLE_DEVICES={}".format(shell_quote(cuda_visible_devices)))
+
+    header = "#!/usr/bin/env bash\nset -euo pipefail\n\n# Remote Linux GPU server.\n"
+    command_prefix = " ".join(env_parts + ["python", shell_quote(Path(argv[0]).name)])
+    tokens = argv[1:]
+    lines = [command_prefix + " \\"]
+    idx = 0
+    while idx < len(tokens):
+        token = tokens[idx]
+        if token.startswith("--") and idx + 1 < len(tokens) and not tokens[idx + 1].startswith("--"):
+            lines.append("  {} {} \\".format(shell_quote(token), shell_quote_token(tokens[idx + 1])))
+            idx += 2
+        else:
+            lines.append("  {} \\".format(shell_quote(token)))
+            idx += 1
+    lines[-1] = lines[-1].rstrip(" \\")
+    return header + "\n".join(lines) + "\n"
+
+
+def replace_markdown_section(text, heading, new_body):
+    pattern = r"(## {}\n)(.*?)(?=\n## |\Z)".format(re.escape(heading))
+    replacement = r"\1" + new_body.rstrip() + "\n"
+    if re.search(pattern, text, flags=re.S):
+        return re.sub(pattern, replacement, text, flags=re.S)
+    return text.rstrip() + "\n\n## {}\n{}".format(heading, new_body.rstrip()) + "\n"
+
+
+def default_experiment_markdown(run_name):
+    return """# {run_name}
+
+## 背景
+
+-
+
+## 配置
+
+-
+
+## 执行命令
+
+见 `command.sh`。
+
+## 输出文件
+
+- `outputs/summary.json`
+- `outputs/summary.md`
+- `outputs/per_sample_metrics.csv`
+- `outputs/per_sample_metrics.jsonl`
+- `outputs/per_sample_metrics_by_iou.csv`
+- `outputs/samples_by_iou.md`
+- `outputs/visualizations/`
+- `outputs/pred_masks/`
+
+## 核心指标
+
+-
+
+## 结论
+
+-
+
+## 备注
+
+-
+""".format(run_name=run_name)
+
+
+def write_experiment_record(run_dir, args, summary, argv):
+    run_dir = Path(run_dir)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "outputs").mkdir(parents=True, exist_ok=True)
+
+    command_path = run_dir / "command.sh"
+    command_path.write_text(format_command_script(argv), encoding="utf-8")
+    command_path.chmod(0o755)
+
+    experiment_path = run_dir / "EXPERIMENT.md"
+    if experiment_path.exists():
+        text = experiment_path.read_text(encoding="utf-8")
+    else:
+        text = default_experiment_markdown(run_dir.name)
+
+    max_samples = "全量 {} 张".format(summary["num_samples"])
+    if args.max_samples > 0:
+        max_samples = "最多 {} 张,实际 {} 张".format(args.max_samples, summary["num_samples"])
+
+    config_body = """
+- 模型: `{model}`
+- 权重路径: `{model}`
+- CLIP vision tower: `{vision_tower}`
+- SAM 权重: `{sam}`
+- 数据集: ReasonSeg
+- 数据划分: `{split}`
+- 最大样本数: {max_samples}
+- 精度: `{precision}`
+- 掩码阈值: `{threshold}`
+- 是否保存可视化: {save_vis}
+- 最大可视化数量: {max_vis}
+- 是否保存预测掩码: {save_masks}
+- 字体: `{font}`
+- 运行设备: 远程 Linux GPU 服务器
+- 运行日期: {date}
+""".format(
+        model=args.version,
+        vision_tower=args.vision_tower,
+        sam=args.vision_pretrained,
+        split=args.val_dataset,
+        max_samples=max_samples,
+        precision=args.precision,
+        threshold=args.mask_threshold,
+        save_vis="是" if args.save_visualizations else "否",
+        max_vis=args.max_visualizations,
+        save_masks="是" if args.save_masks else "否",
+        font=summary.get("font_path"),
+        date=summary["created_at"].split("T")[0],
+    )
+
+    metrics_body = """
+- 样本数: {num_samples}
+- gIoU: {giou:.4f}
+- cIoU: {ciou:.4f}
+- 平均 Dice: {dice:.4f}
+- 平均精确率: {precision:.4f}
+- 平均召回率: {recall:.4f}
+""".format(
+        num_samples=summary["num_samples"],
+        giou=summary["gIoU"],
+        ciou=summary["cIoU"],
+        dice=summary["mean_dice"],
+        precision=summary["mean_precision"],
+        recall=summary["mean_recall"],
+    )
+
+    text = replace_markdown_section(text, "配置", config_body)
+    text = replace_markdown_section(text, "核心指标", metrics_body)
+    experiment_path.write_text(text, encoding="utf-8")
+
+
 def main(args):
     global FONT_PATH_OVERRIDE
     args = parse_args(args)
@@ -802,6 +973,8 @@ def main(args):
     with open(output_dir / "summary.json", "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
     write_markdown_summary(output_dir / "summary.md", summary)
+    if args.record_exp or is_exp_outputs_dir(output_dir):
+        write_experiment_record(output_dir.parent, args, summary, sys.argv)
 
     print("\nBenchmark finished")
     print(f"Samples: {summary['num_samples']}")

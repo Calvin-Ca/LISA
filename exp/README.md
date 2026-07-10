@@ -20,14 +20,25 @@
 
 > 旧目录 `benchmark_outputs/reason_seg` 与 `lisa13b-local-val` 是同一组验证集结果,已删除重复归档,正式引用 `lisa13b-local-val`。
 
-## 导入远程结果
+## 自动记录远程结果
 
-仅在远程服务器执行。把新的 评测结果复制到对应实验目录:
+仅在远程服务器执行。评测时把 `--output_dir` 直接指向对应实验目录的 `outputs/`:
 
 ```bash
-cp -a benchmark_outputs/lisa13b-local-smoke/. exp/runs/lisa13b-local-smoke/outputs/
-cp -a benchmark_outputs/lisa13b-local-train/. exp/runs/lisa13b-local-train/outputs/
-cp -a benchmark_outputs/lisa13b-local-val/. exp/runs/lisa13b-local-val/outputs/
+--output_dir ./exp/runs/<experiment-name>/outputs
 ```
 
-导入后根据 `outputs/summary.json` 更新对应 `EXPERIMENT.md` 的命令、样本数和指标。
+`benchmark_reason_seg.py` 检测到输出目录符合 `exp/runs/<experiment-name>/outputs` 约定后,会自动:
+
+- 写入评测产物到 `outputs/`;
+- 更新 `EXPERIMENT.md` 的配置和核心指标;
+- 更新 `command.sh`,记录本次实际执行命令。
+
+推荐直接运行对应实验目录下的 `command.sh`:
+
+```bash
+bash exp/runs/lisa13b-local-train/command.sh
+bash exp/runs/lisa13b-local-val/command.sh
+```
+
+如果输出目录不在 `exp/runs/<experiment-name>/outputs`,但仍想更新实验记录,可以额外传 `--record_exp`。
