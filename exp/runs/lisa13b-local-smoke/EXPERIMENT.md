@@ -1,30 +1,30 @@
 # lisa13b-local-smoke
 
-## Background
+## 背景
 
-Smoke test for the local LISA-13B benchmark pipeline. This run is only used to verify that the model checkpoint, vision tower, dataset path, CUDA environment, and mask output path are connected correctly.
+本实验是本地 LISA-13B 评测链路的冒烟测试,只用于确认模型权重、视觉塔、数据路径、CUDA 环境和掩码输出链路是否能跑通。
 
-Do not use this run as a formal metric source.
+不要把这组结果作为正式效果指标。
 
-## Configuration
+## 配置
 
-- Model: LISA-13B local checkpoint
-- Checkpoint: to fill
-- Dataset: ReasonSeg
-- Split: likely `ReasonSeg|val`
-- Max samples: small subset, to fill
-- Precision: likely `bf16`
-- Mask threshold: `0.0` unless changed
-- Save visualizations: to fill
-- Save masks: to fill
-- Device: remote Linux GPU server
-- Date: to fill
+- 模型: 本地 `./LISA13B`
+- 权重路径: `./LISA13B`
+- 数据集: ReasonSeg
+- 数据划分: `ReasonSeg|val`
+- 最大样本数: 3
+- 精度: `bf16`
+- 掩码阈值: `0.0`
+- 是否保存可视化: 以实际输出目录为准
+- 是否保存预测掩码: 以实际输出目录为准
+- 运行设备: 远程 Linux GPU 服务器
+- 运行日期: 2026-07-09
 
-## Command
+## 执行命令
 
-See `command.sh`.
+见 `command.sh`。
 
-## Outputs
+## 输出文件
 
 - `outputs/summary.json`
 - `outputs/summary.md`
@@ -33,20 +33,19 @@ See `command.sh`.
 - `outputs/visualizations/`
 - `outputs/pred_masks/`
 
-## Metrics
+## 核心指标
 
-- Samples: to fill from `outputs/summary.json`
-- gIoU: not for reporting
-- cIoU: not for reporting
-- Mean Dice: not for reporting
-- Mean Precision: not for reporting
-- Mean Recall: not for reporting
+- 样本数: 3
+- gIoU: 0.2611
+- cIoU: 0.3104
+- 平均 Dice: 0.3544
+- 平均精确率: 0.3631
+- 平均召回率: 0.6200
 
-## Conclusion
+## 结论
 
-Pipeline sanity check. Use `lisa13b-local-val` for reportable validation metrics.
+链路可以跑通,但样本数太少,只作为链路检查。正式验证集指标使用 `lisa13b-local-val`。
 
-## Notes
+## 备注
 
-- Import existing remote output with: `cp -a benchmark_outputs/lisa13b-local-smoke/. exp/runs/lisa13b-local-smoke/outputs/`
-
+- 原始远程结果来自 `benchmark_outputs/lisa13b-local-smoke/`。

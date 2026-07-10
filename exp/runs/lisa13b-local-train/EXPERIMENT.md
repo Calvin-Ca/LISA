@@ -1,30 +1,30 @@
 # lisa13b-local-train
 
-## Background
+## 背景
 
-Evaluation of the local LISA-13B checkpoint on the training split. This run is used to inspect fitting behavior and catch annotation/model issues on samples seen during LoRA training or dataset construction.
+本实验在 ReasonSeg 训练集划分 上评估本地 LISA-13B 权重,用于观察训练集拟合情况,并排查 LoRA 训练或数据构造过程中可能存在的标注/模型问题。
 
-Do not treat this as the primary generalization metric.
+这组结果不能作为主要泛化指标,正式汇报仍以验证集结果为准。
 
-## Configuration
+## 配置
 
-- Model: LISA-13B local checkpoint
-- Checkpoint: to fill
-- Dataset: ReasonSeg
-- Split: `ReasonSeg|train`
-- Max samples: all unless changed
-- Precision: likely `bf16`
-- Mask threshold: `0.0` unless changed
-- Save visualizations: to fill
-- Save masks: to fill
-- Device: remote Linux GPU server
-- Date: to fill
+- 模型: 本地 `./LISA13B`
+- 权重路径: `./LISA13B`
+- 数据集: ReasonSeg
+- 数据划分: `ReasonSeg|train`
+- 最大样本数: 全量 415 张
+- 精度: `bf16`
+- 掩码阈值: `0.0`
+- 是否保存可视化: 是
+- 是否保存预测掩码: 以实际输出目录为准
+- 运行设备: 远程 Linux GPU 服务器
+- 运行日期: 2026-07-09
 
-## Command
+## 执行命令
 
-See `command.sh`.
+见 `command.sh`。
 
-## Outputs
+## 输出文件
 
 - `outputs/summary.json`
 - `outputs/summary.md`
@@ -35,20 +35,20 @@ See `command.sh`.
 - `outputs/visualizations/`
 - `outputs/pred_masks/`
 
-## Metrics
+## 核心指标
 
-- Samples: to fill from `outputs/summary.json`
-- gIoU: to fill
-- cIoU: to fill
-- Mean Dice: to fill
-- Mean Precision: to fill
-- Mean Recall: to fill
+- 样本数: 415
+- gIoU: 0.3432
+- cIoU: 0.2938
+- 平均 Dice: 0.4163
+- 平均精确率: 0.4069
+- 平均召回率: 0.5148
 
-## Conclusion
+## 结论
 
-Use this run to compare against validation performance and identify overfitting or noisy labels.
+训练集和验证集指标接近,说明当前瓶颈更可能来自数据质量、类别边界或基座模型对施工风险概念的理解,而不是单纯训练集过拟合。
 
-## Notes
+## 备注
 
-- Import existing remote output with: `cp -a benchmark_outputs/lisa13b-local-train/. exp/runs/lisa13b-local-train/outputs/`
-
+- 原始远程结果来自 `benchmark_outputs/lisa13b-local-train/`。
+- 低分样本优先看 `outputs/samples_by_iou.md`。

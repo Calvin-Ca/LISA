@@ -1,32 +1,32 @@
 # <experiment-name>
 
-## Background
+## 背景
 
 -
 
-## Configuration
+## 配置
 
-- Model:
-- Checkpoint:
-- Dataset:
-- Split:
-- Max samples:
-- Precision:
-- Mask threshold:
-- Save visualizations:
-- Save masks:
-- Device:
-- Date:
+- 模型:
+- 权重路径:
+- 数据集:
+- 数据划分:
+- 最大样本数:
+- 精度:
+- 掩码阈值:
+- 是否保存可视化:
+- 是否保存预测掩码:
+- 运行设备:
+- 运行日期:
 
-## Command
+## 执行命令
 
-See `command.sh`.
+见 `command.sh`。
 
 ```bash
 
 ```
 
-## Outputs
+## 输出文件
 
 - `outputs/summary.json`
 - `outputs/summary.md`
@@ -37,20 +37,19 @@ See `command.sh`.
 - `outputs/visualizations/`
 - `outputs/pred_masks/`
 
-## Metrics
+## 核心指标
 
-- Samples:
+- 样本数:
 - gIoU:
 - cIoU:
-- Mean Dice:
-- Mean Precision:
-- Mean Recall:
+- 平均 Dice:
+- 平均精确率:
+- 平均召回率:
 
-## Conclusion
-
--
-
-## Notes
+## 结论
 
 -
 
+## 备注
+
+-
