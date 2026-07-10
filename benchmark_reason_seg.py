@@ -435,18 +435,24 @@ def wrap_by_pixel_width(text, draw, font, max_width):
     return lines or [""]
 
 
-def append_text_footer(vis_bgr, text):
-    footer_height = 86
+def append_text_footer(vis_bgr, text_lines):
+    if isinstance(text_lines, str):
+        text_lines = [text_lines]
     margin_x = 12
     line_height = 25
     font = load_font(20)
     vis_rgb = cv2.cvtColor(vis_bgr, cv2.COLOR_BGR2RGB)
     image = Image.fromarray(vis_rgb)
+    measure = ImageDraw.Draw(image)
+    lines = []
+    for text in text_lines:
+        lines.extend(wrap_by_pixel_width(str(text), measure, font, image.width - margin_x * 2))
+
+    footer_height = max(86, 16 + len(lines) * line_height)
     canvas = Image.new("RGB", (image.width, image.height + footer_height), (0, 0, 0))
     canvas.paste(image, (0, 0))
 
     draw = ImageDraw.Draw(canvas)
-    lines = wrap_by_pixel_width(text, draw, font, image.width - margin_x * 2)
     max_lines = footer_height // line_height
     for idx, line in enumerate(lines[:max_lines]):
         draw.text(
@@ -459,7 +465,16 @@ def append_text_footer(vis_bgr, text):
     return cv2.cvtColor(np.array(canvas), cv2.COLOR_RGB2BGR)
 
 
-def make_visualization(image_path, pred_mask, gt_mask, save_path, title_text, label_text):
+def make_visualization(
+    image_path,
+    pred_mask,
+    gt_mask,
+    save_path,
+    title_text,
+    prompt_text,
+    metadata=None,
+):
+    metadata = metadata or {}
     image_bgr = cv2.imread(str(image_path))
     if image_bgr is None:
         return False
@@ -499,18 +514,38 @@ def make_visualization(image_path, pred_mask, gt_mask, save_path, title_text, la
         )
         labeled_panels.append(panel_bgr)
 
-    display_text = title_text
-    if label_text:
-        display_text = "{} | Label: {}".format(title_text, label_text)
-    vis = append_text_footer(cv2.hconcat(labeled_panels), display_text)
+    source_category = metadata.get("source_category") or "unknown"
+    sample_key = metadata.get("sample_key") or "unknown"
+    footer_lines = [
+        title_text,
+        f"COCO原始标签: {source_category} | sample_key: {sample_key}",
+    ]
+    if prompt_text:
+        footer_lines.append(f"Prompt: {prompt_text}")
+
+    vis = append_text_footer(cv2.hconcat(labeled_panels), footer_lines)
     cv2.imwrite(str(save_path), vis)
+
     sidecar_path = Path(save_path).with_suffix(".txt")
+    json_path = metadata.get("json_path", "")
+    json_link = markdown_relative_link(json_path, sidecar_path) if json_path else ""
     with sidecar_path.open("w", encoding="utf-8") as f:
-        f.write(display_text + "\n")
+        f.write(title_text + "\n")
+        f.write(f"prompt: {prompt_text}\n")
+        f.write(f"coco_source_label: {source_category}\n")
+        f.write(f"sample_key: {sample_key}\n")
+        f.write(f"source_file_name: {metadata.get('source_file_name', '')}\n")
+        f.write(f"source_image_id: {metadata.get('source_image_id', '')}\n")
+        f.write(f"image: {image_path}\n")
+        if json_path:
+            f.write(f"lisa_json: {json_path}\n")
+            f.write(f"lisa_json_relative: {json_link}\n")
+            f.write(f"lisa_json_markdown: [open]({json_link})\n")
+            f.write("edit_prompt_at: text[0]\n")
     return True
 
 
-def safe_json_text(image_path):
+def safe_json_metadata(image_path):
     json_path = Path(str(image_path)).with_suffix(".json")
     try:
         with json_path.open("r", encoding="utf-8") as f:
@@ -519,9 +554,31 @@ def safe_json_text(image_path):
         with json_path.open("r", encoding="cp1252") as f:
             data = json.load(f)
     except FileNotFoundError:
-        return "", None
+        return {
+            "prompt": "",
+            "is_sentence": None,
+            "json_path": "",
+            "source_category": "",
+            "sample_key": "",
+            "source_file_name": "",
+            "source_image_id": "",
+        }
     texts = data.get("text", [])
-    return texts[0] if texts else "", data.get("is_sentence")
+    source = data.get("source") or {}
+    return {
+        "prompt": texts[0] if texts else "",
+        "is_sentence": data.get("is_sentence"),
+        "json_path": str(json_path),
+        "source_category": source.get("source_category", ""),
+        "sample_key": source.get("sample_key", ""),
+        "source_file_name": source.get("file_name", ""),
+        "source_image_id": source.get("image_id", ""),
+    }
+
+
+def safe_json_text(image_path):
+    metadata = safe_json_metadata(image_path)
+    return metadata["prompt"], metadata["is_sentence"]
 
 
 def write_jsonl(path, rows):
@@ -539,6 +596,11 @@ def write_csv(path, rows):
         "image",
         "prompt",
         "is_sentence",
+        "source_category",
+        "sample_key",
+        "source_file_name",
+        "source_image_id",
+        "dataset_json_path",
         "iou",
         "dice",
         "precision",
@@ -680,20 +742,26 @@ def write_sorted_samples_markdown(path, rows):
     lines = [
         "# Samples Sorted By IoU",
         "",
-        "| Rank | Sample | IoU | Dice | Precision | Recall | Target Area | Pred Area | Prompt | Visualization |",
-        "| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |",
+        "| Rank | Sample | COCO Label | IoU | Dice | Precision | Recall | Target Area | Pred Area | Prompt | JSON | Visualization |",
+        "| ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |",
     ]
     for rank, row in enumerate(sorted_rows, start=1):
         prompt = str(row.get("prompt", "")).replace("|", "\\|")
         image = str(row["image"]).replace("|", "\\|")
+        source_category = str(row.get("source_category", "")).replace("|", "\\|")
+        json_path = row.get("dataset_json_path", "")
+        json_link = markdown_relative_link(json_path, path)
+        json_ref = f"[json]({json_link})" if json_link else ""
         visualization_path = row.get("visualization_path", "")
         visualization_link = markdown_relative_link(visualization_path, path)
         visualization = f"[view]({visualization_link})" if visualization_link else ""
         lines.append(
-            "| {rank} | `{image}` | {iou:.4f} | {dice:.4f} | {precision:.4f} | "
-            "{recall:.4f} | {target_area} | {pred_area} | {prompt} | {visualization} |".format(
+            "| {rank} | `{image}` | {source_category} | {iou:.4f} | {dice:.4f} | "
+            "{precision:.4f} | {recall:.4f} | {target_area} | {pred_area} | "
+            "{prompt} | {json_ref} | {visualization} |".format(
                 rank=rank,
                 image=image,
+                source_category=source_category,
                 iou=row["iou"],
                 dice=row["dice"],
                 precision=row["precision"],
@@ -701,6 +769,7 @@ def write_sorted_samples_markdown(path, rows):
                 target_area=row["target_area"],
                 pred_area=row["pred_area"],
                 prompt=prompt,
+                json_ref=json_ref,
                 visualization=visualization,
             )
         )
@@ -920,7 +989,9 @@ def main(args):
     with torch.no_grad():
         for sample_idx, input_dict in enumerate(tqdm.tqdm(data_loader, desc="benchmark")):
             image_path = input_dict["image_paths"][0]
-            prompt_text, is_sentence = safe_json_text(image_path)
+            json_metadata = safe_json_metadata(image_path)
+            prompt_text = json_metadata["prompt"]
+            is_sentence = json_metadata["is_sentence"]
             input_dict = dict_to_cuda(input_dict)
             input_dict = cast_batch_precision(input_dict, args.precision)
 
@@ -938,6 +1009,11 @@ def main(args):
                     "image": image_path,
                     "prompt": prompt_text,
                     "is_sentence": is_sentence,
+                    "source_category": json_metadata.get("source_category", ""),
+                    "sample_key": json_metadata.get("sample_key", ""),
+                    "source_file_name": json_metadata.get("source_file_name", ""),
+                    "source_image_id": json_metadata.get("source_image_id", ""),
+                    "dataset_json_path": json_metadata.get("json_path", ""),
                     **metrics,
                 }
                 rows.append(row)
@@ -964,6 +1040,7 @@ def main(args):
                         vis_path,
                         title_text,
                         prompt_text,
+                        json_metadata,
                     ):
                         row["visualization_path"] = str(vis_path)
                         row["visualization_label_path"] = str(vis_path.with_suffix(".txt"))
