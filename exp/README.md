@@ -32,7 +32,7 @@
 
 - 写入评测产物到 `outputs/`;
 - 更新 `EXPERIMENT.md` 的配置和核心指标;
-- 更新 `command.sh`,记录本次实际执行命令。
+- 若 `command.sh` 不存在则创建;若已存在,不覆盖已确认脚本,只把本次实际命令记录到 `outputs/last_command.sh`。
 
 推荐直接运行对应实验目录下的 `command.sh`:
 
@@ -42,3 +42,26 @@ bash exp/runs/lisa13b-local-val/command.sh
 ```
 
 如果输出目录不在 `exp/runs/<experiment-name>/outputs`,但仍想更新实验记录,可以额外传 `--record_exp`。
+
+## 实验闭环约定
+
+每次新增或重跑实验按以下闭环执行:
+
+1. **实验前整理**
+   - 先整理实验背景、实验目标、模型/权重来源、数据划分、关键参数、输出目录、预期产物和完整执行脚本。
+   - 在用户确认前,不写入或覆盖对应实验目录的 `EXPERIMENT.md` 和 `command.sh`。
+
+2. **用户确认后落盘**
+   - 用户确认实验方案后,再把背景、配置、预期输出写入 `EXPERIMENT.md`。
+   - 同时把完整执行脚本写入 `command.sh`。
+   - `command.sh` 必须自包含,不能依赖用户提前 `export BASE_MODEL`、`SAM_CKPT`、`CLIP_TOWER` 等环境变量。
+   - 脚本内部应显式定义所需路径和参数;优先使用仓库相对路径,不要把服务器私有绝对路径、密钥、令牌或大文件写入仓库。
+
+3. **远程执行**
+   - 用户在远程 Linux GPU 服务器执行 `command.sh`。
+   - 本地不运行训练、推理、SAM/LISA 权重加载或长时间评估。
+
+4. **结果回填**
+   - 用户把实验输出、日志或 `outputs/summary.json` 反馈给代理。
+   - 代理根据结果完善 `EXPERIMENT.md` 的核心指标、结论、备注和 bad case 分析。
+   - 若评估命令输出到 `exp/runs/<experiment-name>/outputs`,脚本会自动更新配置和核心指标;人工分析仍需补充到结论和备注中。

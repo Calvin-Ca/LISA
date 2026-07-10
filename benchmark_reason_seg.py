@@ -803,9 +803,15 @@ def write_experiment_record(run_dir, args, summary, argv):
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "outputs").mkdir(parents=True, exist_ok=True)
 
+    command_text = format_command_script(argv)
     command_path = run_dir / "command.sh"
-    command_path.write_text(format_command_script(argv), encoding="utf-8")
-    command_path.chmod(0o755)
+    if command_path.exists():
+        resolved_command_path = run_dir / "outputs" / "last_command.sh"
+        resolved_command_path.write_text(command_text, encoding="utf-8")
+        resolved_command_path.chmod(0o755)
+    else:
+        command_path.write_text(command_text, encoding="utf-8")
+        command_path.chmod(0o755)
 
     experiment_path = run_dir / "EXPERIMENT.md"
     if experiment_path.exists():
