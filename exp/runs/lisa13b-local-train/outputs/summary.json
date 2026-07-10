@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-07-10T15:14:12",
+  "created_at": "2026-07-10T22:13:33",
   "model": "./LISA13B",
   "vision_tower": "/home/ths/.cache/huggingface/hub/models--openai--clip-vit-large-patch14/snapshots/32bd64288804d66eefd0ccbe215aa642df71cc41",
   "dataset_dir": "./dataset",
@@ -19,8 +19,8 @@
   "total_target_area": 15007446,
   "total_false_positive_area": 11220063,
   "total_false_negative_area": 7302965,
-  "elapsed_seconds": 125.519892,
-  "seconds_per_sample": 0.30245757108433735,
+  "elapsed_seconds": 178.767652,
+  "seconds_per_sample": 0.4307654265060241,
   "worst_samples": [
     {
       "image": "./dataset/reason_seg/ReasonSeg/train/train__002__-equipment_proximity-122-_jpg.rf.b1840d22e4e43d2933a6de6bb083cc3e__equipment_proximity.jpg",

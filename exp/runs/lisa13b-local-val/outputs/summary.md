@@ -14,7 +14,7 @@
 | Mean Dice | 0.4180 |
 | Mean Precision | 0.4071 |
 | Mean Recall | 0.5132 |
-| Seconds / sample | 0.31 |
+| Seconds / sample | 0.42 |
 
 ## Worst Samples
 

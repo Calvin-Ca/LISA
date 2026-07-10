@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-07-10T15:17:54",
+  "created_at": "2026-07-10T20:00:57",
   "model": "./LISA13B",
   "vision_tower": "/home/ths/.cache/huggingface/hub/models--openai--clip-vit-large-patch14/snapshots/32bd64288804d66eefd0ccbe215aa642df71cc41",
   "dataset_dir": "./dataset",
@@ -19,8 +19,8 @@
   "total_target_area": 3751447,
   "total_false_positive_area": 2321866,
   "total_false_negative_area": 1821927,
-  "elapsed_seconds": 26.698433,
-  "seconds_per_sample": 0.31044689534883724,
+  "elapsed_seconds": 35.827741,
+  "seconds_per_sample": 0.41660163953488377,
   "worst_samples": [
     {
       "image": "./dataset/reason_seg/ReasonSeg/val/val__002__-guardrail_missing-14-_jpg.rf.317f592ca167baf04b16296d87650912__guardrail_missing.jpg",
