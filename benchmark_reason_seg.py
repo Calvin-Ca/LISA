@@ -750,16 +750,29 @@ def write_sorted_samples_markdown(path, rows):
     ]
     for rank, row in enumerate(sorted_rows, start=1):
         prompt = str(row.get("prompt", "")).replace("|", "\\|")
-        image = str(row["image"]).replace("|", "\\|")
+        image_path = str(row["image"])
+        image_name = Path(image_path).name.replace("|", "\\|")
+        image_link = markdown_relative_link(image_path, path)
+        image = f"[`{image_name}`]({image_link})" if image_link else f"`{image_name}`"
         source_category = str(row.get("source_category", "")).replace("|", "\\|")
         json_path = row.get("dataset_json_path", "")
         json_link = markdown_relative_link(json_path, path)
         json_ref = f"[json]({json_link})" if json_link else ""
-        visualization_path = row.get("visualization_path", "")
+        visualization_path = (
+            row.get("visualization_markdown_path")
+            or row.get("visualization_label_path")
+            or (
+                str(Path(row["visualization_path"]).with_suffix(".md"))
+                if row.get("visualization_path")
+                else ""
+            )
+        )
+        if visualization_path and Path(visualization_path).suffix == ".txt":
+            visualization_path = str(Path(visualization_path).with_suffix(".md"))
         visualization_link = markdown_relative_link(visualization_path, path)
         visualization = f"[view]({visualization_link})" if visualization_link else ""
         lines.append(
-            "| {rank} | `{image}` | {source_category} | {iou:.4f} | {dice:.4f} | "
+            "| {rank} | {image} | {source_category} | {iou:.4f} | {dice:.4f} | "
             "{precision:.4f} | {recall:.4f} | {target_area} | {pred_area} | "
             "{prompt} | {json_ref} | {visualization} |".format(
                 rank=rank,
