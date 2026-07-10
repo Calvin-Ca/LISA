@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Remote Linux GPU server.
+# Remote Linux GPU server only.
+
 BASE_MODEL="./LISA13B"
 SAM_CKPT="./data_pipeline/sam_vit_h_4b8939.pth"
 CLIP_TOWER="./clip-vit-large-patch14"

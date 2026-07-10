@@ -14,11 +14,10 @@
 
 | 实验 | 用途 | 模型 | 数据划分 | 状态 | 关键输出 |
 |---|---|---|---|---|---|
-| `lisa13b-local-smoke` | LISA-13B 本地评测链路冒烟测试 | 本地 `./LISA13B` | `ReasonSeg|val` 小样本 | 已导入指标 | `outputs/summary.json` |
-| `lisa13b-local-train` | 在训练集上评估,观察拟合情况和标注问题 | 本地 `./LISA13B` | `ReasonSeg|train` | 已导入指标 | `outputs/summary.json` |
-| `lisa13b-local-val` | 在验证集上评估,作为正式汇报指标来源 | 本地 `./LISA13B` | `ReasonSeg|val` | 已导入指标 | `outputs/summary.json` |
+| `lisa13b-local-train` | 在训练集上评估,观察拟合情况和标注问题 | 本地 `./LISA13B` | `ReasonSeg|train` | 待远程执行并回填 | `outputs/summary.json` |
+| `lisa13b-local-val` | 在验证集上评估,作为正式汇报指标来源 | 本地 `./LISA13B` | `ReasonSeg|val` | 待远程执行并回填 | `outputs/summary.json` |
 
-> 旧目录 `benchmark_outputs/reason_seg` 与 `lisa13b-local-val` 是同一组验证集结果,已删除重复归档,正式引用 `lisa13b-local-val`。
+> 当前只保留 train / val 两个完整 benchmark 实验。旧 smoke 和历史 outputs 已清空,待重新远程执行生成。
 
 ## 自动记录远程结果
 
