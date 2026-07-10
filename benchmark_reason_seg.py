@@ -526,22 +526,24 @@ def make_visualization(
     vis = append_text_footer(cv2.hconcat(labeled_panels), footer_lines)
     cv2.imwrite(str(save_path), vis)
 
-    sidecar_path = Path(save_path).with_suffix(".txt")
+    sidecar_path = Path(save_path).with_suffix(".md")
     json_path = metadata.get("json_path", "")
     json_link = markdown_relative_link(json_path, sidecar_path) if json_path else ""
+    image_link = markdown_relative_link(save_path, sidecar_path)
     with sidecar_path.open("w", encoding="utf-8") as f:
-        f.write(title_text + "\n")
-        f.write(f"prompt: {prompt_text}\n")
-        f.write(f"coco_source_label: {source_category}\n")
-        f.write(f"sample_key: {sample_key}\n")
-        f.write(f"source_file_name: {metadata.get('source_file_name', '')}\n")
-        f.write(f"source_image_id: {metadata.get('source_image_id', '')}\n")
-        f.write(f"image: {image_path}\n")
+        f.write("# Visualization Review\n\n")
+        f.write(f"![visualization]({image_link})\n\n")
+        f.write(f"- Metrics: `{title_text}`\n")
+        f.write(f"- Prompt: {prompt_text}\n")
+        f.write(f"- COCO source label: `{source_category}`\n")
+        f.write(f"- sample_key: `{sample_key}`\n")
+        f.write(f"- Source file name: `{metadata.get('source_file_name', '')}`\n")
+        f.write(f"- Source image id: `{metadata.get('source_image_id', '')}`\n")
+        f.write(f"- Image: `{image_path}`\n")
         if json_path:
-            f.write(f"lisa_json: {json_path}\n")
-            f.write(f"lisa_json_relative: {json_link}\n")
-            f.write(f"lisa_json_markdown: [open]({json_link})\n")
-            f.write("edit_prompt_at: text[0]\n")
+            f.write(f"- LISA JSON: [open]({json_link})\n")
+            f.write(f"- LISA JSON path: `{json_path}`\n")
+            f.write("- Edit prompt at: `text[0]`\n")
     return True
 
 
@@ -615,6 +617,7 @@ def write_csv(path, rows):
         "pred_mask_path",
         "visualization_path",
         "visualization_label_path",
+        "visualization_markdown_path",
     ]
     all_fields = set()
     for row in rows:
@@ -1043,7 +1046,8 @@ def main(args):
                         json_metadata,
                     ):
                         row["visualization_path"] = str(vis_path)
-                        row["visualization_label_path"] = str(vis_path.with_suffix(".txt"))
+                        row["visualization_label_path"] = str(vis_path.with_suffix(".md"))
+                        row["visualization_markdown_path"] = str(vis_path.with_suffix(".md"))
 
     elapsed_seconds = (datetime.now() - started_at).total_seconds()
     summary = summarize(rows, args, elapsed_seconds)
