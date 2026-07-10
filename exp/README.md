@@ -53,6 +53,7 @@ bash exp/runs/lisa13b-local-val/command.sh
 2. **用户确认后落盘**
    - 用户确认实验方案后,再把背景、配置、预期输出写入 `EXPERIMENT.md`。
    - 同时把完整执行脚本写入 `command.sh`。
+   - 用户确认实验方案即视为允许代理直接提交并推送相关实验文件,无需再次确认提交/推送。
    - `command.sh` 必须自包含,不能依赖用户提前 `export BASE_MODEL`、`SAM_CKPT`、`CLIP_TOWER` 等环境变量。
    - 脚本内部应显式定义所需路径和参数;优先使用仓库相对路径,不要把服务器私有绝对路径、密钥、令牌或大文件写入仓库。
 
