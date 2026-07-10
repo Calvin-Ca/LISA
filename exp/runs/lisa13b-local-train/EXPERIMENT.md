@@ -15,19 +15,19 @@
 
 - 模型: `./LISA13B`
 - 权重路径: `./LISA13B`
-- CLIP vision tower: 脚本优先使用 `./clip-vit-large-patch14`,不存在时从 `$HOME/.cache/huggingface/hub` 自动查找 `openai/clip-vit-large-patch14`
+- CLIP vision tower: `/home/ths/.cache/huggingface/hub/models--openai--clip-vit-large-patch14/snapshots/32bd64288804d66eefd0ccbe215aa642df71cc41`
 - SAM 权重: `./data_pipeline/sam_vit_h_4b8939.pth`
 - 数据集: ReasonSeg
 - 数据划分: `ReasonSeg|train`
-- 最大样本数: 全量
+- 最大样本数: 全量 415 张
 - 精度: `bf16`
 - 掩码阈值: `0.0`
 - 是否保存可视化: 是
-- 最大可视化数量: 全量 `-1`
+- 最大可视化数量: -1
 - 是否保存预测掩码: 是
 - 字体: `/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc`
 - 运行设备: 远程 Linux GPU 服务器
-- 运行日期: 待执行后回填
+- 运行日期: 2026-07-10
 
 ## 执行命令
 
@@ -46,12 +46,12 @@
 
 ## 核心指标
 
-- 样本数: 待回填
-- gIoU: 待回填
-- cIoU: 待回填
-- 平均 Dice: 待回填
-- 平均精确率: 待回填
-- 平均召回率: 待回填
+- 样本数: 415
+- gIoU: 0.3432
+- cIoU: 0.2938
+- 平均 Dice: 0.4163
+- 平均精确率: 0.4069
+- 平均召回率: 0.5148
 
 ## 结论
 
