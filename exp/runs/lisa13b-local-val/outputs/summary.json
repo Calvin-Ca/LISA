@@ -1,0 +1,87 @@
+{
+  "created_at": "2026-07-09T18:23:34",
+  "model": "./LISA13B",
+  "vision_tower": "/home/ths/.cache/huggingface/hub/models--openai--clip-vit-large-patch14/snapshots/32bd64288804d66eefd0ccbe215aa642df71cc41",
+  "dataset_dir": "./dataset",
+  "val_dataset": "ReasonSeg|val",
+  "precision": "bf16",
+  "mask_threshold": 0.0,
+  "num_samples": 86,
+  "gIoU": 0.3407508792186127,
+  "cIoU": 0.3177046860584989,
+  "mean_dice": 0.41797147837396403,
+  "mean_precision": 0.40708423045687525,
+  "mean_recall": 0.5132259086215311,
+  "total_intersection": 1929520,
+  "total_union": 6073313,
+  "total_pred_area": 4251386,
+  "total_target_area": 3751447,
+  "total_false_positive_area": 2321866,
+  "total_false_negative_area": 1821927,
+  "elapsed_seconds": 19.318639,
+  "seconds_per_sample": 0.22463533720930234,
+  "worst_samples": [
+    {
+      "image": "./dataset/reason_seg/ReasonSeg/val/val__002__-guardrail_missing-14-_jpg.rf.317f592ca167baf04b16296d87650912__guardrail_missing.jpg",
+      "iou": 0.0,
+      "dice": 0.0,
+      "prompt": "指出没有设置防护栏杆的临边区域。"
+    },
+    {
+      "image": "./dataset/reason_seg/ReasonSeg/val/val__002__-guardrail_missing-58-_jpg.rf.391f56af8166b7a9978f49176685f505__guardrail_missing.jpg",
+      "iou": 0.0,
+      "dice": 0.0,
+      "prompt": "把缺少栏杆防护、存在坠落风险的部位分割出来。"
+    },
+    {
+      "image": "./dataset/reason_seg/ReasonSeg/val/val__002__-guardrail_missing-61-_jpg.rf.c0dd9f521c735b672d1318895a1aaffa__guardrail_missing.jpg",
+      "iou": 0.0,
+      "dice": 0.0,
+      "prompt": "指出没有设置防护栏杆的临边区域。"
+    },
+    {
+      "image": "./dataset/reason_seg/ReasonSeg/val/val__002__-opening_unprotected-26-_jpg.rf.8a97f7db61ee9371c7a662776cd884b2__opening_unprotected.jpg",
+      "iou": 0.0,
+      "dice": 0.0,
+      "prompt": "圈出没有防护的洞口或临边区域。"
+    },
+    {
+      "image": "./dataset/reason_seg/ReasonSeg/val/val__002__-poor_housekeeping-93-_jpg.rf.893e8f8298279e8c46d0fa8a503d58ff__poor_housekeeping.jpg",
+      "iou": 0.0,
+      "dice": 0.0,
+      "prompt": "圈出施工现场杂乱、可能影响通行安全的位置。"
+    }
+  ],
+  "best_samples": [
+    {
+      "image": "./dataset/reason_seg/ReasonSeg/val/val__004__IMG20241113160936_jpg.rf.162c6c777d07be2ca5c077d6906547f6__no_helmet.jpg",
+      "iou": 0.9568996335686836,
+      "dice": 0.9779751778313143,
+      "prompt": "把没有做好头部防护、未戴安全帽的人分割出来。"
+    },
+    {
+      "image": "./dataset/reason_seg/ReasonSeg/val/val__004__IMG_20241113_161953162_jpg.rf.2fc5157cdd82110c6541270dcb7e5f82__safe.jpg",
+      "iou": 0.9378128987925788,
+      "dice": 0.9679086142701553,
+      "prompt": "标出现场处于安全状态的目标。"
+    },
+    {
+      "image": "./dataset/reason_seg/ReasonSeg/val/val__004__IMG_20241113_161952050_jpg.rf.7c0b52ecb477f8f7ef8b71489dac19cf__safe.jpg",
+      "iou": 0.9341327721887521,
+      "dice": 0.9659448261472197,
+      "prompt": "标出现场处于安全状态的目标。"
+    },
+    {
+      "image": "./dataset/reason_seg/ReasonSeg/val/val__004__IMG_20241113_161954_jpg.rf.6d1a5633986ccbdc7de79340bce250ae__safe.jpg",
+      "iou": 0.9327768448088511,
+      "dice": 0.9652193912754593,
+      "prompt": "圈出图中被标注为安全状态的作业人员或区域。"
+    },
+    {
+      "image": "./dataset/reason_seg/ReasonSeg/val/val__004__IMG20241113161931_jpg.rf.a8d69015746e42c5014b2422eaf72c7b__safe.jpg",
+      "iou": 0.9295922998535671,
+      "dice": 0.9635116184119432,
+      "prompt": "标出现场处于安全状态的目标。"
+    }
+  ]
+}

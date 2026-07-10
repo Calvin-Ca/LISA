@@ -35,3 +35,6 @@ exp/runs/*/outputs/**/*.tiff
 
 # SAM / GroundingDINO 权重
 *.pth
+
+# Benchmark visualization directories
+exp/runs/*/outputs/visualizations/
