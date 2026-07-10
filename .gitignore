@@ -1,6 +1,6 @@
 **/__pycache__
 .DS_Store
-runs/
+/runs/
 .vscode/
 data/
 data_by_category/
@@ -18,6 +18,20 @@ dataset/reason_seg/ReasonSeg/val/*
 dataset/reason_seg/ReasonSeg/explanatory/*
 !dataset/**/.gitkeep
 !dataset/README.md
+
+# 实验结果
+benchmark/
+benchmark_outputs/
+
+# exp 台账保留文本/指标文件,忽略 outputs 中的大量图片
+exp/runs/*/outputs/**/*.png
+exp/runs/*/outputs/**/*.jpg
+exp/runs/*/outputs/**/*.jpeg
+exp/runs/*/outputs/**/*.webp
+exp/runs/*/outputs/**/*.bmp
+exp/runs/*/outputs/**/*.gif
+exp/runs/*/outputs/**/*.tif
+exp/runs/*/outputs/**/*.tiff
 
 # SAM / GroundingDINO 权重
 *.pth
