@@ -28,8 +28,12 @@ DEFAULT_OUTPUT_DIR = Path("data/phase1_feasibility/lisa_visualizations")
 IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
 
 
+def read_annotation(json_path: Path) -> dict:
+    return json.loads(json_path.read_text(encoding="utf-8"))
+
+
 def read_instruction(json_path: Path) -> str:
-    anno = json.loads(json_path.read_text(encoding="utf-8"))
+    anno = read_annotation(json_path)
     text = anno.get("text") or []
     return str(text[0]) if text else ""
 
@@ -99,8 +103,29 @@ def normalize_points(points: list[list[float]]) -> list[tuple[float, float]]:
     return [(float(x), float(y)) for x, y in points]
 
 
-def draw_shapes(image: Image.Image, json_path: Path) -> tuple[Image.Image, str, int]:
-    anno = json.loads(json_path.read_text(encoding="utf-8"))
+def build_meta_lines(anno: dict, shape_count: int) -> list[tuple[str, tuple[int, int, int]]]:
+    source = anno.get("source") or {}
+    source_category = str(source.get("source_category", "")).strip()
+    sample_key = str(source.get("sample_key", "")).strip()
+    source_file_name = str(source.get("file_name", "")).strip()
+    source_image_id = str(source.get("image_id", "")).strip()
+
+    meta_lines = [
+        ("target/ignore polygons: {}".format(shape_count), (180, 220, 255)),
+    ]
+    if source_category:
+        meta_lines.append((f"COCO source label: {source_category}", (255, 225, 160)))
+    if sample_key and sample_key != source_category:
+        meta_lines.append((f"LISA sample_key: {sample_key}", (255, 205, 145)))
+    if source_image_id:
+        meta_lines.append((f"COCO image id: {source_image_id}", (190, 190, 190)))
+    if source_file_name:
+        meta_lines.append((f"COCO file: {source_file_name}", (190, 190, 190)))
+    return meta_lines
+
+
+def draw_shapes(image: Image.Image, json_path: Path) -> tuple[Image.Image, dict, str, int]:
+    anno = read_annotation(json_path)
     overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
     shape_count = 0
@@ -123,11 +148,17 @@ def draw_shapes(image: Image.Image, json_path: Path) -> tuple[Image.Image, str, 
         shape_count += 1
 
     instruction = str((anno.get("text") or [""])[0])
-    return Image.alpha_composite(image.convert("RGBA"), overlay), instruction, shape_count
+    return (
+        Image.alpha_composite(image.convert("RGBA"), overlay),
+        anno,
+        instruction,
+        shape_count,
+    )
 
 
 def draw_text_panel(
     canvas: Image.Image,
+    anno: dict,
     instruction: str,
     json_name: str,
     shape_count: int,
@@ -135,15 +166,23 @@ def draw_text_panel(
 ) -> None:
     draw = ImageDraw.Draw(canvas)
     title_font = load_font(18)
-    text_font = load_font(18)
+    text_font = load_font(17)
     draw.rectangle((0, 0, canvas.width, panel_height), fill=(24, 24, 24))
     draw.text((12, 10), json_name, fill=(235, 235, 235), font=title_font)
-    meta = f"target/ignore polygons: {shape_count}"
-    draw.text((12, 34), meta, fill=(180, 220, 255), font=text_font)
-    lines = wrap_by_pixel_width(instruction, draw, text_font, canvas.width - 24)
-    max_lines = max(1, (panel_height - 60) // 24)
-    for idx, line in enumerate(lines[:max_lines]):
-        draw.text((12, 60 + idx * 24), line, fill=(210, 240, 210), font=text_font)
+    meta_lines = build_meta_lines(anno, shape_count)
+    y = 34
+    line_gap = 21
+    for meta_text, color in meta_lines:
+        wrapped = wrap_by_pixel_width(meta_text, draw, text_font, canvas.width - 24)
+        for line in wrapped:
+            draw.text((12, y), line, fill=color, font=text_font)
+            y += line_gap
+    prompt_lines = wrap_by_pixel_width(
+        f"LISA prompt: {instruction}", draw, text_font, canvas.width - 24
+    )
+    for line in prompt_lines:
+        draw.text((12, y), line, fill=(210, 240, 210), font=text_font)
+        y += line_gap
 
 
 def visualize_pair(
@@ -152,15 +191,15 @@ def visualize_pair(
     output_dir: Path,
 ) -> Path:
     image = Image.open(image_path).convert("RGB")
-    annotated, instruction, shape_count = draw_shapes(image, json_path)
+    annotated, anno, instruction, shape_count = draw_shapes(image, json_path)
 
-    panel_height = 132
+    panel_height = 200
     canvas = Image.new(
         "RGB", (image.width * 2, image.height + panel_height), (255, 255, 255)
     )
     canvas.paste(image, (0, panel_height))
     canvas.paste(annotated.convert("RGB"), (image.width, panel_height))
-    draw_text_panel(canvas, instruction, json_path.name, shape_count, panel_height)
+    draw_text_panel(canvas, anno, instruction, json_path.name, shape_count, panel_height)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"{json_path.stem}_lisa_vis.jpg"
