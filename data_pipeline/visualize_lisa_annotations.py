@@ -25,7 +25,30 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 DEFAULT_OUTPUT_DIR = Path("data/phase1_feasibility/lisa_visualizations")
+DEFAULT_COCO_ROOT = Path("data/phase1_feasibility")
 IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
+COCO_PALETTE = [
+    (230, 25, 75),
+    (60, 180, 75),
+    (255, 225, 25),
+    (0, 130, 200),
+    (245, 130, 48),
+    (145, 30, 180),
+    (70, 240, 240),
+    (240, 50, 230),
+    (210, 245, 60),
+    (250, 190, 190),
+    (0, 128, 128),
+    (230, 190, 255),
+    (170, 110, 40),
+    (255, 250, 200),
+    (128, 0, 0),
+    (170, 255, 195),
+    (128, 128, 0),
+    (255, 215, 180),
+    (0, 0, 128),
+    (128, 128, 128),
+]
 
 
 def read_annotation(json_path: Path) -> dict:
@@ -103,6 +126,102 @@ def normalize_points(points: list[list[float]]) -> list[tuple[float, float]]:
     return [(float(x), float(y)) for x, y in points]
 
 
+def color_for_category(category_id: int) -> tuple[int, int, int]:
+    return COCO_PALETTE[category_id % len(COCO_PALETTE)]
+
+
+def draw_corner_tag(
+    image: Image.Image,
+    text: str,
+    *,
+    x: int = 10,
+    y: int = 10,
+    bg_color: tuple[int, int, int] = (24, 24, 24),
+) -> None:
+    draw = ImageDraw.Draw(image)
+    font = load_font(18)
+    bbox = draw.textbbox((x, y), text, font=font)
+    pad_x = 8
+    pad_y = 6
+    rect = (
+        bbox[0] - pad_x,
+        bbox[1] - pad_y,
+        bbox[2] + pad_x,
+        bbox[3] + pad_y,
+    )
+    draw.rounded_rectangle(rect, radius=8, fill=bg_color)
+    draw.text((x, y), text, fill=(255, 255, 255), font=font)
+
+
+def load_coco_index(coco_root: Path) -> dict[str, dict]:
+    index: dict[str, dict] = {}
+    for split in ("train", "val"):
+        ann_path = coco_root / split / "_annotations.coco.json"
+        if not ann_path.exists():
+            continue
+        data = json.loads(ann_path.read_text(encoding="utf-8"))
+        images = {img["id"]: img for img in data.get("images", [])}
+        categories = {cat["id"]: cat for cat in data.get("categories", [])}
+        anns_by_image: dict[int, list[dict]] = {}
+        for ann in data.get("annotations", []):
+            image_id = ann.get("image_id")
+            category_id = ann.get("category_id")
+            if image_id not in images or category_id not in categories:
+                continue
+            anns_by_image.setdefault(image_id, []).append(ann)
+        index[split] = {
+            "images": images,
+            "categories": categories,
+            "anns_by_image": anns_by_image,
+            "ann_path": ann_path,
+        }
+    return index
+
+
+def draw_coco_bboxes(
+    image: Image.Image,
+    anno: dict,
+    coco_index: dict[str, dict],
+) -> tuple[Image.Image, int]:
+    source = anno.get("source") or {}
+    split = str(source.get("split", "")).strip()
+    source_image_id = source.get("image_id")
+    coco_split = coco_index.get(split)
+    annotated = image.copy()
+    draw_corner_tag(annotated, "COCO annotations", bg_color=(40, 64, 96))
+    if coco_split is None or source_image_id is None:
+        return annotated, 0
+
+    try:
+        image_id = int(source_image_id)
+    except (TypeError, ValueError):
+        return annotated, 0
+
+    anns = coco_split["anns_by_image"].get(image_id, [])
+    categories = coco_split["categories"]
+    draw = ImageDraw.Draw(annotated)
+    font = load_font(16)
+    for ann in anns:
+        x, y, w, h = ann["bbox"]
+        x1 = int(round(x))
+        y1 = int(round(y))
+        x2 = int(round(x + w))
+        y2 = int(round(y + h))
+        color = color_for_category(int(ann["category_id"]))
+        draw.rectangle((x1, y1, x2, y2), outline=color, width=3)
+        label = str(categories[ann["category_id"]]["name"])
+        text_bbox = draw.textbbox((x1, y1), label, font=font)
+        rect = (
+            text_bbox[0] - 5,
+            max(0, text_bbox[1] - 4),
+            text_bbox[2] + 5,
+            text_bbox[3] + 4,
+        )
+        draw.rectangle(rect, fill=color)
+        draw.text((x1, rect[1] + 2), label, fill=(255, 255, 255), font=font)
+    return annotated, len(anns)
+
+
 def build_meta_lines(anno: dict, shape_count: int) -> list[tuple[str, tuple[int, int, int]]]:
     source = anno.get("source") or {}
     source_category = str(source.get("source_category", "")).strip()
@@ -148,12 +267,9 @@ def draw_shapes(image: Image.Image, json_path: Path) -> tuple[Image.Image, dict,
         shape_count += 1
 
     instruction = str((anno.get("text") or [""])[0])
-    return (
-        Image.alpha_composite(image.convert("RGBA"), overlay),
-        anno,
-        instruction,
-        shape_count,
-    )
+    annotated = Image.alpha_composite(image.convert("RGBA"), overlay).convert("RGB")
+    draw_corner_tag(annotated, "LISA annotations", bg_color=(20, 92, 44))
+    return (annotated, anno, instruction, shape_count)
 
 
 def draw_text_panel(
@@ -162,6 +278,7 @@ def draw_text_panel(
     instruction: str,
     json_name: str,
     shape_count: int,
+    coco_box_count: int,
     panel_height: int,
 ) -> None:
     draw = ImageDraw.Draw(canvas)
@@ -170,6 +287,7 @@ def draw_text_panel(
     draw.rectangle((0, 0, canvas.width, panel_height), fill=(24, 24, 24))
     draw.text((12, 10), json_name, fill=(235, 235, 235), font=title_font)
     meta_lines = build_meta_lines(anno, shape_count)
+    meta_lines.insert(1, (f"COCO boxes: {coco_box_count}", (170, 205, 255)))
     y = 34
     line_gap = 21
     for meta_text, color in meta_lines:
@@ -189,17 +307,24 @@ def visualize_pair(
     image_path: Path,
     json_path: Path,
     output_dir: Path,
+    coco_index: dict[str, dict],
 ) -> Path:
     image = Image.open(image_path).convert("RGB")
+    original = image.copy()
+    draw_corner_tag(original, "Original image", bg_color=(56, 56, 56))
     annotated, anno, instruction, shape_count = draw_shapes(image, json_path)
+    coco_annotated, coco_box_count = draw_coco_bboxes(image, anno, coco_index)
 
     panel_height = 200
     canvas = Image.new(
-        "RGB", (image.width * 2, image.height + panel_height), (255, 255, 255)
+        "RGB", (image.width * 3, image.height + panel_height), (255, 255, 255)
     )
-    canvas.paste(image, (0, panel_height))
-    canvas.paste(annotated.convert("RGB"), (image.width, panel_height))
-    draw_text_panel(canvas, anno, instruction, json_path.name, shape_count, panel_height)
+    canvas.paste(original, (0, panel_height))
+    canvas.paste(coco_annotated, (image.width, panel_height))
+    canvas.paste(annotated, (image.width * 2, panel_height))
+    draw_text_panel(
+        canvas, anno, instruction, json_path.name, shape_count, coco_box_count, panel_height
+    )
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"{json_path.stem}_lisa_vis.jpg"
@@ -217,6 +342,12 @@ def main() -> None:
         "--input-dir",
         type=Path,
         help="Directory containing paired image/json files. Used when --image/--json are omitted.",
+    )
+    parser.add_argument(
+        "--coco-root",
+        default=DEFAULT_COCO_ROOT,
+        type=Path,
+        help="COCO subset root containing train/val/_annotations.coco.json.",
     )
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR, type=Path)
     parser.add_argument("--limit", default=None, type=int)
@@ -237,9 +368,10 @@ def main() -> None:
     if not pairs:
         raise SystemExit("No paired image/json files found.")
 
+    coco_index = load_coco_index(args.coco_root)
     manifest_rows = []
     for image_path, json_path in pairs:
-        output_path = visualize_pair(image_path, json_path, args.output_dir)
+        output_path = visualize_pair(image_path, json_path, args.output_dir, coco_index)
         manifest_rows.append(f"{image_path}\t{json_path}\t{output_path}")
         print(f"[ok] {output_path}")
 
