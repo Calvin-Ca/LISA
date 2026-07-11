@@ -530,6 +530,10 @@ def make_visualization(
     json_path = metadata.get("json_path", "")
     json_link = markdown_relative_link(json_path, sidecar_path) if json_path else ""
     image_link = markdown_relative_link(save_path, sidecar_path)
+    lisa_vis_path = resolve_lisa_annotation_visualization_path(json_path)
+    lisa_vis_link = (
+        markdown_relative_link(lisa_vis_path, sidecar_path) if lisa_vis_path else ""
+    )
     with sidecar_path.open("w", encoding="utf-8") as f:
         f.write("# Visualization Review\n\n")
         f.write(f"![visualization]({image_link})\n\n")
@@ -544,6 +548,9 @@ def make_visualization(
             f.write(f"- LISA JSON: [open]({json_link})\n")
             f.write(f"- LISA JSON path: `{json_path}`\n")
             f.write("- Edit prompt at: `text[0]`\n")
+        if lisa_vis_link:
+            f.write(f"- LISA Annotation Visualization: [open]({lisa_vis_link})\n")
+            f.write(f"- LISA Annotation Visualization path: `{lisa_vis_path}`\n")
     return True
 
 
@@ -738,6 +745,24 @@ def markdown_relative_link(target_path, markdown_path):
     if not target_path:
         return ""
     return os.path.relpath(target_path, start=Path(markdown_path).parent)
+
+
+def resolve_lisa_annotation_visualization_path(json_path):
+    if not json_path:
+        return ""
+
+    json_path = Path(json_path)
+    split = json_path.parent.name
+    vis_name = f"{json_path.stem}_lisa_vis.jpg"
+    vis_root = Path("data/phase1_feasibility/lisa_visualizations")
+    preferred = vis_root / split / vis_name
+    fallback = vis_root / vis_name
+
+    if preferred.exists():
+        return str(preferred)
+    if fallback.exists():
+        return str(fallback)
+    return str(preferred)
 
 
 def write_sorted_samples_markdown(path, rows):
