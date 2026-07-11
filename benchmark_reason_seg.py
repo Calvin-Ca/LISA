@@ -770,8 +770,8 @@ def write_sorted_samples_markdown(path, rows):
     lines = [
         "# Samples Sorted By IoU",
         "",
-        "| Rank | Sample | COCO Label | IoU | Dice | Precision | Recall | Target Area | Pred Area | Prompt | JSON | Visualization |",
-        "| ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |",
+        "| Rank | Sample | COCO Label | IoU | Dice | Precision | Recall | Target Area | Pred Area | Prompt | JSON | Visualization | LISA Annotation |",
+        "| ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- | --- |",
     ]
     for rank, row in enumerate(sorted_rows, start=1):
         prompt = str(row.get("prompt", "")).replace("|", "\\|")
@@ -783,6 +783,9 @@ def write_sorted_samples_markdown(path, rows):
         json_path = row.get("dataset_json_path", "")
         json_link = markdown_relative_link(json_path, path)
         json_ref = f"[json]({json_link})" if json_link else ""
+        lisa_vis_path = resolve_lisa_annotation_visualization_path(json_path)
+        lisa_vis_link = markdown_relative_link(lisa_vis_path, path) if lisa_vis_path else ""
+        lisa_vis_ref = f"[lisa]({lisa_vis_link})" if lisa_vis_link else ""
         visualization_path = (
             row.get("visualization_markdown_path")
             or row.get("visualization_label_path")
@@ -799,7 +802,7 @@ def write_sorted_samples_markdown(path, rows):
         lines.append(
             "| {rank} | {image} | {source_category} | {iou:.4f} | {dice:.4f} | "
             "{precision:.4f} | {recall:.4f} | {target_area} | {pred_area} | "
-            "{prompt} | {json_ref} | {visualization} |".format(
+            "{prompt} | {json_ref} | {visualization} | {lisa_vis_ref} |".format(
                 rank=rank,
                 image=image,
                 source_category=source_category,
@@ -812,6 +815,7 @@ def write_sorted_samples_markdown(path, rows):
                 prompt=prompt,
                 json_ref=json_ref,
                 visualization=visualization,
+                lisa_vis_ref=lisa_vis_ref,
             )
         )
 
