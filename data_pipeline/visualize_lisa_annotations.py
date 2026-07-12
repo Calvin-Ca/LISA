@@ -184,41 +184,17 @@ def load_coco_index(coco_root: Path) -> dict[str, dict]:
     return index
 
 
-def draw_coco_bboxes(
+def draw_coco_boxes_panel(
     image: Image.Image,
-    anno: dict,
-    coco_index: dict[str, dict],
+    anns: list[dict],
+    categories: dict[int, dict],
+    title: str,
 ) -> tuple[Image.Image, int]:
-    source = anno.get("source") or {}
-    split = str(source.get("split", "")).strip()
-    source_image_id = source.get("image_id")
-    source_category = str(source.get("source_category", "")).strip()
-    sample_key = str(source.get("sample_key", "")).strip()
-    coco_split = coco_index.get(split)
     annotated = image.copy()
-    draw_corner_tag(annotated, "COCO target category", bg_color=(40, 64, 96))
-    if coco_split is None or source_image_id is None:
-        return annotated, 0
-
-    try:
-        image_id = int(source_image_id)
-    except (TypeError, ValueError):
-        return annotated, 0
-
-    anns = coco_split["anns_by_image"].get(image_id, [])
-    categories = coco_split["categories"]
-    filtered_anns = []
-    for ann in anns:
-        category_name = str(categories[ann["category_id"]]["name"]).strip()
-        if source_category and category_name == source_category:
-            filtered_anns.append(ann)
-            continue
-        if sample_key and normalize_category_name(category_name) == sample_key:
-            filtered_anns.append(ann)
-
+    draw_corner_tag(annotated, title, bg_color=(40, 64, 96))
     draw = ImageDraw.Draw(annotated)
     font = load_font(16)
-    for ann in filtered_anns:
+    for ann in anns:
         x, y, w, h = ann["bbox"]
         x1 = int(round(x))
         y1 = int(round(y))
@@ -236,7 +212,59 @@ def draw_coco_bboxes(
         )
         draw.rectangle(rect, fill=color)
         draw.text((x1, rect[1] + 2), label, fill=(255, 255, 255), font=font)
-    return annotated, len(filtered_anns)
+    return annotated, len(anns)
+
+
+def draw_coco_bboxes(
+    image: Image.Image,
+    anno: dict,
+    coco_index: dict[str, dict],
+) -> tuple[Image.Image, Image.Image, int, int]:
+    source = anno.get("source") or {}
+    split = str(source.get("split", "")).strip()
+    source_image_id = source.get("image_id")
+    source_category = str(source.get("source_category", "")).strip()
+    sample_key = str(source.get("sample_key", "")).strip()
+    coco_split = coco_index.get(split)
+
+    if coco_split is None or source_image_id is None:
+        all_panel, all_count = draw_coco_boxes_panel(
+            image, [], {}, "COCO all categories"
+        )
+        target_panel, target_count = draw_coco_boxes_panel(
+            image, [], {}, "COCO target category"
+        )
+        return all_panel, target_panel, all_count, target_count
+
+    try:
+        image_id = int(source_image_id)
+    except (TypeError, ValueError):
+        all_panel, all_count = draw_coco_boxes_panel(
+            image, [], {}, "COCO all categories"
+        )
+        target_panel, target_count = draw_coco_boxes_panel(
+            image, [], {}, "COCO target category"
+        )
+        return all_panel, target_panel, all_count, target_count
+
+    anns = coco_split["anns_by_image"].get(image_id, [])
+    categories = coco_split["categories"]
+    filtered_anns = []
+    for ann in anns:
+        category_name = str(categories[ann["category_id"]]["name"]).strip()
+        if source_category and category_name == source_category:
+            filtered_anns.append(ann)
+            continue
+        if sample_key and normalize_category_name(category_name) == sample_key:
+            filtered_anns.append(ann)
+
+    all_panel, all_count = draw_coco_boxes_panel(
+        image, anns, categories, "COCO all categories"
+    )
+    target_panel, target_count = draw_coco_boxes_panel(
+        image, filtered_anns, categories, "COCO target category"
+    )
+    return all_panel, target_panel, all_count, target_count
 
 
 def build_meta_lines(anno: dict, shape_count: int) -> list[tuple[str, tuple[int, int, int]]]:
@@ -295,7 +323,8 @@ def draw_text_panel(
     instruction: str,
     json_name: str,
     shape_count: int,
-    coco_box_count: int,
+    coco_all_box_count: int,
+    coco_target_box_count: int,
     panel_height: int,
 ) -> None:
     draw = ImageDraw.Draw(canvas)
@@ -304,7 +333,8 @@ def draw_text_panel(
     draw.rectangle((0, 0, canvas.width, panel_height), fill=(24, 24, 24))
     draw.text((12, 10), json_name, fill=(235, 235, 235), font=title_font)
     meta_lines = build_meta_lines(anno, shape_count)
-    meta_lines.insert(1, (f"COCO boxes: {coco_box_count}", (170, 205, 255)))
+    meta_lines.insert(1, (f"COCO all-category boxes: {coco_all_box_count}", (170, 205, 255)))
+    meta_lines.insert(2, (f"COCO target-category boxes: {coco_target_box_count}", (170, 205, 255)))
     y = 34
     line_gap = 21
     for meta_text, color in meta_lines:
@@ -330,17 +360,30 @@ def visualize_pair(
     original = image.copy()
     draw_corner_tag(original, "Original image", bg_color=(56, 56, 56))
     annotated, anno, instruction, shape_count = draw_shapes(image, json_path)
-    coco_annotated, coco_box_count = draw_coco_bboxes(image, anno, coco_index)
+    (
+        coco_all_annotated,
+        coco_target_annotated,
+        coco_all_box_count,
+        coco_target_box_count,
+    ) = draw_coco_bboxes(image, anno, coco_index)
 
     panel_height = 200
     canvas = Image.new(
-        "RGB", (image.width * 3, image.height + panel_height), (255, 255, 255)
+        "RGB", (image.width * 4, image.height + panel_height), (255, 255, 255)
     )
     canvas.paste(original, (0, panel_height))
-    canvas.paste(coco_annotated, (image.width, panel_height))
-    canvas.paste(annotated, (image.width * 2, panel_height))
+    canvas.paste(coco_all_annotated, (image.width, panel_height))
+    canvas.paste(coco_target_annotated, (image.width * 2, panel_height))
+    canvas.paste(annotated, (image.width * 3, panel_height))
     draw_text_panel(
-        canvas, anno, instruction, json_path.name, shape_count, coco_box_count, panel_height
+        canvas,
+        anno,
+        instruction,
+        json_path.name,
+        shape_count,
+        coco_all_box_count,
+        coco_target_box_count,
+        panel_height,
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)

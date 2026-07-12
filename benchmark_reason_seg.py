@@ -529,6 +529,7 @@ def make_visualization(
     sidecar_path = Path(save_path).with_suffix(".md")
     json_path = metadata.get("json_path", "")
     json_link = markdown_relative_link(json_path, sidecar_path) if json_path else ""
+    source_image_link = markdown_relative_link(image_path, sidecar_path)
     image_link = markdown_relative_link(save_path, sidecar_path)
     lisa_vis_path = resolve_lisa_annotation_visualization_path(json_path)
     lisa_vis_link = (
@@ -542,7 +543,6 @@ def make_visualization(
     )
     with sidecar_path.open("w", encoding="utf-8") as f:
         f.write("# Visualization Review\n\n")
-        f.write(f"![visualization]({image_link})\n\n")
         f.write(f"- Metrics: `{title_text}`\n")
         f.write(f"- Prompt: {prompt_text}\n")
         f.write(f"- COCO source label: `{source_category}`\n")
@@ -554,14 +554,25 @@ def make_visualization(
             f.write(f"- LISA JSON: [open]({json_link})\n")
             f.write(f"- LISA JSON path: `{json_path}`\n")
             f.write("- Edit prompt at: `text[0]`\n")
+        f.write("\n## Original Image\n\n")
+        if source_image_link:
+            f.write(f"![original-image]({source_image_link})\n")
         if lisa_vis_link:
-            f.write(f"- LISA Annotation Visualization: [open]({lisa_vis_link})\n")
-            f.write(f"- LISA Annotation Visualization path: `{lisa_vis_path}`\n")
+            f.write(
+                "\n## LISA Annotation Review\n\n"
+                f"[open]({lisa_vis_link})\n\n"
+                "This image contains: original image, COCO all categories, "
+                "COCO target category, and LISA polygon/mask.\n\n"
+                f"![lisa-annotation-visualization]({lisa_vis_link})\n"
+            )
         if coco_vis_link:
-            f.write(f"- COCO Visualization: [open]({coco_vis_link})\n")
-            f.write(f"- COCO Visualization path: `{coco_vis_path}`\n\n")
-            f.write("## COCO Visualization\n\n")
+            f.write(
+                "\n## COCO Full Annotation\n\n"
+                f"[open]({coco_vis_link})\n\n"
+            )
             f.write(f"![coco-visualization]({coco_vis_link})\n")
+        f.write("\n## LISA Prediction Review\n\n")
+        f.write(f"![prediction-review]({image_link})\n")
     return True
 
 
