@@ -534,6 +534,12 @@ def make_visualization(
     lisa_vis_link = (
         markdown_relative_link(lisa_vis_path, sidecar_path) if lisa_vis_path else ""
     )
+    coco_vis_path = resolve_coco_visualization_path(
+        json_path, metadata.get("source_file_name", "")
+    )
+    coco_vis_link = (
+        markdown_relative_link(coco_vis_path, sidecar_path) if coco_vis_path else ""
+    )
     with sidecar_path.open("w", encoding="utf-8") as f:
         f.write("# Visualization Review\n\n")
         f.write(f"![visualization]({image_link})\n\n")
@@ -551,6 +557,11 @@ def make_visualization(
         if lisa_vis_link:
             f.write(f"- LISA Annotation Visualization: [open]({lisa_vis_link})\n")
             f.write(f"- LISA Annotation Visualization path: `{lisa_vis_path}`\n")
+        if coco_vis_link:
+            f.write(f"- COCO Visualization: [open]({coco_vis_link})\n")
+            f.write(f"- COCO Visualization path: `{coco_vis_path}`\n\n")
+            f.write("## COCO Visualization\n\n")
+            f.write(f"![coco-visualization]({coco_vis_link})\n")
     return True
 
 
@@ -757,6 +768,23 @@ def resolve_lisa_annotation_visualization_path(json_path):
     vis_root = Path("data/phase1_feasibility/lisa_visualizations")
     preferred = vis_root / split / vis_name
     fallback = vis_root / vis_name
+
+    if preferred.exists():
+        return str(preferred)
+    if fallback.exists():
+        return str(fallback)
+    return str(preferred)
+
+
+def resolve_coco_visualization_path(json_path, source_file_name):
+    if not json_path or not source_file_name:
+        return ""
+
+    json_path = Path(json_path)
+    split = json_path.parent.name
+    file_name = Path(str(source_file_name)).name
+    preferred = Path("data/phase1_feasibility/coco_visualizations") / split / file_name
+    fallback = Path("data/phase1_feasibility/vis_bboxes") / split / file_name
 
     if preferred.exists():
         return str(preferred)

@@ -51,6 +51,12 @@ COCO_PALETTE = [
 ]
 
 
+def normalize_category_name(name: str) -> str:
+    return (
+        str(name).strip().lower().replace(" ", "_").replace("-", "_")
+    )
+
+
 def read_annotation(json_path: Path) -> dict:
     return json.loads(json_path.read_text(encoding="utf-8"))
 
@@ -186,9 +192,11 @@ def draw_coco_bboxes(
     source = anno.get("source") or {}
     split = str(source.get("split", "")).strip()
     source_image_id = source.get("image_id")
+    source_category = str(source.get("source_category", "")).strip()
+    sample_key = str(source.get("sample_key", "")).strip()
     coco_split = coco_index.get(split)
     annotated = image.copy()
-    draw_corner_tag(annotated, "COCO annotations", bg_color=(40, 64, 96))
+    draw_corner_tag(annotated, "COCO target category", bg_color=(40, 64, 96))
     if coco_split is None or source_image_id is None:
         return annotated, 0
 
@@ -199,9 +207,18 @@ def draw_coco_bboxes(
 
     anns = coco_split["anns_by_image"].get(image_id, [])
     categories = coco_split["categories"]
+    filtered_anns = []
+    for ann in anns:
+        category_name = str(categories[ann["category_id"]]["name"]).strip()
+        if source_category and category_name == source_category:
+            filtered_anns.append(ann)
+            continue
+        if sample_key and normalize_category_name(category_name) == sample_key:
+            filtered_anns.append(ann)
+
     draw = ImageDraw.Draw(annotated)
     font = load_font(16)
-    for ann in anns:
+    for ann in filtered_anns:
         x, y, w, h = ann["bbox"]
         x1 = int(round(x))
         y1 = int(round(y))
@@ -219,7 +236,7 @@ def draw_coco_bboxes(
         )
         draw.rectangle(rect, fill=color)
         draw.text((x1, rect[1] + 2), label, fill=(255, 255, 255), font=font)
-    return annotated, len(anns)
+    return annotated, len(filtered_anns)
 
 
 def build_meta_lines(anno: dict, shape_count: int) -> list[tuple[str, tuple[int, int, int]]]:
