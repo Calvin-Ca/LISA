@@ -16,6 +16,10 @@ data_pipeline/vis/*
 dataset/reason_seg/ReasonSeg/train/*
 dataset/reason_seg/ReasonSeg/val/*
 dataset/reason_seg/ReasonSeg/explanatory/*
+dataset/reason_seg/ReasonSegClean*/train/*
+dataset/reason_seg/ReasonSegClean*/val/*
+dataset/reason_seg/ReasonSegClean*/clean_subset_manifest.json
+dataset/reason_seg/ReasonSegClean*/clean_subset_summary.json
 !dataset/**/.gitkeep
 !dataset/README.md
 
