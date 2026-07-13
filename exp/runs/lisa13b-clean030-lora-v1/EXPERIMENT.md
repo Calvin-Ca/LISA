@@ -42,7 +42,7 @@
 - 是否保存可视化: 是
 - 是否保存预测掩码: 是
 - 运行设备: 远程 Linux GPU 服务器
-- 运行日期: 待执行后补充
+- 运行日期: 2026-07-13
 
 ## 执行命令
 
@@ -99,18 +99,39 @@ Base benchmark 参考:
 - Full val base cIoU: 0.3177
 - Full val base 平均 Dice: 0.4180
 
-LoRA 后待补充:
+LoRA 后:
 
-- Clean val gIoU:
-- Clean val cIoU:
-- Clean val 平均 Dice:
-- Full val gIoU:
-- Full val cIoU:
-- Full val 平均 Dice:
+- Clean val 样本数: 42
+- Clean val gIoU: 0.7119
+- Clean val cIoU: 0.6642
+- Clean val 平均 Dice: 0.7868
+- Clean val 平均精确率: 0.8300
+- Clean val 平均召回率: 0.7687
+- Full val 样本数: 86
+- Full val gIoU: 0.4494
+- Full val cIoU: 0.3858
+- Full val 平均 Dice: 0.5156
+- Full val 平均精确率: 0.5332
+- Full val 平均召回率: 0.5416
+
+LoRA 相对 base 提升:
+
+- Clean val gIoU: +0.0684
+- Clean val cIoU: +0.0147
+- Clean val 平均 Dice: +0.0223
+- Full val gIoU: +0.1086
+- Full val cIoU: +0.0681
+- Full val 平均 Dice: +0.0976
+- Full val 平均精确率: +0.1261
+- Full val 平均召回率: +0.0284
 
 ## 结论
 
-待远程训练和评估完成后补充。
+本轮 Clean030 LoRA 微调有效。
+
+在完整 `ReasonSeg|val` 上,模型从 base 的 `gIoU=0.3408 / cIoU=0.3177 / Dice=0.4180` 提升到 `gIoU=0.4494 / cIoU=0.3858 / Dice=0.5156`。其中 gIoU 提升 10.86 个点,说明提升不是只来自少数大目标;Mean Precision 提升 12.61 个点,说明误检明显减少;Mean Recall 只提升 2.84 个点,说明漏检和困难类别仍是下一轮主要问题。
+
+Clean val 从 `gIoU=0.6435` 提升到 `0.7119`,说明高置信样本可被 LoRA 有效吸收。但 clean val 中仍出现 `poor_housekeeping` 和 `no_helmet` 的 0 IoU bad case,说明即使在筛选后的 easy subset 上,部分 prompt/mask 或实例选择仍不稳定。
 
 判断标准:
 
@@ -123,3 +144,5 @@ LoRA 后待补充:
 - 本实验使用 Clean030 作为第一轮链路验证集,不把筛选后的 clean val 作为唯一正式指标。
 - 正式结论必须以完整 `ReasonSeg|val` 的 LoRA 前后对比为准。
 - `ReasonSegClean030` 是从原始 jpg/json 复制出的子集,不包含新生成标签,也不使用模型预测 mask 作为标签。
+- Full val 最差样本仍集中在 `equipment_proximity`、`guardrail_missing`、`opening_unprotected`、`poor_housekeeping`、`unsafe` 等关系型/区域型/抽象隐患类别。
+- 下一轮建议补充人工核验 hard cases,重点覆盖 `guardrail_missing`、`unsafe`、`equipment_proximity`、`poor_housekeeping`,并继续保留完整 `ReasonSeg|val` 作为正式对比集。
