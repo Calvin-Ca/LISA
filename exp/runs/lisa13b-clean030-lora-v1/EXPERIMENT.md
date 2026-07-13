@@ -34,6 +34,7 @@
 - grad accumulation steps: 8
 - effective batch size: 8
 - 学习率: `0.0001`
+- 优化器: DeepSpeed + PyTorch AdamW (`--deepspeed_torch_adam`),避免远程环境 JIT 编译 `fused_adam`
 - explanatory: `-1`
 - 训练时验证集: `ReasonSegClean030|val`,42 张
 - 正式评估集: `ReasonSeg|val`,86 张

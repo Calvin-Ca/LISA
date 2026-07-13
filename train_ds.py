@@ -75,6 +75,12 @@ def parse_args(args):
     parser.add_argument("--val_batch_size", default=1, type=int)
     parser.add_argument("--workers", default=4, type=int)
     parser.add_argument("--lr", default=0.0003, type=float)
+    parser.add_argument(
+        "--deepspeed_torch_adam",
+        action="store_true",
+        default=False,
+        help="Use torch.optim.AdamW instead of DeepSpeed FusedAdam.",
+    )
     parser.add_argument("--ce_loss_weight", default=1.0, type=float)
     parser.add_argument("--dice_loss_weight", default=0.5, type=float)
     parser.add_argument("--bce_loss_weight", default=2.0, type=float)
@@ -295,6 +301,8 @@ def main(args):
                 "lr": args.lr,
                 "weight_decay": 0.0,
                 "betas": (args.beta1, args.beta2),
+                "torch_adam": args.deepspeed_torch_adam,
+                "adam_w_mode": True,
             },
         },
         "scheduler": {

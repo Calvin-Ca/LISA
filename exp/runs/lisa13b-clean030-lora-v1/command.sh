@@ -57,6 +57,7 @@ CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}" deepspeed --master_port=24999 
   --grad_accumulation_steps 8 \
   --workers 4 \
   --lr 0.0001 \
+  --deepspeed_torch_adam \
   --lora_r 8 \
   --lora_alpha 16 \
   --lora_dropout 0.05 \
