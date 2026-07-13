@@ -126,14 +126,20 @@ class LISAForCausalLM(LlavaLlamaForCausalLM):
         config,
         **kwargs,
     ):
+        self.ce_loss_weight = kwargs.pop(
+            "ce_loss_weight", getattr(config, "ce_loss_weight", 1.0)
+        )
+        self.dice_loss_weight = kwargs.pop(
+            "dice_loss_weight", getattr(config, "dice_loss_weight", 0.5)
+        )
+        self.bce_loss_weight = kwargs.pop(
+            "bce_loss_weight", getattr(config, "bce_loss_weight", 2.0)
+        )
         if not hasattr(config, "train_mask_decoder"):
             config.mm_use_im_start_end = kwargs.pop("use_mm_start_end", True)
             config.mm_vision_tower = kwargs.get(
                 "vision_tower", "openai/clip-vit-large-patch14"
             )
-            self.ce_loss_weight = kwargs.pop("ce_loss_weight", None)
-            self.dice_loss_weight = kwargs.pop("dice_loss_weight", None)
-            self.bce_loss_weight = kwargs.pop("bce_loss_weight", None)
         else:
             config.mm_vision_tower = config.vision_tower
             
