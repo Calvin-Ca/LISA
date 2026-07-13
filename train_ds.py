@@ -123,6 +123,9 @@ def main(args):
 
     # Create model
     pretrained_config = transformers.AutoConfig.from_pretrained(args.version)
+    if args.vision_tower:
+        pretrained_config.vision_tower = args.vision_tower
+        pretrained_config.mm_vision_tower = args.vision_tower
     has_pretrained_lisa_modules = hasattr(pretrained_config, "train_mask_decoder")
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         args.version,

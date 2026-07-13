@@ -60,6 +60,10 @@ def main(args):
     os.makedirs(args.vis_save_path, exist_ok=True)
 
     # Create model
+    pretrained_config = transformers.AutoConfig.from_pretrained(args.version)
+    if args.vision_tower:
+        pretrained_config.vision_tower = args.vision_tower
+        pretrained_config.mm_vision_tower = args.vision_tower
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         args.version,
         cache_dir=None,
@@ -89,7 +93,11 @@ def main(args):
     elif args.precision == "fp16":
         torch_dtype = torch.half
     model = LISAForCausalLM.from_pretrained(
-        args.version, torch_dtype=torch_dtype, low_cpu_mem_usage=True, **model_args
+        args.version,
+        config=pretrained_config,
+        torch_dtype=torch_dtype,
+        low_cpu_mem_usage=True,
+        **model_args,
     )
     model.config.eos_token_id = tokenizer.eos_token_id
     model.config.bos_token_id = tokenizer.bos_token_id
