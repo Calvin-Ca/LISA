@@ -4,6 +4,8 @@ set -euo pipefail
 # Remote Linux GPU server only.
 # Rebuild eval outputs without retraining or re-merging LoRA weights.
 
+cd "$(git rev-parse --show-toplevel)"
+
 EXP_NAME="lisa13b-clean030-lora-v1"
 MERGED_MODEL="./runs/${EXP_NAME}/merged_hf"
 SAM_CKPT="./data_pipeline/sam_vit_h_4b8939.pth"
