@@ -46,10 +46,16 @@
 
 ## 执行命令
 
-见 `command.sh`。
+完整训练、合并和评估:
 
 ```bash
 bash exp/runs/lisa13b-clean030-lora-v1/command.sh
+```
+
+只重新生成 clean/full 两个评估 outputs,不重新训练、不重新合并:
+
+```bash
+bash exp/runs/lisa13b-clean030-lora-v1/eval_outputs.sh
 ```
 
 ## 输出文件
@@ -68,23 +74,27 @@ Clean030 数据清单:
 
 Clean val 评估:
 
-- `exp/runs/lisa13b-clean030-lora-v1-eval-clean-val/outputs/summary.json`
-- `exp/runs/lisa13b-clean030-lora-v1-eval-clean-val/outputs/summary.md`
-- `exp/runs/lisa13b-clean030-lora-v1-eval-clean-val/outputs/per_sample_metrics.csv`
-- `exp/runs/lisa13b-clean030-lora-v1-eval-clean-val/outputs/per_sample_metrics.jsonl`
-- `exp/runs/lisa13b-clean030-lora-v1-eval-clean-val/outputs/samples_by_iou.md`
-- `exp/runs/lisa13b-clean030-lora-v1-eval-clean-val/outputs/visualizations/`
-- `exp/runs/lisa13b-clean030-lora-v1-eval-clean-val/outputs/pred_masks/`
+- `exp/runs/lisa13b-clean030-lora-v1/eval-clean-val/outputs/last_command.sh`
+- `exp/runs/lisa13b-clean030-lora-v1/eval-clean-val/outputs/summary.json`
+- `exp/runs/lisa13b-clean030-lora-v1/eval-clean-val/outputs/summary.md`
+- `exp/runs/lisa13b-clean030-lora-v1/eval-clean-val/outputs/per_sample_metrics.csv`
+- `exp/runs/lisa13b-clean030-lora-v1/eval-clean-val/outputs/per_sample_metrics_by_iou.csv`
+- `exp/runs/lisa13b-clean030-lora-v1/eval-clean-val/outputs/per_sample_metrics.jsonl`
+- `exp/runs/lisa13b-clean030-lora-v1/eval-clean-val/outputs/samples_by_iou.md`
+- `exp/runs/lisa13b-clean030-lora-v1/eval-clean-val/outputs/visualizations/`
+- `exp/runs/lisa13b-clean030-lora-v1/eval-clean-val/outputs/pred_masks/`
 
 Full val 评估:
 
-- `exp/runs/lisa13b-clean030-lora-v1-eval-full-val/outputs/summary.json`
-- `exp/runs/lisa13b-clean030-lora-v1-eval-full-val/outputs/summary.md`
-- `exp/runs/lisa13b-clean030-lora-v1-eval-full-val/outputs/per_sample_metrics.csv`
-- `exp/runs/lisa13b-clean030-lora-v1-eval-full-val/outputs/per_sample_metrics.jsonl`
-- `exp/runs/lisa13b-clean030-lora-v1-eval-full-val/outputs/samples_by_iou.md`
-- `exp/runs/lisa13b-clean030-lora-v1-eval-full-val/outputs/visualizations/`
-- `exp/runs/lisa13b-clean030-lora-v1-eval-full-val/outputs/pred_masks/`
+- `exp/runs/lisa13b-clean030-lora-v1/eval-full-val/outputs/last_command.sh`
+- `exp/runs/lisa13b-clean030-lora-v1/eval-full-val/outputs/summary.json`
+- `exp/runs/lisa13b-clean030-lora-v1/eval-full-val/outputs/summary.md`
+- `exp/runs/lisa13b-clean030-lora-v1/eval-full-val/outputs/per_sample_metrics.csv`
+- `exp/runs/lisa13b-clean030-lora-v1/eval-full-val/outputs/per_sample_metrics_by_iou.csv`
+- `exp/runs/lisa13b-clean030-lora-v1/eval-full-val/outputs/per_sample_metrics.jsonl`
+- `exp/runs/lisa13b-clean030-lora-v1/eval-full-val/outputs/samples_by_iou.md`
+- `exp/runs/lisa13b-clean030-lora-v1/eval-full-val/outputs/visualizations/`
+- `exp/runs/lisa13b-clean030-lora-v1/eval-full-val/outputs/pred_masks/`
 
 ## 核心指标
 

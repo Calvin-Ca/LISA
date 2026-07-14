@@ -80,28 +80,4 @@ CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}" python merge_lora_weights_and_
   --lora_dropout 0.05 \
   --lora_target_modules "q_proj,v_proj"
 
-CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}" python benchmark_reason_seg.py \
-  --version "$MERGED_MODEL" \
-  --vision-tower "$CLIP_TOWER" \
-  --dataset_dir ./dataset \
-  --val_dataset "ReasonSegClean030|val" \
-  --vision_pretrained "$SAM_CKPT" \
-  --output_dir "./exp/runs/${EXP_NAME}-eval-clean-val/outputs" \
-  --precision bf16 \
-  --workers 4 \
-  --save_visualizations \
-  --max_visualizations -1 \
-  --save_masks
-
-CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}" python benchmark_reason_seg.py \
-  --version "$MERGED_MODEL" \
-  --vision-tower "$CLIP_TOWER" \
-  --dataset_dir ./dataset \
-  --val_dataset "ReasonSeg|val" \
-  --vision_pretrained "$SAM_CKPT" \
-  --output_dir "./exp/runs/${EXP_NAME}-eval-full-val/outputs" \
-  --precision bf16 \
-  --workers 4 \
-  --save_visualizations \
-  --max_visualizations -1 \
-  --save_masks
+bash "./exp/runs/${EXP_NAME}/eval_outputs.sh"
