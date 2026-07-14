@@ -8,10 +8,10 @@ EXP_NAME="lisa13b-clean030-lora-v1"
 MERGED_MODEL="./runs/${EXP_NAME}/merged_hf"
 SAM_CKPT="./data_pipeline/sam_vit_h_4b8939.pth"
 CLIP_TOWER="./clip-vit-large-patch14"
-CLEAN_EVAL_RUN="./exp/runs/${EXP_NAME}/eval-clean-val"
-FULL_EVAL_RUN="./exp/runs/${EXP_NAME}/eval-full-val"
-CLEAN_OUTPUT_DIR="${CLEAN_EVAL_RUN}/outputs"
-FULL_OUTPUT_DIR="${FULL_EVAL_RUN}/outputs"
+CLEAN_DATASET="./dataset/reason_seg/ReasonSegClean030"
+FULL_DATASET="./dataset/reason_seg/ReasonSeg"
+CLEAN_OUTPUT_DIR="./exp/runs/${EXP_NAME}/clean-eval-outputs"
+FULL_OUTPUT_DIR="./exp/runs/${EXP_NAME}/full-eval-outputs"
 LISA_BENCHMARK_FONT_PATH="/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
 
 if [ ! -d "$CLIP_TOWER" ]; then
@@ -33,12 +33,26 @@ if [ ! -f "$CLIP_TOWER/config.json" ] || [ ! -f "$CLIP_TOWER/preprocessor_config
   echo "Missing CLIP vision tower files under: $CLIP_TOWER" >&2
   exit 1
 fi
-if [ ! -d "./dataset/reason_seg/ReasonSegClean030/val" ]; then
-  echo "Missing clean val dataset: ./dataset/reason_seg/ReasonSegClean030/val" >&2
+
+if [ ! -d "${CLEAN_DATASET}/val" ] || [ ! -f "${CLEAN_DATASET}/clean_subset_summary.json" ]; then
+  echo "[prepare] Missing Clean030 dataset; rebuilding from benchmark metrics."
+  if [ ! -f "./exp/runs/lisa13b-local-train/outputs/per_sample_metrics.jsonl" ]; then
+    echo "Missing train metrics: ./exp/runs/lisa13b-local-train/outputs/per_sample_metrics.jsonl" >&2
+    exit 1
+  fi
+  if [ ! -f "./exp/runs/lisa13b-local-val/outputs/per_sample_metrics.jsonl" ]; then
+    echo "Missing val metrics: ./exp/runs/lisa13b-local-val/outputs/per_sample_metrics.jsonl" >&2
+    exit 1
+  fi
+  python data_pipeline/build_clean_subset_from_benchmark.py --overwrite
+fi
+
+if [ ! -d "${CLEAN_DATASET}/val" ]; then
+  echo "Missing clean val dataset: ${CLEAN_DATASET}/val" >&2
   exit 1
 fi
-if [ ! -d "./dataset/reason_seg/ReasonSeg/val" ]; then
-  echo "Missing full val dataset: ./dataset/reason_seg/ReasonSeg/val" >&2
+if [ ! -d "${FULL_DATASET}/val" ]; then
+  echo "Missing full val dataset: ${FULL_DATASET}/val" >&2
   exit 1
 fi
 
@@ -93,7 +107,11 @@ run_eval() {
   write_last_command "${output_dir}/last_command.sh" "$val_dataset" "$output_dir"
 }
 
-rm -rf "$CLEAN_OUTPUT_DIR" "$FULL_OUTPUT_DIR"
+rm -rf \
+  "$CLEAN_OUTPUT_DIR" \
+  "$FULL_OUTPUT_DIR" \
+  "./exp/runs/${EXP_NAME}/eval-clean-val" \
+  "./exp/runs/${EXP_NAME}/eval-full-val"
 
 echo "[eval] ReasonSegClean030|val -> $CLEAN_OUTPUT_DIR"
 run_eval "ReasonSegClean030|val" "$CLEAN_OUTPUT_DIR"
