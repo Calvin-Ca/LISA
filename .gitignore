@@ -42,3 +42,6 @@ exp/runs/*/outputs/**/*.tiff
 
 # Benchmark visualization directories
 exp/runs/*/outputs/visualizations/
+
+# Generated annotation/prediction comparison reports
+exp/comparisons/annotation_prediction_report/
