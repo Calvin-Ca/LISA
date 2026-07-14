@@ -47,6 +47,5 @@ exp/runs/*/outputs/visualizations/
 exp/comparisons/annotation_prediction_report/
 
 # Clean030 eval outputs
-exp/runs/
-  lisa13b-clean030-lora-v1/clean-eval-outputs/
+exp/runs/lisa13b-clean030-lora-v1/clean-eval-outputs/
 exp/runs/lisa13b-clean030-lora-v1/full-eval-outputs/
