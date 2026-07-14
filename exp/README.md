@@ -2,7 +2,7 @@
 
 本目录用于集中管理 LISA 施工安全场景的实验结果。每次实验单独建目录,保留执行说明、命令和可追溯指标。
 
-每个实验目录约定如下:
+每个常规 benchmark 实验目录约定如下:
 
 - `EXPERIMENT.md`: 实验背景、模型/数据配置、核心指标和结论。
 - `command.sh`: 在远程 Linux GPU 服务器上执行的命令。
@@ -10,18 +10,24 @@
 
 `outputs/` 下的图片和可视化目录不入库,只跟踪指标文件和说明文档。大量图片保留在远程服务器或本地归档中。
 
+`lisa13b-clean030-lora-v1` 不走这个 `outputs/` 约定,它把评估结果写到扁平目录:
+
+- `exp/runs/lisa13b-clean030-lora-v1/clean-eval-outputs/`
+- `exp/runs/lisa13b-clean030-lora-v1/full-eval-outputs/`
+
 ## 实验列表
 
 | 实验 | 用途 | 模型 | 数据划分 | 状态 | 关键输出 |
 |---|---|---|---|---|---|
 | `lisa13b-local-train` | 在训练集上评估,观察拟合情况和标注问题 | 本地 `./LISA13B` | `ReasonSeg|train` | 待远程执行并回填 | `outputs/summary.json` |
 | `lisa13b-local-val` | 在验证集上评估,作为正式汇报指标来源 | 本地 `./LISA13B` | `ReasonSeg|val` | 待远程执行并回填 | `outputs/summary.json` |
+| `lisa13b-clean030-lora-v1` | 用 Clean030 子集做 LoRA 微调,并在 clean/full val 上做正式对比 | `./LISA13B` | `ReasonSegClean030|train` / `ReasonSegClean030|val` / `ReasonSeg|val` | 已有脚本,结果写入扁平目录 | `clean-eval-outputs/`, `full-eval-outputs/` |
 
-> 当前只保留 train / val 两个完整 benchmark 实验。旧 smoke 和历史 outputs 已清空,待重新远程执行生成。
+> 当前常规 benchmark 仍以 train / val 两个实验为主。另有 `lisa13b-clean030-lora-v1` 作为 Clean030 LoRA 专项实验。旧 smoke 和历史 outputs 已清空,待重新远程执行生成。
 
 ## 自动记录远程结果
 
-仅在远程服务器执行。评测时把 `--output_dir` 直接指向对应实验目录的 `outputs/`:
+仅在远程服务器执行。常规 benchmark 评测时把 `--output_dir` 直接指向对应实验目录的 `outputs/`:
 
 ```bash
 --output_dir ./exp/runs/<experiment-name>/outputs
@@ -32,6 +38,8 @@
 - 写入评测产物到 `outputs/`;
 - 更新 `EXPERIMENT.md` 的配置和核心指标;
 - 若 `command.sh` 不存在则创建;若已存在,不覆盖已确认脚本,只把本次实际命令记录到 `outputs/last_command.sh`。
+
+Clean030 实验由 `exp/runs/lisa13b-clean030-lora-v1/eval_outputs.sh` 管理,它会把结果写到 `clean-eval-outputs/` 和 `full-eval-outputs/`,再自行维护 `last_command.sh`。
 
 推荐直接运行对应实验目录下的 `command.sh`:
 

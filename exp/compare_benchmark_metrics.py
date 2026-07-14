@@ -24,7 +24,7 @@ from statistics import mean, median
 
 DEFAULT_BASE = "exp/runs/lisa13b-local-val/outputs/per_sample_metrics.jsonl"
 DEFAULT_FINETUNED = (
-    "exp/runs/lisa13b-clean030-lora-v1-eval-full-val/outputs/per_sample_metrics.jsonl"
+    "exp/runs/lisa13b-clean030-lora-v1/full-eval-outputs/per_sample_metrics.jsonl"
 )
 
 

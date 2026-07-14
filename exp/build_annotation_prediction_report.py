@@ -37,7 +37,7 @@ except ModuleNotFoundError as exc:
 
 DEFAULT_BASE_METRICS = Path("exp/runs/lisa13b-local-val/outputs/per_sample_metrics.jsonl")
 DEFAULT_TUNED_METRICS = Path(
-    "exp/runs/lisa13b-clean030-lora-v1-eval-full-val/outputs/per_sample_metrics.jsonl"
+    "exp/runs/lisa13b-clean030-lora-v1/full-eval-outputs/per_sample_metrics.jsonl"
 )
 DEFAULT_COCO_ROOT = Path("data")
 DEFAULT_OUTPUT_DIR = Path("exp/comparisons/annotation_prediction_report")
