@@ -27,25 +27,15 @@ dataset/reason_seg/ReasonSegClean*/clean_subset_summary.json
 benchmark/
 benchmark_outputs/
 
-# exp 台账保留文本/指标文件,忽略 outputs 中的大量图片
-exp/runs/*/outputs/**/*.png
-exp/runs/*/outputs/**/*.jpg
-exp/runs/*/outputs/**/*.jpeg
-exp/runs/*/outputs/**/*.webp
-exp/runs/*/outputs/**/*.bmp
-exp/runs/*/outputs/**/*.gif
-exp/runs/*/outputs/**/*.tif
-exp/runs/*/outputs/**/*.tiff
+# exp 台账保留文本/指标文件，仅忽略图片
+exp/**/*.png
+exp/**/*.jpg
+exp/**/*.jpeg
+exp/**/*.webp
+exp/**/*.bmp
+exp/**/*.gif
+exp/**/*.tif
+exp/**/*.tiff
 
 # SAM / GroundingDINO 权重
 *.pth
-
-# Benchmark visualization directories
-exp/runs/*/outputs/visualizations/
-
-# Generated annotation/prediction comparison reports
-exp/comparisons/annotation_prediction_report/
-
-# Clean030 eval outputs
-exp/runs/lisa13b-clean030-lora-v1/clean-eval-outputs/
-exp/runs/lisa13b-clean030-lora-v1/full-eval-outputs/
