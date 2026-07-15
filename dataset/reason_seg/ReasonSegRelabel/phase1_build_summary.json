@@ -1,0 +1,34 @@
+{
+  "train": {
+    "drop_iou": 343,
+    "drop_empty_shapes": 236,
+    "ok_unsafe": 43,
+    "ok_samples": 415,
+    "ok_safe": 15,
+    "ok_no_jacket": 32,
+    "ok_no_helmet": 28,
+    "ok_opening_unprotected": 72,
+    "ok_poor_housekeeping": 55,
+    "ok_guardrail_missing": 59,
+    "ok_equipment_proximity": 43,
+    "ok_helmet_missing": 47,
+    "ok_harness_missing": 21,
+    "drop_area": 1
+  },
+  "val": {
+    "ok_no_helmet": 15,
+    "ok_samples": 86,
+    "ok_no_jacket": 12,
+    "drop_iou": 33,
+    "ok_opening_unprotected": 8,
+    "ok_safe": 13,
+    "ok_unsafe": 19,
+    "drop_empty_shapes": 22,
+    "ok_helmet_missing": 4,
+    "ok_poor_housekeeping": 4,
+    "ok_guardrail_missing": 4,
+    "ok_harness_missing": 4,
+    "ok_equipment_proximity": 3
+  },
+  "category_policy": "keep_all"
+}

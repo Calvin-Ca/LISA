@@ -1,0 +1,60 @@
+{
+  "shapes": [
+    {
+      "label": "target",
+      "points": [
+        [
+          271,
+          0
+        ],
+        [
+          281,
+          335
+        ],
+        [
+          288,
+          343
+        ],
+        [
+          305,
+          343
+        ],
+        [
+          322,
+          325
+        ],
+        [
+          334,
+          331
+        ],
+        [
+          328,
+          322
+        ],
+        [
+          337,
+          317
+        ],
+        [
+          358,
+          339
+        ],
+        [
+          354,
+          2
+        ]
+      ]
+    }
+  ],
+  "text": [
+    "标出未按规定佩戴安全帽的作业人员。"
+  ],
+  "is_sentence": true,
+  "source": {
+    "split": "val",
+    "image_id": 17,
+    "file_name": "002__-helmet_missing-245-_jpg.rf.dcbe61ef31ed007835863b76354c7261.jpg",
+    "sample_key": "helmet_missing",
+    "source_category": "helmet_missing"
+  }
+}

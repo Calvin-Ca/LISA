@@ -1,0 +1,80 @@
+{
+  "shapes": [
+    {
+      "label": "target",
+      "points": [
+        [
+          193,
+          68
+        ],
+        [
+          170,
+          87
+        ],
+        [
+          142,
+          142
+        ],
+        [
+          137,
+          203
+        ],
+        [
+          144,
+          241
+        ],
+        [
+          179,
+          313
+        ],
+        [
+          231,
+          343
+        ],
+        [
+          273,
+          349
+        ],
+        [
+          322,
+          316
+        ],
+        [
+          342,
+          283
+        ],
+        [
+          359,
+          227
+        ],
+        [
+          348,
+          149
+        ],
+        [
+          332,
+          114
+        ],
+        [
+          305,
+          94
+        ],
+        [
+          251,
+          72
+        ]
+      ]
+    }
+  ],
+  "text": [
+    "圈出没有防护的洞口或临边区域。"
+  ],
+  "is_sentence": true,
+  "source": {
+    "split": "train",
+    "image_id": 588,
+    "file_name": "002__-opening_unprotected-22-_jpg.rf.60972bb98f168fafaa01a1360412840e.jpg",
+    "sample_key": "opening_unprotected",
+    "source_category": "opening_unprotected"
+  }
+}

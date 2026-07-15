@@ -1,0 +1,40 @@
+{
+  "shapes": [
+    {
+      "label": "target",
+      "points": [
+        [
+          378,
+          112
+        ],
+        [
+          182,
+          125
+        ],
+        [
+          169,
+          203
+        ],
+        [
+          251,
+          206
+        ],
+        [
+          380,
+          198
+        ]
+      ]
+    }
+  ],
+  "text": [
+    "圈出没有防护的洞口或临边区域。"
+  ],
+  "is_sentence": true,
+  "source": {
+    "split": "train",
+    "image_id": 300,
+    "file_name": "002__-opening_unprotected-98-_jpg.rf.4daf481f96bc1786ca2fee8579be0142.jpg",
+    "sample_key": "opening_unprotected",
+    "source_category": "opening_unprotected"
+  }
+}

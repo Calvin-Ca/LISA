@@ -1,0 +1,52 @@
+{
+  "shapes": [
+    {
+      "label": "target",
+      "points": [
+        [
+          311,
+          144
+        ],
+        [
+          224,
+          158
+        ],
+        [
+          220,
+          164
+        ],
+        [
+          215,
+          325
+        ],
+        [
+          299,
+          363
+        ],
+        [
+          401,
+          329
+        ],
+        [
+          406,
+          315
+        ],
+        [
+          412,
+          179
+        ]
+      ]
+    }
+  ],
+  "text": [
+    "圈出施工现场杂乱、可能影响通行安全的位置。"
+  ],
+  "is_sentence": true,
+  "source": {
+    "split": "train",
+    "image_id": 293,
+    "file_name": "002__-poor_housekeeping-66-_jpg.rf.e83f445d61c049c274f8938979fe64f7.jpg",
+    "sample_key": "poor_housekeeping",
+    "source_category": "poor_housekeeping"
+  }
+}

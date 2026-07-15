@@ -1,0 +1,44 @@
+{
+  "shapes": [
+    {
+      "label": "target",
+      "points": [
+        [
+          288,
+          86
+        ],
+        [
+          274,
+          92
+        ],
+        [
+          185,
+          213
+        ],
+        [
+          121,
+          336
+        ],
+        [
+          259,
+          466
+        ],
+        [
+          417,
+          171
+        ]
+      ]
+    }
+  ],
+  "text": [
+    "把缺少防护、可能导致坠落的开口区域分割出来。"
+  ],
+  "is_sentence": true,
+  "source": {
+    "split": "train",
+    "image_id": 549,
+    "file_name": "002__-opening_unprotected-36-_JPG.rf.edea6f7da674ad2d65489a23c1f87c74.jpg",
+    "sample_key": "opening_unprotected",
+    "source_category": "opening_unprotected"
+  }
+}

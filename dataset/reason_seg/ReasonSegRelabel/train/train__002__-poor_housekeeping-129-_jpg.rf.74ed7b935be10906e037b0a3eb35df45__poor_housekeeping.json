@@ -1,0 +1,52 @@
+{
+  "shapes": [
+    {
+      "label": "target",
+      "points": [
+        [
+          301,
+          194
+        ],
+        [
+          242,
+          188
+        ],
+        [
+          142,
+          200
+        ],
+        [
+          141,
+          266
+        ],
+        [
+          148,
+          309
+        ],
+        [
+          164,
+          341
+        ],
+        [
+          190,
+          374
+        ],
+        [
+          297,
+          327
+        ]
+      ]
+    }
+  ],
+  "text": [
+    "图中哪些区域存在场地整理不到位的安全隐患?请分割出来。"
+  ],
+  "is_sentence": true,
+  "source": {
+    "split": "train",
+    "image_id": 435,
+    "file_name": "002__-poor_housekeeping-129-_jpg.rf.74ed7b935be10906e037b0a3eb35df45.jpg",
+    "sample_key": "poor_housekeeping",
+    "source_category": "poor_housekeeping"
+  }
+}
