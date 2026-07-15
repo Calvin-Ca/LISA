@@ -117,7 +117,7 @@ def format_sample_table(
     lines = [
         f"{heading} {title}",
         "",
-        "| Rank | Change | Delta IoU | Base IoU | Tuned IoU | Delta Dice | Label | Image | Comparison | Prompt |",
+        "| Rank | Change | Delta IoU | Base IoU | Tuned IoU | Delta Dice | Label | Comparison | Prompt | Image |",
         "| ---: | --- | ---: | ---: | ---: | ---: | --- | --- | --- | --- |",
     ]
     for idx, row in enumerate(rows, start=1):
@@ -132,7 +132,7 @@ def format_sample_table(
             change = "Unchanged"
         lines.append(
             "| {idx} | {change} | {delta} | {base} | {tuned} | {delta_dice} | "
-            "{label} | `{image}` | {comparison} | {prompt} |".format(
+            "{label} | {comparison} | {prompt} | `{image}` |".format(
                 idx=idx,
                 change=change,
                 delta=fmt_float(row["delta_iou"], signed=True),
