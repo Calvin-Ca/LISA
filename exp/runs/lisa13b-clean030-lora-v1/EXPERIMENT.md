@@ -86,6 +86,7 @@ Clean val 评估:
 - `exp/runs/lisa13b-clean030-lora-v1/clean-eval-outputs/samples_by_iou.md`
 - `exp/runs/lisa13b-clean030-lora-v1/clean-eval-outputs/visualizations/`
 - `exp/runs/lisa13b-clean030-lora-v1/clean-eval-outputs/pred_masks/`
+- `exp/runs/lisa13b-clean030-lora-v1/clean-eval-outputs/comparison_by_delta_iou.md` (Base/LoRA 逐样本对比,按 IoU 变化从好到坏排序)
 
 Full val 评估:
 
@@ -98,6 +99,7 @@ Full val 评估:
 - `exp/runs/lisa13b-clean030-lora-v1/full-eval-outputs/samples_by_iou.md`
 - `exp/runs/lisa13b-clean030-lora-v1/full-eval-outputs/visualizations/`
 - `exp/runs/lisa13b-clean030-lora-v1/full-eval-outputs/pred_masks/`
+- `exp/runs/lisa13b-clean030-lora-v1/full-eval-outputs/comparison_by_delta_iou.md` (Base/LoRA 逐样本对比,按 IoU 变化从好到坏排序)
 
 ## 核心指标
 

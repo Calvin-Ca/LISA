@@ -17,9 +17,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from collections import defaultdict
 from pathlib import Path
 from statistics import mean, median
+from typing import Optional
 
 
 DEFAULT_BASE = "exp/runs/lisa13b-local-val/outputs/per_sample_metrics.jsonl"
@@ -73,9 +75,31 @@ def build_comparison(base_rows: dict[str, dict], tuned_rows: dict[str, dict]) ->
                 "target_area": int(tuned.get("target_area", 0)),
                 "base_pred_area": int(base.get("pred_area", 0)),
                 "tuned_pred_area": int(tuned.get("pred_area", 0)),
+                "base_visualization": resolve_visualization_markdown_path(base),
+                "tuned_visualization": resolve_visualization_markdown_path(tuned),
             }
         )
     return rows
+
+
+def resolve_visualization_markdown_path(row: dict) -> str:
+    path = row.get("visualization_markdown_path") or row.get(
+        "visualization_label_path"
+    )
+    if not path and row.get("visualization_path"):
+        path = str(Path(row["visualization_path"]).with_suffix(".md"))
+    if path and Path(path).suffix == ".txt":
+        path = str(Path(path).with_suffix(".md"))
+    return str(path or "")
+
+
+def markdown_link(target: str, report_path: Optional[Path], label: str) -> str:
+    if not target:
+        return ""
+    link = target
+    if report_path:
+        link = os.path.relpath(target, start=report_path.parent)
+    return f"[{label}]({Path(link).as_posix()})"
 
 
 def fmt_float(value: float, signed: bool = False) -> str:
@@ -84,25 +108,42 @@ def fmt_float(value: float, signed: bool = False) -> str:
     return f"{value:.4f}"
 
 
-def format_sample_table(rows: list[dict], title: str) -> list[str]:
+def format_sample_table(
+    rows: list[dict], title: str, report_path: Optional[Path] = None
+) -> list[str]:
     lines = [
         f"## {title}",
         "",
-        "| Rank | Delta IoU | Base IoU | Tuned IoU | Label | Image | Prompt |",
-        "| ---: | ---: | ---: | ---: | --- | --- | --- |",
+        "| Rank | Change | Delta IoU | Base IoU | Tuned IoU | Delta Dice | Label | Image | Base View | Tuned View | Prompt |",
+        "| ---: | --- | ---: | ---: | ---: | ---: | --- | --- | --- | --- | --- |",
     ]
     for idx, row in enumerate(rows, start=1):
         prompt = str(row["prompt"]).replace("|", "\\|")
         image = str(row["image"]).replace("|", "\\|")
         label = str(row["label"]).replace("|", "\\|")
+        if row["delta_iou"] > 0:
+            change = "Improved"
+        elif row["delta_iou"] < 0:
+            change = "Regressed"
+        else:
+            change = "Unchanged"
         lines.append(
-            "| {idx} | {delta} | {base} | {tuned} | {label} | `{image}` | {prompt} |".format(
+            "| {idx} | {change} | {delta} | {base} | {tuned} | {delta_dice} | "
+            "{label} | `{image}` | {base_view} | {tuned_view} | {prompt} |".format(
                 idx=idx,
+                change=change,
                 delta=fmt_float(row["delta_iou"], signed=True),
                 base=fmt_float(row["base_iou"]),
                 tuned=fmt_float(row["tuned_iou"]),
+                delta_dice=fmt_float(row["delta_dice"], signed=True),
                 label=label,
                 image=image,
+                base_view=markdown_link(
+                    row["base_visualization"], report_path, "base"
+                ),
+                tuned_view=markdown_link(
+                    row["tuned_visualization"], report_path, "tuned"
+                ),
                 prompt=prompt,
             )
         )
@@ -166,8 +207,12 @@ def make_report(
     tuned_path: Path,
     top_k: int,
     bad_threshold: float,
+    report_path: Optional[Path] = None,
 ) -> str:
-    improved = sorted(rows, key=lambda row: row["delta_iou"], reverse=True)
+    improved = sorted(
+        rows,
+        key=lambda row: (-row["delta_iou"], -row["delta_dice"], row["image"]),
+    )
     regressed = sorted(rows, key=lambda row: row["delta_iou"])
     still_bad = sorted(
         [row for row in rows if row["tuned_iou"] < bad_threshold],
@@ -190,12 +235,28 @@ def make_report(
         "",
     ]
     lines.extend(format_category_table(category_summary(rows)))
-    lines.extend(format_sample_table(improved[:top_k], f"Top {top_k} Improved"))
-    lines.extend(format_sample_table(regressed[:top_k], f"Top {top_k} Regressed"))
+    lines.extend(
+        format_sample_table(
+            improved,
+            "All Samples Sorted by IoU Change (Best to Worst)",
+            report_path,
+        )
+    )
+    lines.extend(
+        format_sample_table(
+            improved[:top_k], f"Top {top_k} Improved", report_path
+        )
+    )
+    lines.extend(
+        format_sample_table(
+            regressed[:top_k], f"Top {top_k} Regressed", report_path
+        )
+    )
     lines.extend(
         format_sample_table(
             still_bad[: max(top_k, 40)],
             f"Still Bad After Tuning (IoU < {bad_threshold:.2f})",
+            report_path,
         )
     )
     return "\n".join(lines)
@@ -214,6 +275,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--top-k", default=20, type=int)
     parser.add_argument("--bad-threshold", default=0.10, type=float)
     parser.add_argument("--output", type=Path, help="Optional markdown report path.")
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Do not print the markdown report to stdout.",
+    )
     return parser.parse_args()
 
 
@@ -236,8 +302,10 @@ def main() -> None:
         tuned_path=args.tuned,
         top_k=args.top_k,
         bad_threshold=args.bad_threshold,
+        report_path=args.output,
     )
-    print(report)
+    if not args.quiet:
+        print(report)
 
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

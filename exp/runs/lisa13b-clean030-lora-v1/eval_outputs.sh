@@ -12,6 +12,8 @@ CLEAN_DATASET="./dataset/reason_seg/ReasonSegClean030"
 FULL_DATASET="./dataset/reason_seg/ReasonSeg"
 CLEAN_OUTPUT_DIR="./exp/runs/${EXP_NAME}/clean-eval-outputs"
 FULL_OUTPUT_DIR="./exp/runs/${EXP_NAME}/full-eval-outputs"
+BASE_VAL_METRICS="./exp/runs/lisa13b-local-val/outputs/per_sample_metrics.jsonl"
+COMPARE_SCRIPT="./exp/compare_benchmark_metrics.py"
 LISA_BENCHMARK_FONT_PATH="/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
 
 if [ ! -d "$CLIP_TOWER" ]; then
@@ -53,6 +55,10 @@ if [ ! -d "${CLEAN_DATASET}/val" ]; then
 fi
 if [ ! -d "${FULL_DATASET}/val" ]; then
   echo "Missing full val dataset: ${FULL_DATASET}/val" >&2
+  exit 1
+fi
+if [ ! -f "$BASE_VAL_METRICS" ]; then
+  echo "Missing base val metrics: $BASE_VAL_METRICS" >&2
   exit 1
 fi
 
@@ -118,6 +124,18 @@ run_eval "ReasonSegClean030|val" "$CLEAN_OUTPUT_DIR"
 
 echo "[eval] ReasonSeg|val -> $FULL_OUTPUT_DIR"
 run_eval "ReasonSeg|val" "$FULL_OUTPUT_DIR"
+
+python "$COMPARE_SCRIPT" \
+  --quiet \
+  --base "$BASE_VAL_METRICS" \
+  --tuned "${CLEAN_OUTPUT_DIR}/per_sample_metrics.jsonl" \
+  --output "${CLEAN_OUTPUT_DIR}/comparison_by_delta_iou.md"
+
+python "$COMPARE_SCRIPT" \
+  --quiet \
+  --base "$BASE_VAL_METRICS" \
+  --tuned "${FULL_OUTPUT_DIR}/per_sample_metrics.jsonl" \
+  --output "${FULL_OUTPUT_DIR}/comparison_by_delta_iou.md"
 
 echo "[done] clean val outputs: $CLEAN_OUTPUT_DIR"
 echo "[done] full val outputs: $FULL_OUTPUT_DIR"
