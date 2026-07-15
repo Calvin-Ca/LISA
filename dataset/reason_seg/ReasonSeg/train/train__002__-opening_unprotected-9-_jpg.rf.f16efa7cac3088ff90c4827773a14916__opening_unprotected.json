@@ -1,0 +1,80 @@
+{
+  "shapes": [
+    {
+      "label": "target",
+      "points": [
+        [
+          211,
+          234
+        ],
+        [
+          186,
+          327
+        ],
+        [
+          193,
+          321
+        ],
+        [
+          198,
+          326
+        ],
+        [
+          217,
+          325
+        ],
+        [
+          205,
+          281
+        ],
+        [
+          210,
+          262
+        ],
+        [
+          216,
+          272
+        ],
+        [
+          227,
+          326
+        ],
+        [
+          308,
+          331
+        ],
+        [
+          310,
+          327
+        ],
+        [
+          315,
+          332
+        ],
+        [
+          315,
+          304
+        ],
+        [
+          303,
+          241
+        ],
+        [
+          243,
+          233
+        ]
+      ]
+    }
+  ],
+  "text": [
+    "标出存在洞口未防护隐患的位置。"
+  ],
+  "is_sentence": true,
+  "source": {
+    "split": "train",
+    "image_id": 256,
+    "file_name": "002__-opening_unprotected-9-_jpg.rf.f16efa7cac3088ff90c4827773a14916.jpg",
+    "sample_key": "opening_unprotected",
+    "source_category": "opening_unprotected"
+  }
+}

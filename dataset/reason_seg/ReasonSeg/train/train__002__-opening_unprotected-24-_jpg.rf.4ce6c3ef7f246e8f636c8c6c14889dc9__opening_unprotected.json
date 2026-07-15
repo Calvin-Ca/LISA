@@ -1,0 +1,93 @@
+{
+  "shapes": [
+    {
+      "label": "target",
+      "points": [
+        [
+          342,
+          280
+        ],
+        [
+          339,
+          288
+        ],
+        [
+          375,
+          354
+        ],
+        [
+          382,
+          361
+        ],
+        [
+          403,
+          361
+        ],
+        [
+          409,
+          359
+        ],
+        [
+          409,
+          349
+        ],
+        [
+          392,
+          284
+        ],
+        [
+          390,
+          282
+        ]
+      ]
+    },
+    {
+      "label": "target",
+      "points": [
+        [
+          158,
+          275
+        ],
+        [
+          155,
+          367
+        ],
+        [
+          237,
+          365
+        ],
+        [
+          254,
+          362
+        ],
+        [
+          238,
+          339
+        ],
+        [
+          238,
+          313
+        ],
+        [
+          244,
+          296
+        ],
+        [
+          260,
+          278
+        ]
+      ]
+    }
+  ],
+  "text": [
+    "圈出没有防护的洞口或临边区域。"
+  ],
+  "is_sentence": true,
+  "source": {
+    "split": "train",
+    "image_id": 440,
+    "file_name": "002__-opening_unprotected-24-_jpg.rf.4ce6c3ef7f246e8f636c8c6c14889dc9.jpg",
+    "sample_key": "opening_unprotected",
+    "source_category": "opening_unprotected"
+  }
+}

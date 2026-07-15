@@ -1,0 +1,48 @@
+{
+  "shapes": [
+    {
+      "label": "target",
+      "points": [
+        [
+          236,
+          126
+        ],
+        [
+          214,
+          395
+        ],
+        [
+          217,
+          400
+        ],
+        [
+          286,
+          401
+        ],
+        [
+          291,
+          397
+        ],
+        [
+          304,
+          131
+        ],
+        [
+          299,
+          126
+        ]
+      ]
+    }
+  ],
+  "text": [
+    "标出现场材料堆放混乱或文明施工不到位的区域。"
+  ],
+  "is_sentence": true,
+  "source": {
+    "split": "train",
+    "image_id": 483,
+    "file_name": "002__-poor_housekeeping-119-_jpg.rf.0b72f970a2bf66147c5e7b0e05d4bdb7.jpg",
+    "sample_key": "poor_housekeeping",
+    "source_category": "poor_housekeeping"
+  }
+}

@@ -1,0 +1,3846 @@
+{
+  "info": {
+    "description": "Phase-1 feasibility subset from datasets 002 and 004",
+    "split": "val"
+  },
+  "licenses": [],
+  "categories": [
+    {
+      "id": 1,
+      "name": "equipment_proximity",
+      "supercategory": "phase1_feasibility"
+    },
+    {
+      "id": 2,
+      "name": "guardrail_missing",
+      "supercategory": "phase1_feasibility"
+    },
+    {
+      "id": 3,
+      "name": "harness_missing",
+      "supercategory": "phase1_feasibility"
+    },
+    {
+      "id": 4,
+      "name": "helmet_missing",
+      "supercategory": "phase1_feasibility"
+    },
+    {
+      "id": 5,
+      "name": "no helmet",
+      "supercategory": "phase1_feasibility"
+    },
+    {
+      "id": 6,
+      "name": "no jacket",
+      "supercategory": "phase1_feasibility"
+    },
+    {
+      "id": 7,
+      "name": "opening_unprotected",
+      "supercategory": "phase1_feasibility"
+    },
+    {
+      "id": 8,
+      "name": "poor_housekeeping",
+      "supercategory": "phase1_feasibility"
+    },
+    {
+      "id": 9,
+      "name": "safe",
+      "supercategory": "phase1_feasibility"
+    },
+    {
+      "id": 10,
+      "name": "unsafe",
+      "supercategory": "phase1_feasibility"
+    }
+  ],
+  "images": [
+    {
+      "license": 1,
+      "file_name": "004__IMG_20241113_161340_jpg.rf.d2e6016a68c883c9a28b149919ca2c5c.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 1,
+      "source_dataset": "004",
+      "source_image_id": 114,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-opening_unprotected-51-_jpg.rf.7db855a017ceaddec7cf0044a0a8b7e2.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-opening_unprotected-51-.jpg"
+      },
+      "id": 2,
+      "source_dataset": "002",
+      "source_image_id": 924,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG_20241113_161944298_jpg.rf.8b7de1452bddd5e3744643b6b17d30e1.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 3,
+      "source_dataset": "004",
+      "source_image_id": 61,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-equipment_proximity-239-_jpg.rf.580c7aad28dd0cfc688ac83c2d50dab1.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-equipment_proximity-239-.jpg"
+      },
+      "id": 4,
+      "source_dataset": "002",
+      "source_image_id": 174,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-helmet_missing-238-_jpg.rf.d793369e91ce496d9e82d59c120a433a.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-helmet_missing-238-.jpg"
+      },
+      "id": 5,
+      "source_dataset": "002",
+      "source_image_id": 593,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG20241113161931_jpg.rf.a8d69015746e42c5014b2422eaf72c7b.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 6,
+      "source_dataset": "004",
+      "source_image_id": 83,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-harness_missing-34-_JPG.rf.7a0cb0fcf19c88b2fd26aff04164d0c3.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-harness_missing-34-.JPG"
+      },
+      "id": 7,
+      "source_dataset": "002",
+      "source_image_id": 8,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG20241113161018_jpg.rf.ba49da0116576f43888cdeed6efd0336.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 8,
+      "source_dataset": "004",
+      "source_image_id": 92,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-poor_housekeeping-79-_JPG.rf.9c14f23630279126bb089ae474f6af94.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-poor_housekeeping-79-.JPG"
+      },
+      "id": 9,
+      "source_dataset": "002",
+      "source_image_id": 233,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-guardrail_missing-14-_jpg.rf.317f592ca167baf04b16296d87650912.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-guardrail_missing-14-.jpg"
+      },
+      "id": 10,
+      "source_dataset": "002",
+      "source_image_id": 599,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-harness_missing-23-_JPG.rf.9e5a10303ac02c86c71739d108101ea4.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-harness_missing-23-.JPG"
+      },
+      "id": 11,
+      "source_dataset": "002",
+      "source_image_id": 706,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-equipment_proximity-176-_jpg.rf.65783dd7ec30ca8079129328344ad592.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-equipment_proximity-176-.jpg"
+      },
+      "id": 12,
+      "source_dataset": "002",
+      "source_image_id": 28,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-guardrail_missing-58-_jpg.rf.391f56af8166b7a9978f49176685f505.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-guardrail_missing-58-.jpg"
+      },
+      "id": 13,
+      "source_dataset": "002",
+      "source_image_id": 209,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG_20241113_162203623_jpg.rf.e05b826226143833b9ab04f2d13ce7a1.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 14,
+      "source_dataset": "004",
+      "source_image_id": 110,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-opening_unprotected-14-_jpg.rf.f93c1e97c9f6ccaf8d87d079db200754.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-opening_unprotected-14-.jpg"
+      },
+      "id": 15,
+      "source_dataset": "002",
+      "source_image_id": 633,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-poor_housekeeping-132-_jpg.rf.c6a2c42ceb4d1eae5cd2307fedce5fe6.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-poor_housekeeping-132-.jpg"
+      },
+      "id": 16,
+      "source_dataset": "002",
+      "source_image_id": 564,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-helmet_missing-245-_jpg.rf.dcbe61ef31ed007835863b76354c7261.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-helmet_missing-245-.jpg"
+      },
+      "id": 17,
+      "source_dataset": "002",
+      "source_image_id": 490,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG_20241113_161503177_jpg.rf.9caaa1a0ebdcc82457a97f52e8e41dd1.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 18,
+      "source_dataset": "004",
+      "source_image_id": 94,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG_20241113_162221784_jpg.rf.34ad0c7c7fdf4fc5716db91f378fc362.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 19,
+      "source_dataset": "004",
+      "source_image_id": 34,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG_20241113_161941847_jpg.rf.ce72086317700d7f52ce01bf415ed037.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 20,
+      "source_dataset": "004",
+      "source_image_id": 107,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-opening_unprotected-66-_jpg.rf.7727a02d7de525d6c814c405244519a0.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-opening_unprotected-66-.jpg"
+      },
+      "id": 21,
+      "source_dataset": "002",
+      "source_image_id": 348,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-poor_housekeeping-93-_jpg.rf.893e8f8298279e8c46d0fa8a503d58ff.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-poor_housekeeping-93-.jpg"
+      },
+      "id": 22,
+      "source_dataset": "002",
+      "source_image_id": 652,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG20241113161258_jpg.rf.786b1786c44a64de7b328ef8c5a34e93.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 23,
+      "source_dataset": "004",
+      "source_image_id": 65,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-harness_missing-128-_JPG.rf.0d60a2b3c6e7953184fc75bbd9d57e09.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-harness_missing-128-.JPG"
+      },
+      "id": 24,
+      "source_dataset": "002",
+      "source_image_id": 720,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-guardrail_missing-51-_jpg.rf.462baefb712471590d3414e0078183f3.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-guardrail_missing-51-.jpg"
+      },
+      "id": 25,
+      "source_dataset": "002",
+      "source_image_id": 285,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG20241113160838_jpg.rf.a3a315c1e66d2e5d0f19bf139df5b5d6.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 26,
+      "source_dataset": "004",
+      "source_image_id": 84,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG20241113161357_jpg.rf.8d057aafc970f94c8f2f31eaae4e159c.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 27,
+      "source_dataset": "004",
+      "source_image_id": 69,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG_20241113_161758877_HDR_jpg.rf.362f3e155a81c2679a7690b2ef961abb.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 28,
+      "source_dataset": "004",
+      "source_image_id": 25,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-equipment_proximity-258-_jpg.rf.f067c32de0c415c39d46be47d2828e53.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-equipment_proximity-258-.jpg"
+      },
+      "id": 29,
+      "source_dataset": "002",
+      "source_image_id": 427,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-helmet_missing-44-_JPG.rf.b7f7dca429719911b11096ee36907780.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-helmet_missing-44-.JPG"
+      },
+      "id": 30,
+      "source_dataset": "002",
+      "source_image_id": 665,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-helmet_missing-81-_JPG.rf.8258e923663fda6b76eb9ba24129d2eb.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-helmet_missing-81-.JPG"
+      },
+      "id": 31,
+      "source_dataset": "002",
+      "source_image_id": 462,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG_20241113_161405_jpg.rf.7b78a6ff625a0c910f3c1a1839dae955.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 32,
+      "source_dataset": "004",
+      "source_image_id": 46,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG_20241113_162228212_jpg.rf.1021918a81b951a030f665662fb11a58.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 33,
+      "source_dataset": "004",
+      "source_image_id": 15,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-equipment_proximity-114-_jpg.rf.07492924a04683042df5548fae45af02.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-equipment_proximity-114-.jpg"
+      },
+      "id": 34,
+      "source_dataset": "002",
+      "source_image_id": 380,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-poor_housekeeping-80-_JPG.rf.e06712e8c77e71a98a17c423bb15b565.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-poor_housekeeping-80-.JPG"
+      },
+      "id": 35,
+      "source_dataset": "002",
+      "source_image_id": 639,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-harness_missing-69-_JPG.rf.1205c382c7eb97a239309f883a43c734.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-harness_missing-69-.JPG"
+      },
+      "id": 36,
+      "source_dataset": "002",
+      "source_image_id": 912,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG20241113160613_jpg.rf.028bfffcd39729b2b7c7833027bb05f6.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 37,
+      "source_dataset": "004",
+      "source_image_id": 14,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG_20241113_162029941_jpg.rf.9cb9cb44acb2667b768970c0c5b37320.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 38,
+      "source_dataset": "004",
+      "source_image_id": 76,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-guardrail_missing-61-_jpg.rf.c0dd9f521c735b672d1318895a1aaffa.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-guardrail_missing-61-.jpg"
+      },
+      "id": 39,
+      "source_dataset": "002",
+      "source_image_id": 551,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-opening_unprotected-11-_jpg.rf.b006631ca767138c74d5c79ee727de86.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-opening_unprotected-11-.jpg"
+      },
+      "id": 40,
+      "source_dataset": "002",
+      "source_image_id": 911,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG20241113160501_jpg.rf.e2fc6e55324dcda33f674df60a4c0547.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 41,
+      "source_dataset": "004",
+      "source_image_id": 117,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-harness_missing-199-_jpg.rf.613784a2a3a88e15b68ace04501a1544.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-harness_missing-199-.jpg"
+      },
+      "id": 42,
+      "source_dataset": "002",
+      "source_image_id": 968,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG20241113160529_jpg.rf.01cc514ff77c809eb7eb263d362448cd.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 43,
+      "source_dataset": "004",
+      "source_image_id": 9,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-equipment_proximity-98-_JPG.rf.859663957aed421c66c3353cd7b506e3.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-equipment_proximity-98-.JPG"
+      },
+      "id": 44,
+      "source_dataset": "002",
+      "source_image_id": 341,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-poor_housekeeping-26-_jpg.rf.58ff5bcc7170f381aa8b6644d467f39b.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-poor_housekeeping-26-.jpg"
+      },
+      "id": 45,
+      "source_dataset": "002",
+      "source_image_id": 335,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-helmet_missing-19-_jpg.rf.cef508999f7777acb7cb6470fd767fef.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-helmet_missing-19-.jpg"
+      },
+      "id": 46,
+      "source_dataset": "002",
+      "source_image_id": 153,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG20241113161529_jpg.rf.e77d13689e9d29512af57438dfc09685.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 47,
+      "source_dataset": "004",
+      "source_image_id": 118,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-guardrail_missing-59-_jpg.rf.f5b2fdd736240cc4783688e9c9d165ec.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-guardrail_missing-59-.jpg"
+      },
+      "id": 48,
+      "source_dataset": "002",
+      "source_image_id": 262,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG20241113161129_jpg.rf.3a3917985cacdef53fdb706f8f961778.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 49,
+      "source_dataset": "004",
+      "source_image_id": 53,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-opening_unprotected-63-_jpg.rf.502fc6e8122ebaa5d0a95498b20b0794.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-opening_unprotected-63-.jpg"
+      },
+      "id": 50,
+      "source_dataset": "002",
+      "source_image_id": 797,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-poor_housekeeping-9-_jpg.rf.36f9a475b127b85f69ba023fc29a16e6.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-poor_housekeeping-9-.jpg"
+      },
+      "id": 51,
+      "source_dataset": "002",
+      "source_image_id": 558,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG_20241113_161954_jpg.rf.6d1a5633986ccbdc7de79340bce250ae.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 52,
+      "source_dataset": "004",
+      "source_image_id": 51,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-harness_missing-45-_JPG.rf.8bddeb686fc5fada6004b77add73011f.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-harness_missing-45-.JPG"
+      },
+      "id": 53,
+      "source_dataset": "002",
+      "source_image_id": 990,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG20241113160936_jpg.rf.162c6c777d07be2ca5c077d6906547f6.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 54,
+      "source_dataset": "004",
+      "source_image_id": 10,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG20241113160624_jpg.rf.4b539618ccf9c3ab60c656685e98e24e.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 55,
+      "source_dataset": "004",
+      "source_image_id": 28,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-helmet_missing-220-_jpg.rf.9eb0b4ca781571c4cba45023dd5a2d96.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-helmet_missing-220-.jpg"
+      },
+      "id": 56,
+      "source_dataset": "002",
+      "source_image_id": 750,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-opening_unprotected-26-_jpg.rf.8a97f7db61ee9371c7a662776cd884b2.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-opening_unprotected-26-.jpg"
+      },
+      "id": 57,
+      "source_dataset": "002",
+      "source_image_id": 931,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-equipment_proximity-121-_jpg.rf.237a42d8eb09ef3ed83da26a92bd34b7.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-equipment_proximity-121-.jpg"
+      },
+      "id": 58,
+      "source_dataset": "002",
+      "source_image_id": 220,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG20241113160658_jpg.rf.509371336267fc48e02387bc78859d8f.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 59,
+      "source_dataset": "004",
+      "source_image_id": 31,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-guardrail_missing-64-_jpg.rf.ce53035dccc9877ee6e3ffad7fe23cd1.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-guardrail_missing-64-.jpg"
+      },
+      "id": 60,
+      "source_dataset": "002",
+      "source_image_id": 228,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-opening_unprotected-47-_JPG.rf.4a2d026cab550ae1a0c3efad740dba3a.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-opening_unprotected-47-.JPG"
+      },
+      "id": 61,
+      "source_dataset": "002",
+      "source_image_id": 703,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG20241113160817_jpg.rf.9c7cd48d2297fc816a026d117f0df99b.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 62,
+      "source_dataset": "004",
+      "source_image_id": 89,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-helmet_missing-249-_JPG.rf.161f677eff339180405f881cbd790a96.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-helmet_missing-249-.JPG"
+      },
+      "id": 63,
+      "source_dataset": "002",
+      "source_image_id": 47,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG_20241113_161450_jpg.rf.b72ade8fc935970192f5e4c70fc7249e.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 64,
+      "source_dataset": "004",
+      "source_image_id": 93,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-guardrail_missing-115-_jpg.rf.8c34d4eab070a2b7ff508335c7bac3f4.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-guardrail_missing-115-.jpg"
+      },
+      "id": 65,
+      "source_dataset": "002",
+      "source_image_id": 322,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG20241113162223_jpg.rf.433b0cb6b59de8d7728e3ee60894c40f.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 66,
+      "source_dataset": "004",
+      "source_image_id": 26,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-poor_housekeeping-47-_jpg.rf.c8380624d389492c9c45757106f5465c.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-poor_housekeeping-47-.jpg"
+      },
+      "id": 67,
+      "source_dataset": "002",
+      "source_image_id": 96,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-harness_missing-43-_JPG.rf.774465d5bd0c5ff2e6054e70197cc4b8.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-harness_missing-43-.JPG"
+      },
+      "id": 68,
+      "source_dataset": "002",
+      "source_image_id": 982,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG20241113160638_jpg.rf.f032f3f45329778ae3108a9bbab937d1.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 69,
+      "source_dataset": "004",
+      "source_image_id": 121,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-equipment_proximity-203-_jpg.rf.f10bae0078f7b417b8da3c3f67acc70f.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-equipment_proximity-203-.jpg"
+      },
+      "id": 70,
+      "source_dataset": "002",
+      "source_image_id": 159,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-helmet_missing-29-_jpg.rf.37ca516d796becec77200bb355a0f509.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-helmet_missing-29-.jpg"
+      },
+      "id": 71,
+      "source_dataset": "002",
+      "source_image_id": 873,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-poor_housekeeping-62-_jpg.rf.645f5cfe451a7bbf46b20d92a39ea973.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-poor_housekeeping-62-.jpg"
+      },
+      "id": 72,
+      "source_dataset": "002",
+      "source_image_id": 980,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG_20241113_161952050_jpg.rf.7c0b52ecb477f8f7ef8b71489dac19cf.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 73,
+      "source_dataset": "004",
+      "source_image_id": 77,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-opening_unprotected-5-_jpg.rf.44631bfc35cdebbd5142d77b296256d3.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-opening_unprotected-5-.jpg"
+      },
+      "id": 74,
+      "source_dataset": "002",
+      "source_image_id": 798,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG_20241113_162132082_jpg.rf.391adeed04f63ff7aa322dc4173f4a3a.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 75,
+      "source_dataset": "004",
+      "source_image_id": 50,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG20241113161910_jpg.rf.7330e0f90826aafd4c8a75a7cfdfaa87.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 76,
+      "source_dataset": "004",
+      "source_image_id": 68,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "004__IMG_20241113_161953162_jpg.rf.2fc5157cdd82110c6541270dcb7e5f82.jpg",
+      "height": 640,
+      "width": 640,
+      "date_captured": "2025-02-18T05:57:56+00:00",
+      "id": 77,
+      "source_dataset": "004",
+      "source_image_id": 21,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-equipment_proximity-278-_jpg.rf.28a6b911d2ab42e0b0dbffd5f8d5e5db.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-equipment_proximity-278-.jpg"
+      },
+      "id": 78,
+      "source_dataset": "002",
+      "source_image_id": 137,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-harness_missing-13-_jpg.rf.02a4e27c4cfc8c835132ab19c6a328c2.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-harness_missing-13-.jpg"
+      },
+      "id": 79,
+      "source_dataset": "002",
+      "source_image_id": 901,
+      "manual_check_required": true
+    },
+    {
+      "license": 1,
+      "file_name": "002__-guardrail_missing-126-_JPG.rf.18bd6ecccb5a6b3a28475b0f3c7c9169.jpg",
+      "height": 512,
+      "width": 512,
+      "date_captured": "2026-07-06T15:25:54+00:00",
+      "extra": {
+        "name": "-guardrail_missing-126-.JPG"
+      },
+      "id": 80,
+      "source_dataset": "002",
+      "source_image_id": 565,
+      "manual_check_required": true
+    }
+  ],
+  "annotations": [
+    {
+      "bbox": [
+        63,
+        144,
+        171,
+        349
+      ],
+      "area": 59679,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 1,
+      "image_id": 1,
+      "category_id": 5,
+      "source_dataset": "004",
+      "source_annotation_id": 240,
+      "source_category_name": "no helmet"
+    },
+    {
+      "bbox": [
+        247,
+        107,
+        146,
+        384.5
+      ],
+      "area": 56137,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 2,
+      "image_id": 1,
+      "category_id": 5,
+      "source_dataset": "004",
+      "source_annotation_id": 241,
+      "source_category_name": "no helmet"
+    },
+    {
+      "bbox": [
+        406,
+        129,
+        128.5,
+        363
+      ],
+      "area": 46645.5,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 3,
+      "image_id": 1,
+      "category_id": 6,
+      "source_dataset": "004",
+      "source_annotation_id": 242,
+      "source_category_name": "no jacket"
+    },
+    {
+      "bbox": [
+        200.53,
+        143.45,
+        245.33,
+        293.99
+      ],
+      "iscrowd": 0,
+      "area": 72124.567,
+      "segmentation": [
+        [
+          209.6,
+          143.445,
+          200.533,
+          309.614,
+          357.867,
+          437.437,
+          445.867,
+          284.05,
+          209.6,
+          143.445
+        ]
+      ],
+      "id": 4,
+      "image_id": 2,
+      "category_id": 7,
+      "source_dataset": "002",
+      "source_annotation_id": 1241,
+      "source_category_name": "opening_unprotected"
+    },
+    {
+      "bbox": [
+        35.73,
+        77.4,
+        120.53,
+        146.29
+      ],
+      "iscrowd": 0,
+      "area": 17632.334,
+      "segmentation": [
+        [
+          35.733,
+          130.663,
+          129.067,
+          223.689,
+          156.267,
+          100.838,
+          156.267,
+          99.417,
+          126.933,
+          77.404,
+          35.733,
+          130.663
+        ]
+      ],
+      "id": 5,
+      "image_id": 2,
+      "category_id": 7,
+      "source_dataset": "002",
+      "source_annotation_id": 1242,
+      "source_category_name": "opening_unprotected"
+    },
+    {
+      "bbox": [
+        184,
+        77,
+        259.5,
+        518
+      ],
+      "area": 134421,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 6,
+      "image_id": 3,
+      "category_id": 9,
+      "source_dataset": "004",
+      "source_annotation_id": 138,
+      "source_category_name": "safe"
+    },
+    {
+      "bbox": [
+        417,
+        131,
+        223,
+        477.5
+      ],
+      "area": 106482.5,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 7,
+      "image_id": 3,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 139,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        182.75,
+        205.75,
+        166.5,
+        260.5
+      ],
+      "iscrowd": 0,
+      "area": 43373.25,
+      "segmentation": [],
+      "id": 8,
+      "image_id": 4,
+      "category_id": 1,
+      "source_dataset": "002",
+      "source_annotation_id": 231,
+      "source_category_name": "equipment_proximity"
+    },
+    {
+      "bbox": [
+        217.75,
+        58,
+        100.5,
+        270
+      ],
+      "iscrowd": 0,
+      "area": 27135,
+      "segmentation": [],
+      "id": 9,
+      "image_id": 5,
+      "category_id": 4,
+      "source_dataset": "002",
+      "source_annotation_id": 781,
+      "source_category_name": "helmet_missing"
+    },
+    {
+      "bbox": [
+        166,
+        15,
+        340.5,
+        580
+      ],
+      "area": 197490,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 10,
+      "image_id": 6,
+      "category_id": 9,
+      "source_dataset": "004",
+      "source_annotation_id": 184,
+      "source_category_name": "safe"
+    },
+    {
+      "bbox": [
+        495,
+        24,
+        145,
+        395
+      ],
+      "area": 57275,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 11,
+      "image_id": 6,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 185,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        191.75,
+        26.5,
+        77.5,
+        231
+      ],
+      "iscrowd": 0,
+      "area": 17902.5,
+      "segmentation": [],
+      "id": 12,
+      "image_id": 7,
+      "category_id": 3,
+      "source_dataset": "002",
+      "source_annotation_id": 11,
+      "source_category_name": "harness_missing"
+    },
+    {
+      "bbox": [
+        78,
+        123,
+        463,
+        462
+      ],
+      "area": 213906,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 13,
+      "image_id": 8,
+      "category_id": 5,
+      "source_dataset": "004",
+      "source_annotation_id": 198,
+      "source_category_name": "no helmet"
+    },
+    {
+      "bbox": [
+        14.75,
+        129.5,
+        122.5,
+        74
+      ],
+      "iscrowd": 0,
+      "area": 9065,
+      "segmentation": [],
+      "id": 14,
+      "image_id": 9,
+      "category_id": 8,
+      "source_dataset": "002",
+      "source_annotation_id": 309,
+      "source_category_name": "poor_housekeeping"
+    },
+    {
+      "bbox": [
+        40.25,
+        202,
+        147.5,
+        92
+      ],
+      "iscrowd": 0,
+      "area": 13570,
+      "segmentation": [],
+      "id": 15,
+      "image_id": 9,
+      "category_id": 8,
+      "source_dataset": "002",
+      "source_annotation_id": 310,
+      "source_category_name": "poor_housekeeping"
+    },
+    {
+      "bbox": [
+        205,
+        130,
+        307,
+        370
+      ],
+      "iscrowd": 0,
+      "area": 113590,
+      "segmentation": [],
+      "id": 16,
+      "image_id": 9,
+      "category_id": 8,
+      "source_dataset": "002",
+      "source_annotation_id": 311,
+      "source_category_name": "poor_housekeeping"
+    },
+    {
+      "bbox": [
+        290.99,
+        206.08,
+        149.33,
+        305.79
+      ],
+      "iscrowd": 0,
+      "area": 45663.621,
+      "segmentation": [
+        [
+          290.987,
+          206.08,
+          292.693,
+          233.6,
+          414.72,
+          497.28,
+          420.693,
+          511.872,
+          440.32,
+          367.36,
+          290.987,
+          206.08
+        ]
+      ],
+      "id": 17,
+      "image_id": 10,
+      "category_id": 2,
+      "source_dataset": "002",
+      "source_annotation_id": 791,
+      "source_category_name": "guardrail_missing"
+    },
+    {
+      "bbox": [
+        183.75,
+        131,
+        61.5,
+        254
+      ],
+      "iscrowd": 0,
+      "area": 15621,
+      "segmentation": [],
+      "id": 18,
+      "image_id": 11,
+      "category_id": 3,
+      "source_dataset": "002",
+      "source_annotation_id": 938,
+      "source_category_name": "harness_missing"
+    },
+    {
+      "bbox": [
+        372,
+        106.75,
+        118,
+        386.5
+      ],
+      "iscrowd": 0,
+      "area": 45607,
+      "segmentation": [],
+      "id": 19,
+      "image_id": 11,
+      "category_id": 3,
+      "source_dataset": "002",
+      "source_annotation_id": 939,
+      "source_category_name": "harness_missing"
+    },
+    {
+      "bbox": [
+        117,
+        73.25,
+        284,
+        438.5
+      ],
+      "iscrowd": 0,
+      "area": 124534,
+      "segmentation": [],
+      "id": 20,
+      "image_id": 12,
+      "category_id": 1,
+      "source_dataset": "002",
+      "source_annotation_id": 41,
+      "source_category_name": "equipment_proximity"
+    },
+    {
+      "bbox": [
+        101.08,
+        203.85,
+        288,
+        70.43
+      ],
+      "iscrowd": 0,
+      "area": 20283.84,
+      "segmentation": [
+        [
+          101.079,
+          274.286,
+          259.556,
+          272.254,
+          387.047,
+          273.609,
+          389.079,
+          203.852,
+          101.079,
+          209.27,
+          101.079,
+          274.286
+        ]
+      ],
+      "id": 21,
+      "image_id": 13,
+      "category_id": 2,
+      "source_dataset": "002",
+      "source_annotation_id": 277,
+      "source_category_name": "guardrail_missing"
+    },
+    {
+      "bbox": [
+        69,
+        102,
+        222.5,
+        435.5
+      ],
+      "area": 96898.75,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 22,
+      "image_id": 14,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 234,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        317,
+        132,
+        188,
+        425
+      ],
+      "area": 79900,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 23,
+      "image_id": 14,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 235,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        136.32,
+        116.05,
+        232.32,
+        270.51
+      ],
+      "iscrowd": 0,
+      "area": 62844.883,
+      "segmentation": [
+        [
+          350.08,
+          118.613,
+          197.12,
+          116.053,
+          136.32,
+          361.813,
+          368.64,
+          386.56,
+          350.08,
+          118.613
+        ]
+      ],
+      "id": 24,
+      "image_id": 15,
+      "category_id": 7,
+      "source_dataset": "002",
+      "source_annotation_id": 844,
+      "source_category_name": "opening_unprotected"
+    },
+    {
+      "bbox": [
+        11,
+        368.25,
+        153,
+        131.5
+      ],
+      "iscrowd": 0,
+      "area": 20119.5,
+      "segmentation": [],
+      "id": 25,
+      "image_id": 16,
+      "category_id": 8,
+      "source_dataset": "002",
+      "source_annotation_id": 737,
+      "source_category_name": "poor_housekeeping"
+    },
+    {
+      "bbox": [
+        98,
+        327,
+        96,
+        86
+      ],
+      "iscrowd": 0,
+      "area": 8256,
+      "segmentation": [],
+      "id": 26,
+      "image_id": 16,
+      "category_id": 8,
+      "source_dataset": "002",
+      "source_annotation_id": 738,
+      "source_category_name": "poor_housekeeping"
+    },
+    {
+      "bbox": [
+        152,
+        407,
+        225,
+        105
+      ],
+      "iscrowd": 0,
+      "area": 23625,
+      "segmentation": [],
+      "id": 27,
+      "image_id": 16,
+      "category_id": 8,
+      "source_dataset": "002",
+      "source_annotation_id": 739,
+      "source_category_name": "poor_housekeeping"
+    },
+    {
+      "bbox": [
+        329.25,
+        244,
+        82.5,
+        243
+      ],
+      "iscrowd": 0,
+      "area": 20047.5,
+      "segmentation": [],
+      "id": 28,
+      "image_id": 16,
+      "category_id": 8,
+      "source_dataset": "002",
+      "source_annotation_id": 740,
+      "source_category_name": "poor_housekeeping"
+    },
+    {
+      "bbox": [
+        244.75,
+        12.5,
+        132.5,
+        334
+      ],
+      "iscrowd": 0,
+      "area": 44255,
+      "segmentation": [],
+      "id": 29,
+      "image_id": 17,
+      "category_id": 4,
+      "source_dataset": "002",
+      "source_annotation_id": 637,
+      "source_category_name": "helmet_missing"
+    },
+    {
+      "bbox": [
+        142,
+        138,
+        156.5,
+        397
+      ],
+      "area": 62130.5,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 30,
+      "image_id": 18,
+      "category_id": 6,
+      "source_dataset": "004",
+      "source_annotation_id": 204,
+      "source_category_name": "no jacket"
+    },
+    {
+      "bbox": [
+        292,
+        165,
+        106.5,
+        352
+      ],
+      "area": 37488,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 31,
+      "image_id": 18,
+      "category_id": 6,
+      "source_dataset": "004",
+      "source_annotation_id": 205,
+      "source_category_name": "no jacket"
+    },
+    {
+      "bbox": [
+        311,
+        149,
+        186,
+        441.5
+      ],
+      "area": 82119,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 32,
+      "image_id": 19,
+      "category_id": 5,
+      "source_dataset": "004",
+      "source_annotation_id": 78,
+      "source_category_name": "no helmet"
+    },
+    {
+      "bbox": [
+        72,
+        130,
+        242,
+        410
+      ],
+      "area": 99220,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 33,
+      "image_id": 19,
+      "category_id": 6,
+      "source_dataset": "004",
+      "source_annotation_id": 79,
+      "source_category_name": "no jacket"
+    },
+    {
+      "bbox": [
+        184,
+        119,
+        250,
+        482
+      ],
+      "area": 120500,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 34,
+      "image_id": 20,
+      "category_id": 9,
+      "source_dataset": "004",
+      "source_annotation_id": 229,
+      "source_category_name": "safe"
+    },
+    {
+      "bbox": [
+        444,
+        119,
+        196,
+        487
+      ],
+      "area": 95452,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 35,
+      "image_id": 20,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 230,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        164.8,
+        263.82,
+        244.8,
+        172.09
+      ],
+      "iscrowd": 0,
+      "area": 42127.632,
+      "segmentation": [
+        [
+          409.6,
+          435.911,
+          336,
+          265.244,
+          196.8,
+          263.822,
+          195.2,
+          265.956,
+          164.8,
+          429.511,
+          409.6,
+          435.911
+        ]
+      ],
+      "id": 36,
+      "image_id": 21,
+      "category_id": 7,
+      "source_dataset": "002",
+      "source_annotation_id": 453,
+      "source_category_name": "opening_unprotected"
+    },
+    {
+      "bbox": [
+        150.5,
+        130,
+        233,
+        313
+      ],
+      "iscrowd": 0,
+      "area": 72929,
+      "segmentation": [],
+      "id": 37,
+      "image_id": 22,
+      "category_id": 8,
+      "source_dataset": "002",
+      "source_annotation_id": 870,
+      "source_category_name": "poor_housekeeping"
+    },
+    {
+      "bbox": [
+        106,
+        118,
+        333,
+        522
+      ],
+      "area": 173826,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 38,
+      "image_id": 23,
+      "category_id": 9,
+      "source_dataset": "004",
+      "source_annotation_id": 144,
+      "source_category_name": "safe"
+    },
+    {
+      "bbox": [
+        172,
+        106,
+        134,
+        406
+      ],
+      "iscrowd": 0,
+      "area": 54404,
+      "segmentation": [],
+      "id": 39,
+      "image_id": 24,
+      "category_id": 3,
+      "source_dataset": "002",
+      "source_annotation_id": 960,
+      "source_category_name": "harness_missing"
+    },
+    {
+      "bbox": [
+        318.1,
+        0,
+        170.29,
+        365.71
+      ],
+      "iscrowd": 0,
+      "area": 62276.756,
+      "segmentation": [
+        [
+          323.047,
+          365.714,
+          340.19,
+          332.529,
+          480,
+          169.312,
+          488.381,
+          0,
+          318.095,
+          136.127,
+          323.047,
+          365.714
+        ]
+      ],
+      "id": 40,
+      "image_id": 25,
+      "category_id": 2,
+      "source_dataset": "002",
+      "source_annotation_id": 379,
+      "source_category_name": "guardrail_missing"
+    },
+    {
+      "bbox": [
+        152.76,
+        136.13,
+        166.09,
+        241.1
+      ],
+      "iscrowd": 0,
+      "area": 40044.299,
+      "segmentation": [
+        [
+          160.381,
+          310.18,
+          318.857,
+          377.227,
+          317.714,
+          136.127,
+          152.762,
+          229.587,
+          160.381,
+          310.18
+        ]
+      ],
+      "id": 41,
+      "image_id": 25,
+      "category_id": 2,
+      "source_dataset": "002",
+      "source_annotation_id": 380,
+      "source_category_name": "guardrail_missing"
+    },
+    {
+      "bbox": [
+        168,
+        159,
+        89.5,
+        462.5
+      ],
+      "area": 41393.75,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 42,
+      "image_id": 26,
+      "category_id": 5,
+      "source_dataset": "004",
+      "source_annotation_id": 186,
+      "source_category_name": "no helmet"
+    },
+    {
+      "bbox": [
+        265,
+        153,
+        79,
+        455.5
+      ],
+      "area": 35984.5,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 43,
+      "image_id": 26,
+      "category_id": 6,
+      "source_dataset": "004",
+      "source_annotation_id": 187,
+      "source_category_name": "no jacket"
+    },
+    {
+      "bbox": [
+        347,
+        166,
+        73.5,
+        464.5
+      ],
+      "area": 34140.75,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 44,
+      "image_id": 26,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 188,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        111,
+        267,
+        170.5,
+        359.5
+      ],
+      "area": 61294.75,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 45,
+      "image_id": 27,
+      "category_id": 9,
+      "source_dataset": "004",
+      "source_annotation_id": 150,
+      "source_category_name": "safe"
+    },
+    {
+      "bbox": [
+        297,
+        254,
+        147,
+        386
+      ],
+      "area": 56742,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 46,
+      "image_id": 27,
+      "category_id": 5,
+      "source_dataset": "004",
+      "source_annotation_id": 151,
+      "source_category_name": "no helmet"
+    },
+    {
+      "bbox": [
+        464,
+        278,
+        170.5,
+        358.5
+      ],
+      "area": 61124.25,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 47,
+      "image_id": 27,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 152,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        280,
+        61,
+        169,
+        542.5
+      ],
+      "area": 91682.5,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 48,
+      "image_id": 28,
+      "category_id": 5,
+      "source_dataset": "004",
+      "source_annotation_id": 50,
+      "source_category_name": "no helmet"
+    },
+    {
+      "bbox": [
+        17,
+        8,
+        276.5,
+        632
+      ],
+      "area": 174748,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 49,
+      "image_id": 28,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 51,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        63.75,
+        182,
+        390.5,
+        285
+      ],
+      "iscrowd": 0,
+      "area": 111292.5,
+      "segmentation": [],
+      "id": 50,
+      "image_id": 29,
+      "category_id": 1,
+      "source_dataset": "002",
+      "source_annotation_id": 561,
+      "source_category_name": "equipment_proximity"
+    },
+    {
+      "bbox": [
+        178.5,
+        281,
+        104,
+        138
+      ],
+      "iscrowd": 0,
+      "area": 14352,
+      "segmentation": [],
+      "id": 51,
+      "image_id": 30,
+      "category_id": 4,
+      "source_dataset": "002",
+      "source_annotation_id": 886,
+      "source_category_name": "helmet_missing"
+    },
+    {
+      "bbox": [
+        193,
+        129,
+        167,
+        286
+      ],
+      "iscrowd": 0,
+      "area": 47762,
+      "segmentation": [],
+      "id": 52,
+      "image_id": 31,
+      "category_id": 4,
+      "source_dataset": "002",
+      "source_annotation_id": 607,
+      "source_category_name": "helmet_missing"
+    },
+    {
+      "bbox": [
+        83,
+        114,
+        171.5,
+        381
+      ],
+      "area": 65341.5,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 53,
+      "image_id": 32,
+      "category_id": 9,
+      "source_dataset": "004",
+      "source_annotation_id": 103,
+      "source_category_name": "safe"
+    },
+    {
+      "bbox": [
+        208,
+        94,
+        262.5,
+        399.5
+      ],
+      "area": 104868.75,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 54,
+      "image_id": 32,
+      "category_id": 5,
+      "source_dataset": "004",
+      "source_annotation_id": 104,
+      "source_category_name": "no helmet"
+    },
+    {
+      "bbox": [
+        401,
+        132,
+        217,
+        378.5
+      ],
+      "area": 82134.5,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 55,
+      "image_id": 32,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 105,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        194,
+        132,
+        244.5,
+        494.5
+      ],
+      "area": 120905.25,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 56,
+      "image_id": 33,
+      "category_id": 9,
+      "source_dataset": "004",
+      "source_annotation_id": 34,
+      "source_category_name": "safe"
+    },
+    {
+      "bbox": [
+        0,
+        139,
+        212,
+        460.5
+      ],
+      "area": 97626,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 57,
+      "image_id": 33,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 35,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        219.25,
+        164.25,
+        124.5,
+        102.5
+      ],
+      "iscrowd": 0,
+      "area": 12761.25,
+      "segmentation": [],
+      "id": 58,
+      "image_id": 34,
+      "category_id": 1,
+      "source_dataset": "002",
+      "source_annotation_id": 497,
+      "source_category_name": "equipment_proximity"
+    },
+    {
+      "bbox": [
+        54.5,
+        171.5,
+        418,
+        218
+      ],
+      "iscrowd": 0,
+      "area": 91124,
+      "segmentation": [],
+      "id": 59,
+      "image_id": 35,
+      "category_id": 8,
+      "source_dataset": "002",
+      "source_annotation_id": 851,
+      "source_category_name": "poor_housekeeping"
+    },
+    {
+      "bbox": [
+        251.25,
+        81,
+        125.5,
+        431
+      ],
+      "iscrowd": 0,
+      "area": 54090.5,
+      "segmentation": [],
+      "id": 60,
+      "image_id": 36,
+      "category_id": 3,
+      "source_dataset": "002",
+      "source_annotation_id": 1228,
+      "source_category_name": "harness_missing"
+    },
+    {
+      "bbox": [
+        14,
+        138,
+        110,
+        483.5
+      ],
+      "area": 53185,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 61,
+      "image_id": 37,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 29,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        135,
+        143,
+        101.5,
+        480
+      ],
+      "area": 48720,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 62,
+      "image_id": 37,
+      "category_id": 9,
+      "source_dataset": "004",
+      "source_annotation_id": 30,
+      "source_category_name": "safe"
+    },
+    {
+      "bbox": [
+        260,
+        118,
+        81,
+        495
+      ],
+      "area": 40095,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 63,
+      "image_id": 37,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 31,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        352,
+        118,
+        82,
+        512
+      ],
+      "area": 41984,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 64,
+      "image_id": 37,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 32,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        450,
+        104,
+        154.5,
+        523
+      ],
+      "area": 80803.5,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 65,
+      "image_id": 37,
+      "category_id": 9,
+      "source_dataset": "004",
+      "source_annotation_id": 33,
+      "source_category_name": "safe"
+    },
+    {
+      "bbox": [
+        209,
+        110,
+        226,
+        438
+      ],
+      "area": 98988,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 66,
+      "image_id": 38,
+      "category_id": 6,
+      "source_dataset": "004",
+      "source_annotation_id": 167,
+      "source_category_name": "no jacket"
+    },
+    {
+      "bbox": [
+        203.17,
+        176.76,
+        131.56,
+        182.86
+      ],
+      "iscrowd": 0,
+      "area": 24057.062,
+      "segmentation": [
+        [
+          203.175,
+          359.619,
+          217.905,
+          355.556,
+          217.397,
+          354.201,
+          331.682,
+          313.566,
+          334.73,
+          218.074,
+          205.206,
+          176.762,
+          203.175,
+          359.619
+        ]
+      ],
+      "id": 67,
+      "image_id": 39,
+      "category_id": 2,
+      "source_dataset": "002",
+      "source_annotation_id": 721,
+      "source_category_name": "guardrail_missing"
+    },
+    {
+      "bbox": [
+        48.25,
+        166.35,
+        364.02,
+        201.27
+      ],
+      "iscrowd": 0,
+      "area": 73266.305,
+      "segmentation": [
+        [
+          412.275,
+          199.365,
+          77.884,
+          166.349,
+          48.254,
+          367.619,
+          388.571,
+          363.175,
+          412.275,
+          199.365
+        ]
+      ],
+      "id": 68,
+      "image_id": 40,
+      "category_id": 7,
+      "source_dataset": "002",
+      "source_annotation_id": 1227,
+      "source_category_name": "opening_unprotected"
+    },
+    {
+      "bbox": [
+        366,
+        210,
+        95.5,
+        428
+      ],
+      "area": 40874,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 69,
+      "image_id": 41,
+      "category_id": 9,
+      "source_dataset": "004",
+      "source_annotation_id": 246,
+      "source_category_name": "safe"
+    },
+    {
+      "bbox": [
+        112,
+        203,
+        93,
+        432.5
+      ],
+      "area": 40222.5,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 70,
+      "image_id": 41,
+      "category_id": 9,
+      "source_dataset": "004",
+      "source_annotation_id": 247,
+      "source_category_name": "safe"
+    },
+    {
+      "bbox": [
+        280,
+        227,
+        79.5,
+        409.5
+      ],
+      "area": 32555.25,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 71,
+      "image_id": 41,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 248,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        467,
+        226,
+        115.5,
+        412
+      ],
+      "area": 47586,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 72,
+      "image_id": 41,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 249,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        20,
+        237,
+        92.5,
+        403
+      ],
+      "area": 37277.5,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 73,
+      "image_id": 41,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 250,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        209,
+        220,
+        73,
+        407.5
+      ],
+      "area": 29747.5,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 74,
+      "image_id": 41,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 251,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        231.25,
+        28.75,
+        63.5,
+        144.5
+      ],
+      "iscrowd": 0,
+      "area": 9175.75,
+      "segmentation": [],
+      "id": 75,
+      "image_id": 42,
+      "category_id": 3,
+      "source_dataset": "002",
+      "source_annotation_id": 1297,
+      "source_category_name": "harness_missing"
+    },
+    {
+      "bbox": [
+        448,
+        131,
+        136,
+        509
+      ],
+      "area": 69224,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 76,
+      "image_id": 43,
+      "category_id": 5,
+      "source_dataset": "004",
+      "source_annotation_id": 17,
+      "source_category_name": "no helmet"
+    },
+    {
+      "bbox": [
+        309,
+        131,
+        107,
+        509
+      ],
+      "area": 54463,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 77,
+      "image_id": 43,
+      "category_id": 6,
+      "source_dataset": "004",
+      "source_annotation_id": 18,
+      "source_category_name": "no jacket"
+    },
+    {
+      "bbox": [
+        26,
+        174,
+        111,
+        464.5
+      ],
+      "area": 51559.5,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 78,
+      "image_id": 43,
+      "category_id": 6,
+      "source_dataset": "004",
+      "source_annotation_id": 19,
+      "source_category_name": "no jacket"
+    },
+    {
+      "bbox": [
+        182,
+        145,
+        110.5,
+        491
+      ],
+      "area": 54255.5,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 79,
+      "image_id": 43,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 20,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        46.5,
+        146.75,
+        273,
+        288.5
+      ],
+      "iscrowd": 0,
+      "area": 78760.5,
+      "segmentation": [],
+      "id": 80,
+      "image_id": 44,
+      "category_id": 1,
+      "source_dataset": "002",
+      "source_annotation_id": 446,
+      "source_category_name": "equipment_proximity"
+    },
+    {
+      "bbox": [
+        163.75,
+        198,
+        320.5,
+        293
+      ],
+      "iscrowd": 0,
+      "area": 93906.5,
+      "segmentation": [],
+      "id": 81,
+      "image_id": 45,
+      "category_id": 8,
+      "source_dataset": "002",
+      "source_annotation_id": 439,
+      "source_category_name": "poor_housekeeping"
+    },
+    {
+      "bbox": [
+        15,
+        194,
+        240,
+        198
+      ],
+      "iscrowd": 0,
+      "area": 47520,
+      "segmentation": [],
+      "id": 82,
+      "image_id": 45,
+      "category_id": 8,
+      "source_dataset": "002",
+      "source_annotation_id": 440,
+      "source_category_name": "poor_housekeeping"
+    },
+    {
+      "bbox": [
+        248,
+        85.25,
+        87,
+        205.5
+      ],
+      "iscrowd": 0,
+      "area": 17878.5,
+      "segmentation": [],
+      "id": 83,
+      "image_id": 46,
+      "category_id": 4,
+      "source_dataset": "002",
+      "source_annotation_id": 205,
+      "source_category_name": "helmet_missing"
+    },
+    {
+      "bbox": [
+        143,
+        150,
+        338.5,
+        466.5
+      ],
+      "area": 157910.25,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 84,
+      "image_id": 47,
+      "category_id": 5,
+      "source_dataset": "004",
+      "source_annotation_id": 252,
+      "source_category_name": "no helmet"
+    },
+    {
+      "bbox": [
+        128,
+        184.21,
+        227.05,
+        100.23
+      ],
+      "iscrowd": 0,
+      "area": 22757.222,
+      "segmentation": [
+        [
+          128,
+          284.444,
+          139.682,
+          281.058,
+          355.047,
+          281.058,
+          355.047,
+          186.921,
+          130.032,
+          184.211,
+          128,
+          284.444
+        ]
+      ],
+      "id": 85,
+      "image_id": 48,
+      "category_id": 2,
+      "source_dataset": "002",
+      "source_annotation_id": 350,
+      "source_category_name": "guardrail_missing"
+    },
+    {
+      "bbox": [
+        89,
+        148,
+        365,
+        476
+      ],
+      "area": 173740,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 86,
+      "image_id": 49,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 118,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        81.78,
+        189.63,
+        360.13,
+        204.53
+      ],
+      "iscrowd": 0,
+      "area": 73657.389,
+      "segmentation": [
+        [
+          405.333,
+          191.662,
+          112.762,
+          189.63,
+          81.778,
+          394.159,
+          441.905,
+          389.418,
+          405.333,
+          191.662
+        ]
+      ],
+      "id": 87,
+      "image_id": 50,
+      "category_id": 7,
+      "source_dataset": "002",
+      "source_annotation_id": 1062,
+      "source_category_name": "opening_unprotected"
+    },
+    {
+      "bbox": [
+        114.5,
+        194.75,
+        234,
+        250.5
+      ],
+      "iscrowd": 0,
+      "area": 58617,
+      "segmentation": [],
+      "id": 88,
+      "image_id": 51,
+      "category_id": 8,
+      "source_dataset": "002",
+      "source_annotation_id": 729,
+      "source_category_name": "poor_housekeeping"
+    },
+    {
+      "bbox": [
+        155,
+        19,
+        266,
+        518.5
+      ],
+      "area": 137921,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 89,
+      "image_id": 52,
+      "category_id": 9,
+      "source_dataset": "004",
+      "source_annotation_id": 112,
+      "source_category_name": "safe"
+    },
+    {
+      "bbox": [
+        152,
+        68.5,
+        142,
+        282
+      ],
+      "iscrowd": 0,
+      "area": 40044,
+      "segmentation": [],
+      "id": 90,
+      "image_id": 53,
+      "category_id": 3,
+      "source_dataset": "002",
+      "source_annotation_id": 1325,
+      "source_category_name": "harness_missing"
+    },
+    {
+      "bbox": [
+        197,
+        103,
+        378.5,
+        536.5
+      ],
+      "area": 203065.25,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 91,
+      "image_id": 54,
+      "category_id": 5,
+      "source_dataset": "004",
+      "source_annotation_id": 21,
+      "source_category_name": "no helmet"
+    },
+    {
+      "bbox": [
+        74,
+        91,
+        103,
+        516.5
+      ],
+      "area": 53199.5,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 92,
+      "image_id": 55,
+      "category_id": 6,
+      "source_dataset": "004",
+      "source_annotation_id": 55,
+      "source_category_name": "no jacket"
+    },
+    {
+      "bbox": [
+        187,
+        130,
+        84.5,
+        449.5
+      ],
+      "area": 37982.75,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 93,
+      "image_id": 55,
+      "category_id": 5,
+      "source_dataset": "004",
+      "source_annotation_id": 56,
+      "source_category_name": "no helmet"
+    },
+    {
+      "bbox": [
+        259,
+        69,
+        85.5,
+        522
+      ],
+      "area": 44631,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 94,
+      "image_id": 55,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 57,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        331,
+        130,
+        82.5,
+        494
+      ],
+      "area": 40755,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 95,
+      "image_id": 55,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 58,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        436,
+        91,
+        121.5,
+        527.5
+      ],
+      "area": 64091.25,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 96,
+      "image_id": 55,
+      "category_id": 5,
+      "source_dataset": "004",
+      "source_annotation_id": 59,
+      "source_category_name": "no helmet"
+    },
+    {
+      "bbox": [
+        113.75,
+        35.25,
+        113.5,
+        139.5
+      ],
+      "iscrowd": 0,
+      "area": 15833.25,
+      "segmentation": [],
+      "id": 97,
+      "image_id": 56,
+      "category_id": 4,
+      "source_dataset": "002",
+      "source_annotation_id": 995,
+      "source_category_name": "helmet_missing"
+    },
+    {
+      "bbox": [
+        231,
+        36,
+        83,
+        181
+      ],
+      "iscrowd": 0,
+      "area": 15023,
+      "segmentation": [],
+      "id": 98,
+      "image_id": 56,
+      "category_id": 4,
+      "source_dataset": "002",
+      "source_annotation_id": 996,
+      "source_category_name": "helmet_missing"
+    },
+    {
+      "bbox": [
+        64,
+        391.68,
+        125.44,
+        120.15
+      ],
+      "iscrowd": 0,
+      "area": 15071.616,
+      "segmentation": [
+        [
+          159.36,
+          506.027,
+          189.44,
+          468.48,
+          188.8,
+          417.28,
+          160.64,
+          391.68,
+          126.72,
+          404.48,
+          85.12,
+          426.667,
+          65.92,
+          482.987,
+          64,
+          484.693,
+          91.52,
+          511.829,
+          159.36,
+          506.027
+        ]
+      ],
+      "id": 99,
+      "image_id": 57,
+      "category_id": 7,
+      "source_dataset": "002",
+      "source_annotation_id": 1252,
+      "source_category_name": "opening_unprotected"
+    },
+    {
+      "bbox": [
+        67,
+        125.5,
+        265,
+        214
+      ],
+      "iscrowd": 0,
+      "area": 56710,
+      "segmentation": [],
+      "id": 100,
+      "image_id": 58,
+      "category_id": 1,
+      "source_dataset": "002",
+      "source_annotation_id": 291,
+      "source_category_name": "equipment_proximity"
+    },
+    {
+      "bbox": [
+        287.25,
+        56,
+        159.5,
+        231
+      ],
+      "iscrowd": 0,
+      "area": 36844.5,
+      "segmentation": [],
+      "id": 101,
+      "image_id": 58,
+      "category_id": 1,
+      "source_dataset": "002",
+      "source_annotation_id": 292,
+      "source_category_name": "equipment_proximity"
+    },
+    {
+      "bbox": [
+        8,
+        135,
+        109.5,
+        475
+      ],
+      "area": 52012.5,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 102,
+      "image_id": 59,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 63,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        122,
+        146,
+        98,
+        465
+      ],
+      "area": 45570,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 103,
+      "image_id": 59,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 64,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        276,
+        145,
+        94,
+        489
+      ],
+      "area": 45966,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 104,
+      "image_id": 59,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 65,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        384,
+        106,
+        98,
+        527.5
+      ],
+      "area": 51695,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 105,
+      "image_id": 59,
+      "category_id": 6,
+      "source_dataset": "004",
+      "source_annotation_id": 66,
+      "source_category_name": "no jacket"
+    },
+    {
+      "bbox": [
+        513,
+        112,
+        114.5,
+        511.5
+      ],
+      "area": 58566.75,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 106,
+      "image_id": 59,
+      "category_id": 5,
+      "source_dataset": "004",
+      "source_annotation_id": 67,
+      "source_category_name": "no helmet"
+    },
+    {
+      "bbox": [
+        262.1,
+        75.85,
+        117.33,
+        142.22
+      ],
+      "iscrowd": 0,
+      "area": 16686.673,
+      "segmentation": [
+        [
+          274.286,
+          218.074,
+          378.921,
+          214.688,
+          379.429,
+          75.852,
+          262.095,
+          86.688,
+          274.286,
+          218.074
+        ]
+      ],
+      "id": 107,
+      "image_id": 60,
+      "category_id": 2,
+      "source_dataset": "002",
+      "source_annotation_id": 302,
+      "source_category_name": "guardrail_missing"
+    },
+    {
+      "bbox": [
+        164.06,
+        199.11,
+        216.89,
+        247.87
+      ],
+      "iscrowd": 0,
+      "area": 53760.524,
+      "segmentation": [
+        [
+          164.064,
+          214.011,
+          181.333,
+          412.444,
+          380.953,
+          446.984,
+          377.905,
+          199.111,
+          164.064,
+          214.011
+        ]
+      ],
+      "id": 108,
+      "image_id": 60,
+      "category_id": 2,
+      "source_dataset": "002",
+      "source_annotation_id": 303,
+      "source_category_name": "guardrail_missing"
+    },
+    {
+      "bbox": [
+        112.5,
+        186,
+        301.5,
+        128
+      ],
+      "iscrowd": 0,
+      "area": 38592,
+      "segmentation": [
+        [
+          414,
+          289.333,
+          376.5,
+          186,
+          113,
+          189.333,
+          112.5,
+          186.667,
+          113,
+          314,
+          414,
+          289.333
+        ]
+      ],
+      "id": 109,
+      "image_id": 61,
+      "category_id": 7,
+      "source_dataset": "002",
+      "source_annotation_id": 934,
+      "source_category_name": "opening_unprotected"
+    },
+    {
+      "bbox": [
+        180,
+        119,
+        108,
+        508
+      ],
+      "area": 54864,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 110,
+      "image_id": 62,
+      "category_id": 5,
+      "source_dataset": "004",
+      "source_annotation_id": 194,
+      "source_category_name": "no helmet"
+    },
+    {
+      "bbox": [
+        303,
+        116,
+        115.5,
+        504
+      ],
+      "area": 58212,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 111,
+      "image_id": 62,
+      "category_id": 9,
+      "source_dataset": "004",
+      "source_annotation_id": 195,
+      "source_category_name": "safe"
+    },
+    {
+      "bbox": [
+        230.75,
+        204.5,
+        53.5,
+        99
+      ],
+      "iscrowd": 0,
+      "area": 5296.5,
+      "segmentation": [],
+      "id": 112,
+      "image_id": 63,
+      "category_id": 4,
+      "source_dataset": "002",
+      "source_annotation_id": 66,
+      "source_category_name": "helmet_missing"
+    },
+    {
+      "bbox": [
+        111,
+        204,
+        97,
+        260
+      ],
+      "area": 25220,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 113,
+      "image_id": 64,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 199,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        196,
+        215,
+        139.5,
+        240.5
+      ],
+      "area": 33549.75,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 114,
+      "image_id": 64,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 200,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        433,
+        205,
+        141.5,
+        262.5
+      ],
+      "area": 37143.75,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 115,
+      "image_id": 64,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 201,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        540,
+        212,
+        100,
+        293
+      ],
+      "area": 29300,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 116,
+      "image_id": 64,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 202,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        291,
+        197,
+        127.5,
+        273.5
+      ],
+      "area": 34871.25,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 117,
+      "image_id": 64,
+      "category_id": 6,
+      "source_dataset": "004",
+      "source_annotation_id": 203,
+      "source_category_name": "no jacket"
+    },
+    {
+      "bbox": [
+        115.81,
+        0.68,
+        342.86,
+        425.31
+      ],
+      "iscrowd": 0,
+      "area": 145821.787,
+      "segmentation": [
+        [
+          458.667,
+          0.677,
+          115.809,
+          174.053,
+          147.302,
+          421.248,
+          145.778,
+          425.989,
+          452.571,
+          288.508,
+          458.667,
+          0.677
+        ]
+      ],
+      "id": 118,
+      "image_id": 65,
+      "category_id": 2,
+      "source_dataset": "002",
+      "source_annotation_id": 423,
+      "source_category_name": "guardrail_missing"
+    },
+    {
+      "bbox": [
+        325,
+        172,
+        277,
+        433
+      ],
+      "area": 119941,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 119,
+      "image_id": 66,
+      "category_id": 5,
+      "source_dataset": "004",
+      "source_annotation_id": 52,
+      "source_category_name": "no helmet"
+    },
+    {
+      "bbox": [
+        21,
+        171,
+        219.5,
+        378
+      ],
+      "area": 82971,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 120,
+      "image_id": 66,
+      "category_id": 6,
+      "source_dataset": "004",
+      "source_annotation_id": 53,
+      "source_category_name": "no jacket"
+    },
+    {
+      "bbox": [
+        123.75,
+        128.75,
+        357.5,
+        349.5
+      ],
+      "iscrowd": 0,
+      "area": 124946.25,
+      "segmentation": [],
+      "id": 121,
+      "image_id": 67,
+      "category_id": 8,
+      "source_dataset": "002",
+      "source_annotation_id": 133,
+      "source_category_name": "poor_housekeeping"
+    },
+    {
+      "bbox": [
+        126.75,
+        116.25,
+        179.5,
+        365.5
+      ],
+      "iscrowd": 0,
+      "area": 65607.25,
+      "segmentation": [],
+      "id": 122,
+      "image_id": 68,
+      "category_id": 3,
+      "source_dataset": "002",
+      "source_annotation_id": 1315,
+      "source_category_name": "harness_missing"
+    },
+    {
+      "bbox": [
+        114,
+        166,
+        77.5,
+        466
+      ],
+      "area": 36115,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 123,
+      "image_id": 69,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 256,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        207,
+        160,
+        64.5,
+        456
+      ],
+      "area": 29412,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 124,
+      "image_id": 69,
+      "category_id": 5,
+      "source_dataset": "004",
+      "source_annotation_id": 257,
+      "source_category_name": "no helmet"
+    },
+    {
+      "bbox": [
+        269,
+        103,
+        88,
+        521
+      ],
+      "area": 45848,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 125,
+      "image_id": 69,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 258,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        338,
+        152,
+        92.5,
+        487.5
+      ],
+      "area": 45093.75,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 126,
+      "image_id": 69,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 259,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        434,
+        100,
+        136,
+        530.5
+      ],
+      "area": 72148,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 127,
+      "image_id": 69,
+      "category_id": 5,
+      "source_dataset": "004",
+      "source_annotation_id": 260,
+      "source_category_name": "no helmet"
+    },
+    {
+      "bbox": [
+        615,
+        165,
+        24.5,
+        190
+      ],
+      "area": 4655,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 128,
+      "image_id": 69,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 261,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        561,
+        188,
+        48.5,
+        152.5
+      ],
+      "area": 7396.25,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 129,
+      "image_id": 69,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 262,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        528,
+        171,
+        35.5,
+        128.5
+      ],
+      "area": 4561.75,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 130,
+      "image_id": 69,
+      "category_id": 5,
+      "source_dataset": "004",
+      "source_annotation_id": 263,
+      "source_category_name": "no helmet"
+    },
+    {
+      "bbox": [
+        39.5,
+        153.75,
+        324,
+        285.5
+      ],
+      "iscrowd": 0,
+      "area": 92502,
+      "segmentation": [],
+      "id": 131,
+      "image_id": 70,
+      "category_id": 1,
+      "source_dataset": "002",
+      "source_annotation_id": 212,
+      "source_category_name": "equipment_proximity"
+    },
+    {
+      "bbox": [
+        185,
+        105.75,
+        85,
+        184.5
+      ],
+      "iscrowd": 0,
+      "area": 15682.5,
+      "segmentation": [],
+      "id": 132,
+      "image_id": 71,
+      "category_id": 4,
+      "source_dataset": "002",
+      "source_annotation_id": 1175,
+      "source_category_name": "helmet_missing"
+    },
+    {
+      "bbox": [
+        47.75,
+        234.5,
+        390.5,
+        273
+      ],
+      "iscrowd": 0,
+      "area": 106606.5,
+      "segmentation": [],
+      "id": 133,
+      "image_id": 72,
+      "category_id": 8,
+      "source_dataset": "002",
+      "source_annotation_id": 1311,
+      "source_category_name": "poor_housekeeping"
+    },
+    {
+      "bbox": [
+        230,
+        105,
+        174,
+        485
+      ],
+      "area": 84390,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 134,
+      "image_id": 73,
+      "category_id": 9,
+      "source_dataset": "004",
+      "source_annotation_id": 168,
+      "source_category_name": "safe"
+    },
+    {
+      "bbox": [
+        59,
+        169,
+        131.5,
+        277
+      ],
+      "area": 36425.5,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 135,
+      "image_id": 73,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 169,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        227.3,
+        130.37,
+        132.06,
+        58.41
+      ],
+      "iscrowd": 0,
+      "area": 7713.625,
+      "segmentation": [
+        [
+          293.968,
+          130.37,
+          227.302,
+          148.148,
+          271.111,
+          188.783,
+          359.365,
+          161.693,
+          293.968,
+          130.37
+        ]
+      ],
+      "id": 136,
+      "image_id": 74,
+      "category_id": 7,
+      "source_dataset": "002",
+      "source_annotation_id": 1063,
+      "source_category_name": "opening_unprotected"
+    },
+    {
+      "bbox": [
+        124,
+        61,
+        165,
+        417.5
+      ],
+      "area": 68887.5,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 137,
+      "image_id": 75,
+      "category_id": 5,
+      "source_dataset": "004",
+      "source_annotation_id": 110,
+      "source_category_name": "no helmet"
+    },
+    {
+      "bbox": [
+        353,
+        58,
+        162.5,
+        437
+      ],
+      "area": 71012.5,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 138,
+      "image_id": 75,
+      "category_id": 6,
+      "source_dataset": "004",
+      "source_annotation_id": 111,
+      "source_category_name": "no jacket"
+    },
+    {
+      "bbox": [
+        271,
+        98,
+        120.5,
+        387
+      ],
+      "area": 46633.5,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 139,
+      "image_id": 76,
+      "category_id": 6,
+      "source_dataset": "004",
+      "source_annotation_id": 148,
+      "source_category_name": "no jacket"
+    },
+    {
+      "bbox": [
+        339,
+        69,
+        261.5,
+        490
+      ],
+      "area": 128135,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 140,
+      "image_id": 76,
+      "category_id": 10,
+      "source_dataset": "004",
+      "source_annotation_id": 149,
+      "source_category_name": "unsafe"
+    },
+    {
+      "bbox": [
+        217,
+        100,
+        208,
+        501
+      ],
+      "area": 104208,
+      "segmentation": [],
+      "iscrowd": 0,
+      "id": 141,
+      "image_id": 77,
+      "category_id": 9,
+      "source_dataset": "004",
+      "source_annotation_id": 45,
+      "source_category_name": "safe"
+    },
+    {
+      "bbox": [
+        92.25,
+        97.25,
+        399.5,
+        381.5
+      ],
+      "iscrowd": 0,
+      "area": 152409.25,
+      "segmentation": [],
+      "id": 142,
+      "image_id": 78,
+      "category_id": 1,
+      "source_dataset": "002",
+      "source_annotation_id": 183,
+      "source_category_name": "equipment_proximity"
+    },
+    {
+      "bbox": [
+        238.25,
+        52.25,
+        89.5,
+        352.5
+      ],
+      "iscrowd": 0,
+      "area": 31548.75,
+      "segmentation": [],
+      "id": 143,
+      "image_id": 79,
+      "category_id": 3,
+      "source_dataset": "002",
+      "source_annotation_id": 1214,
+      "source_category_name": "harness_missing"
+    },
+    {
+      "bbox": [
+        22,
+        0,
+        139.5,
+        506
+      ],
+      "iscrowd": 0,
+      "area": 70587,
+      "segmentation": [
+        [
+          153.5,
+          0,
+          22,
+          215.333,
+          29.5,
+          500.667,
+          30.5,
+          506,
+          161.5,
+          117.333,
+          153.5,
+          0
+        ]
+      ],
+      "id": 144,
+      "image_id": 80,
+      "category_id": 2,
+      "source_dataset": "002",
+      "source_annotation_id": 741,
+      "source_category_name": "guardrail_missing"
+    },
+    {
+      "bbox": [
+        365,
+        4.67,
+        119.5,
+        504.67
+      ],
+      "iscrowd": 0,
+      "area": 60308.065,
+      "segmentation": [
+        [
+          484.5,
+          319.333,
+          374.5,
+          4.667,
+          365,
+          149.333,
+          365.5,
+          148.667,
+          436,
+          509.333,
+          484.5,
+          319.333
+        ]
+      ],
+      "id": 145,
+      "image_id": 80,
+      "category_id": 2,
+      "source_dataset": "002",
+      "source_annotation_id": 742,
+      "source_category_name": "guardrail_missing"
+    }
+  ]
+}

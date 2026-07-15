@@ -1,0 +1,82 @@
+{
+  "001__test": {
+    "images": 517,
+    "annotations": 2073,
+    "categories": 12,
+    "rows": 1349,
+    "placed_files": 1349,
+    "missing_files": 0
+  },
+  "001__train": {
+    "images": 10881,
+    "annotations": 46478,
+    "categories": 12,
+    "rows": 28841,
+    "placed_files": 28841,
+    "missing_files": 0
+  },
+  "001__valid": {
+    "images": 1026,
+    "annotations": 4310,
+    "categories": 12,
+    "rows": 2732,
+    "placed_files": 2732,
+    "missing_files": 0
+  },
+  "002__test": {
+    "images": 34,
+    "annotations": 56,
+    "categories": 8,
+    "rows": 34,
+    "placed_files": 34,
+    "missing_files": 0
+  },
+  "002__train": {
+    "images": 1012,
+    "annotations": 1351,
+    "categories": 8,
+    "rows": 1032,
+    "placed_files": 1032,
+    "missing_files": 0
+  },
+  "002__valid": {
+    "images": 67,
+    "annotations": 85,
+    "categories": 8,
+    "rows": 68,
+    "placed_files": 68,
+    "missing_files": 0
+  },
+  "003__train": {
+    "images": 3285,
+    "annotations": 6542,
+    "categories": 3,
+    "rows": 4571,
+    "placed_files": 4571,
+    "missing_files": 0
+  },
+  "004__test": {
+    "images": 18,
+    "annotations": 32,
+    "categories": 5,
+    "rows": 24,
+    "placed_files": 24,
+    "missing_files": 0
+  },
+  "004__train": {
+    "images": 126,
+    "annotations": 269,
+    "categories": 5,
+    "rows": 188,
+    "placed_files": 188,
+    "missing_files": 0
+  },
+  "004__valid": {
+    "images": 36,
+    "annotations": 71,
+    "categories": 5,
+    "rows": 51,
+    "placed_files": 51,
+    "missing_files": 0
+  }
+}

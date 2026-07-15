@@ -1,0 +1,85 @@
+{
+  "shapes": [
+    {
+      "label": "target",
+      "points": [
+        [
+          153,
+          187
+        ],
+        [
+          150,
+          243
+        ],
+        [
+          235,
+          278
+        ],
+        [
+          237,
+          223
+        ]
+      ]
+    },
+    {
+      "label": "target",
+      "points": [
+        [
+          262,
+          257
+        ],
+        [
+          260,
+          267
+        ],
+        [
+          260,
+          295
+        ],
+        [
+          263,
+          298
+        ],
+        [
+          279,
+          306
+        ],
+        [
+          282,
+          309
+        ],
+        [
+          282,
+          314
+        ],
+        [
+          285,
+          317
+        ],
+        [
+          305,
+          324
+        ],
+        [
+          305,
+          271
+        ],
+        [
+          266,
+          257
+        ]
+      ]
+    }
+  ],
+  "text": [
+    "标出缺少防护栏杆的区域。"
+  ],
+  "is_sentence": true,
+  "source": {
+    "split": "train",
+    "image_id": 12,
+    "file_name": "002__-guardrail_missing-125-_JPG.rf.c5c6a25b5bb091162b938194d236d249.jpg",
+    "sample_key": "guardrail_missing",
+    "source_category": "guardrail_missing"
+  }
+}

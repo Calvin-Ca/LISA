@@ -1,0 +1,96 @@
+{
+  "threshold": 0.3,
+  "output_root": "/home/ths/vLLM/LISA/dataset/reason_seg/ReasonSegClean030",
+  "splits": {
+    "train": {
+      "count": 202,
+      "mean_iou": 0.653427689157393,
+      "min_iou": 0.3001199593983575,
+      "max_iou": 0.9809079637039959
+    },
+    "val": {
+      "count": 42,
+      "mean_iou": 0.6435034967003658,
+      "min_iou": 0.3121573234866286,
+      "max_iou": 0.9568996335686836
+    }
+  },
+  "categories": {
+    "equipment_proximity": {
+      "count": 19,
+      "mean_iou": 0.5077047563962602,
+      "min_iou": 0.3001199593983575,
+      "max_iou": 0.9161776425414765
+    },
+    "guardrail_missing": {
+      "count": 11,
+      "mean_iou": 0.5517567415695689,
+      "min_iou": 0.30325250471903586,
+      "max_iou": 0.9463049335148759
+    },
+    "harness_missing": {
+      "count": 18,
+      "mean_iou": 0.6372656762495352,
+      "min_iou": 0.31722444760304946,
+      "max_iou": 0.9164722654224987
+    },
+    "helmet_missing": {
+      "count": 41,
+      "mean_iou": 0.5781853462802918,
+      "min_iou": 0.3042280900696582,
+      "max_iou": 0.9472128659486374
+    },
+    "no helmet": {
+      "count": 37,
+      "mean_iou": 0.7347122452161852,
+      "min_iou": 0.3456495155676794,
+      "max_iou": 0.9568996335686836
+    },
+    "no jacket": {
+      "count": 28,
+      "mean_iou": 0.7201237872671292,
+      "min_iou": 0.3823741924515471,
+      "max_iou": 0.9708700347776116
+    },
+    "opening_unprotected": {
+      "count": 35,
+      "mean_iou": 0.7108034812412511,
+      "min_iou": 0.3080399770832007,
+      "max_iou": 0.9809079637039959
+    },
+    "poor_housekeeping": {
+      "count": 22,
+      "mean_iou": 0.4898143693807732,
+      "min_iou": 0.30167668972549566,
+      "max_iou": 0.8939124945752949
+    },
+    "safe": {
+      "count": 21,
+      "mean_iou": 0.8018321599827442,
+      "min_iou": 0.41197113968783744,
+      "max_iou": 0.9663436123348018
+    },
+    "unsafe": {
+      "count": 12,
+      "mean_iou": 0.690592643874504,
+      "min_iou": 0.3810242881833894,
+      "max_iou": 0.9280074116305588
+    }
+  },
+  "stats": {
+    "selected_train": 202,
+    "selected_equipment_proximity": 19,
+    "copied_train": 202,
+    "selected_helmet_missing": 41,
+    "selected_guardrail_missing": 11,
+    "selected_harness_missing": 18,
+    "selected_opening_unprotected": 35,
+    "selected_poor_housekeeping": 22,
+    "selected_no helmet": 37,
+    "selected_unsafe": 12,
+    "selected_safe": 21,
+    "selected_no jacket": 28,
+    "selected_val": 42,
+    "copied_val": 42
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "shapes": [
+    {
+      "label": "target",
+      "points": [
+        [
+          332,
+          282
+        ],
+        [
+          190,
+          282
+        ],
+        [
+          176,
+          288
+        ],
+        [
+          152,
+          370
+        ],
+        [
+          167,
+          370
+        ],
+        [
+          169,
+          374
+        ],
+        [
+          178,
+          370
+        ],
+        [
+          355,
+          369
+        ]
+      ]
+    }
+  ],
+  "text": [
+    "图中哪些洞口或临边没有做防护?请分割出来。"
+  ],
+  "is_sentence": true,
+  "source": {
+    "split": "train",
+    "image_id": 577,
+    "file_name": "002__-opening_unprotected-90-_JPG.rf.2989df948fd73631dd1039d104c3d80a.jpg",
+    "sample_key": "opening_unprotected",
+    "source_category": "opening_unprotected"
+  }
+}

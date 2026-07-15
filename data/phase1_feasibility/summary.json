@@ -1,0 +1,46 @@
+{
+  "train": {
+    "placed_files": 600,
+    "images": 600,
+    "annotations": 871
+  },
+  "val": {
+    "placed_files": 80,
+    "images": 80,
+    "annotations": 145
+  },
+  "category_image_counts": {
+    "train": {
+      "equipment_proximity": 92,
+      "guardrail_missing": 89,
+      "harness_missing": 88,
+      "helmet_missing": 87,
+      "no helmet": 31,
+      "no jacket": 35,
+      "opening_unprotected": 85,
+      "poor_housekeeping": 82,
+      "safe": 16,
+      "unsafe": 46
+    },
+    "val": {
+      "equipment_proximity": 8,
+      "guardrail_missing": 8,
+      "harness_missing": 8,
+      "helmet_missing": 8,
+      "no helmet": 16,
+      "no jacket": 12,
+      "opening_unprotected": 8,
+      "poor_housekeeping": 8,
+      "safe": 13,
+      "unsafe": 19
+    }
+  },
+  "source_datasets": [
+    "002",
+    "004"
+  ],
+  "excluded_categories": [
+    "Safe-Unsafe-No_Helmet-No_Jacket",
+    "objects"
+  ]
+}

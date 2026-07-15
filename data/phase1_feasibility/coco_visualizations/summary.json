@@ -1,0 +1,12 @@
+{
+  "train": {
+    "skipped_existing": 600,
+    "images_with_annotations": 600,
+    "selected_images": 600
+  },
+  "val": {
+    "skipped_existing": 80,
+    "images_with_annotations": 80,
+    "selected_images": 80
+  }
+}
