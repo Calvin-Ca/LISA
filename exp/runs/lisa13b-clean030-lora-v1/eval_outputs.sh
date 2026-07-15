@@ -14,6 +14,7 @@ CLEAN_OUTPUT_DIR="./exp/runs/${EXP_NAME}/clean-eval-outputs"
 FULL_OUTPUT_DIR="./exp/runs/${EXP_NAME}/full-eval-outputs"
 BASE_VAL_METRICS="./exp/runs/lisa13b-local-val/outputs/per_sample_metrics.jsonl"
 COMPARE_SCRIPT="./exp/compare_benchmark_metrics.py"
+EXPERIMENT_DOC="./exp/runs/${EXP_NAME}/EXPERIMENT.md"
 LISA_BENCHMARK_FONT_PATH="/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
 
 if [ ! -d "$CLIP_TOWER" ]; then
@@ -129,13 +130,17 @@ python "$COMPARE_SCRIPT" \
   --quiet \
   --base "$BASE_VAL_METRICS" \
   --tuned "${CLEAN_OUTPUT_DIR}/per_sample_metrics.jsonl" \
-  --output "${CLEAN_OUTPUT_DIR}/comparison_by_delta_iou.md"
+  --append-to "$EXPERIMENT_DOC" \
+  --section-id "clean-val-samples" \
+  --section-title "Clean Val 逐样本微调前后对比"
 
 python "$COMPARE_SCRIPT" \
   --quiet \
   --base "$BASE_VAL_METRICS" \
   --tuned "${FULL_OUTPUT_DIR}/per_sample_metrics.jsonl" \
-  --output "${FULL_OUTPUT_DIR}/comparison_by_delta_iou.md"
+  --append-to "$EXPERIMENT_DOC" \
+  --section-id "full-val-samples" \
+  --section-title "Full Val 逐样本微调前后对比"
 
 echo "[done] clean val outputs: $CLEAN_OUTPUT_DIR"
 echo "[done] full val outputs: $FULL_OUTPUT_DIR"

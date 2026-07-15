@@ -109,10 +109,13 @@ def fmt_float(value: float, signed: bool = False) -> str:
 
 
 def format_sample_table(
-    rows: list[dict], title: str, report_path: Optional[Path] = None
+    rows: list[dict],
+    title: str,
+    report_path: Optional[Path] = None,
+    heading: str = "##",
 ) -> list[str]:
     lines = [
-        f"## {title}",
+        f"{heading} {title}",
         "",
         "| Rank | Change | Delta IoU | Base IoU | Tuned IoU | Delta Dice | Label | Image | Base View | Tuned View | Prompt |",
         "| ---: | --- | ---: | ---: | ---: | ---: | --- | --- | --- | --- | --- |",
@@ -262,6 +265,60 @@ def make_report(
     return "\n".join(lines)
 
 
+def make_embedded_section(
+    rows: list[dict],
+    base_path: Path,
+    tuned_path: Path,
+    title: str,
+    markdown_path: Path,
+) -> str:
+    sorted_rows = sorted(
+        rows,
+        key=lambda row: (-row["delta_iou"], -row["delta_dice"], row["image"]),
+    )
+    lines = [
+        f"## {title}",
+        "",
+        f"- Base: `{base_path}`",
+        f"- Tuned: `{tuned_path}`",
+        f"- Matched samples: `{len(rows)}`",
+        f"- Improved: `{sum(row['delta_iou'] > 0 for row in rows)}`",
+        f"- Regressed: `{sum(row['delta_iou'] < 0 for row in rows)}`",
+        f"- Unchanged: `{sum(row['delta_iou'] == 0 for row in rows)}`",
+        f"- Mean delta IoU: `{mean(row['delta_iou'] for row in rows):+.4f}`",
+        "",
+    ]
+    lines.extend(
+        format_sample_table(
+            sorted_rows,
+            "All Samples Sorted by IoU Change (Best to Worst)",
+            markdown_path,
+            heading="###",
+        )
+    )
+    return "\n".join(lines).rstrip()
+
+
+def update_managed_section(
+    path: Path, section_id: str, section_content: str
+) -> None:
+    start_marker = f"<!-- benchmark-comparison:{section_id}:start -->"
+    end_marker = f"<!-- benchmark-comparison:{section_id}:end -->"
+    block = f"{start_marker}\n{section_content}\n{end_marker}"
+    content = path.read_text(encoding="utf-8") if path.exists() else ""
+
+    if start_marker in content or end_marker in content:
+        if content.count(start_marker) != 1 or content.count(end_marker) != 1:
+            raise ValueError(f"Invalid managed section markers in {path}: {section_id}")
+        before, remainder = content.split(start_marker, 1)
+        _, after = remainder.split(end_marker, 1)
+        content = f"{before.rstrip()}\n\n{block}{after}"
+    else:
+        content = f"{content.rstrip()}\n\n{block}\n"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Compare two benchmark metric jsonl files.")
     parser.add_argument("--base", default=DEFAULT_BASE, type=Path)
@@ -274,7 +331,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--top-k", default=20, type=int)
     parser.add_argument("--bad-threshold", default=0.10, type=float)
-    parser.add_argument("--output", type=Path, help="Optional markdown report path.")
+    destination = parser.add_mutually_exclusive_group()
+    destination.add_argument("--output", type=Path, help="Optional markdown report path.")
+    destination.add_argument(
+        "--append-to",
+        type=Path,
+        help="Append or replace a managed comparison section in a Markdown file.",
+    )
+    parser.add_argument("--section-id", help="Stable id used by --append-to markers.")
+    parser.add_argument("--section-title", help="Heading used by --append-to.")
     parser.add_argument(
         "--quiet",
         action="store_true",
@@ -289,6 +354,8 @@ def main() -> None:
         raise FileNotFoundError(f"Missing base metrics: {args.base}")
     if not args.tuned.exists():
         raise FileNotFoundError(f"Missing tuned metrics: {args.tuned}")
+    if args.append_to and (not args.section_id or not args.section_title):
+        raise ValueError("--append-to requires --section-id and --section-title")
 
     base_rows = load_jsonl(args.base, args.match_key)
     tuned_rows = load_jsonl(args.tuned, args.match_key)
@@ -296,13 +363,14 @@ def main() -> None:
     if not rows:
         raise ValueError("No matched samples found.")
 
+    report_path = args.append_to or args.output
     report = make_report(
         rows,
         base_path=args.base,
         tuned_path=args.tuned,
         top_k=args.top_k,
         bad_threshold=args.bad_threshold,
-        report_path=args.output,
+        report_path=report_path,
     )
     if not args.quiet:
         print(report)
@@ -311,6 +379,16 @@ def main() -> None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(report + "\n", encoding="utf-8")
         print(f"\n[done] wrote report: {args.output}")
+    elif args.append_to:
+        section = make_embedded_section(
+            rows,
+            base_path=args.base,
+            tuned_path=args.tuned,
+            title=args.section_title,
+            markdown_path=args.append_to,
+        )
+        update_managed_section(args.append_to, args.section_id, section)
+        print(f"\n[done] updated section in: {args.append_to}")
 
 
 if __name__ == "__main__":

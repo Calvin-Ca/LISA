@@ -98,7 +98,7 @@ exp/runs/lisa13b-clean030-lora-v1/clean-eval-outputs/
 exp/runs/lisa13b-clean030-lora-v1/full-eval-outputs/
 ```
 
-这两个输出目录中的图片已在 `.gitignore` 中忽略；JSON、CSV、JSONL、Markdown 和 shell 文件可正常追踪。`eval_outputs.sh` 会额外生成 clean/full 两份 `comparison_by_delta_iou.md`，把每个样本的 Base/LoRA 指标按 IoU 变化从好到坏排序，并链接到两侧 visualization Markdown。
+这两个输出目录中的图片已在 `.gitignore` 中忽略；JSON、CSV、JSONL、Markdown 和 shell 文件可正常追踪。`eval_outputs.sh` 会在实验 `EXPERIMENT.md` 末尾更新 clean/full 两张逐样本对比表，按 IoU 变化从好到坏排序，并链接到 Base/LoRA 两侧 visualization Markdown。
 
 ## 实验分析脚本
 
@@ -106,7 +106,7 @@ exp/runs/lisa13b-clean030-lora-v1/full-eval-outputs/
 
 | 脚本 | 执行方式 | 作用 |
 |---|---|---|
-| `exp/compare_benchmark_metrics.py` | `python exp/compare_benchmark_metrics.py --output <report.md>` | 对比两份 benchmark `per_sample_metrics.jsonl`，输出所有样本按 IoU 变化从好到坏的 Base/LoRA 指标及 visualization 链接，并附带提升/退化和类别统计。默认比较 `lisa13b-local-val` 与 `lisa13b-clean030-lora-v1/full-eval-outputs`。 |
+| `exp/compare_benchmark_metrics.py` | `python exp/compare_benchmark_metrics.py --output <report.md>` | 对比两份 benchmark `per_sample_metrics.jsonl`，输出所有样本按 IoU 变化从好到坏的 Base/LoRA 指标及 visualization 链接；也可用 `--append-to` 把受控区块更新到现有 Markdown。默认比较 `lisa13b-local-val` 与 `lisa13b-clean030-lora-v1/full-eval-outputs`。 |
 | `exp/build_annotation_prediction_report.py` | `python exp/build_annotation_prediction_report.py` | 生成标注、base 预测、LoRA 预测的对照报告，便于分析 bad case 和真实提升样本。默认读取 `lisa13b-local-val` 与 `lisa13b-clean030-lora-v1/full-eval-outputs`。 |
 
 两者都支持 `--output` 或 `--output-dir` 之类参数把结果写到 `exp/comparisons/` 下，适合远程执行后再回看 Markdown 报告。
