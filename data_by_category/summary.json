@@ -1,0 +1,34 @@
+{
+  "001": {
+    "images": 10881,
+    "annotations": 46478,
+    "categories": 12,
+    "rows": 28841,
+    "placed_files": 0,
+    "missing_files": 28841
+  },
+  "002": {
+    "images": 1012,
+    "annotations": 1351,
+    "categories": 8,
+    "rows": 1032,
+    "placed_files": 0,
+    "missing_files": 1032
+  },
+  "003": {
+    "images": 3285,
+    "annotations": 6542,
+    "categories": 3,
+    "rows": 4571,
+    "placed_files": 0,
+    "missing_files": 4571
+  },
+  "004": {
+    "images": 126,
+    "annotations": 269,
+    "categories": 5,
+    "rows": 188,
+    "placed_files": 0,
+    "missing_files": 188
+  }
+}
