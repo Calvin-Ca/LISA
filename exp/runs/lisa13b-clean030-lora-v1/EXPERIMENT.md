@@ -42,7 +42,8 @@
 - 是否保存可视化: 是
 - 是否保存预测掩码: 是
 - 运行设备: 远程 Linux GPU 服务器
-- 运行日期: 2026-07-13
+- 训练日期: 2026-07-13
+- 评估产物时间: 2026-07-14 11:11-11:12
 
 ## 执行命令
 
@@ -137,13 +138,48 @@ LoRA 相对 base 提升:
 - Full val 平均精确率: +0.1261
 - Full val 平均召回率: +0.0284
 
+Full val 样本级分布:
+
+| 指标 | Base | LoRA 后 | 变化 |
+| --- | ---: | ---: | ---: |
+| IoU = 0 | 22 | 16 | -6 |
+| IoU < 0.1 | 33 | 28 | -5 |
+| IoU < 0.3 | 44 | 38 | -6 |
+| IoU >= 0.5 | 29 | 39 | +10 |
+| False Positive Area | 2,321,866 | 1,623,031 | -698,835 (-30.1%) |
+| False Negative Area | 1,821,927 | 1,677,931 | -143,996 (-7.9%) |
+
+Full val 分类型 Mean IoU:
+
+| 类别 | 样本数 | Base | LoRA 后 | 变化 | LoRA 后零 IoU 数 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| equipment_proximity | 3 | 0.2611 | 0.4039 | +0.1428 | 1 |
+| guardrail_missing | 4 | 0.0410 | 0.2341 | +0.1931 | 1 |
+| harness_missing | 4 | 0.5083 | 0.5382 | +0.0299 | 0 |
+| helmet_missing | 4 | 0.3794 | 0.5689 | +0.1895 | 0 |
+| no helmet | 15 | 0.5712 | 0.5841 | +0.0129 | 2 |
+| no jacket | 12 | 0.3109 | 0.3583 | +0.0474 | 2 |
+| opening_unprotected | 8 | 0.2326 | 0.4065 | +0.1740 | 1 |
+| poor_housekeeping | 4 | 0.2215 | 0.5622 | +0.3407 | 1 |
+| safe | 13 | 0.6412 | 0.7693 | +0.1281 | 0 |
+| unsafe | 19 | 0.0750 | 0.1849 | +0.1099 | 8 |
+
+评估效率:
+
+- Clean val: 17.84 秒,0.425 秒/样本。
+- Full val: 35.83 秒,0.417 秒/样本。
+
 ## 结论
 
 本轮 Clean030 LoRA 微调有效。
 
-在完整 `ReasonSeg|val` 上,模型从 base 的 `gIoU=0.3408 / cIoU=0.3177 / Dice=0.4180` 提升到 `gIoU=0.4494 / cIoU=0.3858 / Dice=0.5156`。其中 gIoU 提升 10.86 个点,说明提升不是只来自少数大目标;Mean Precision 提升 12.61 个点,说明误检明显减少;Mean Recall 只提升 2.84 个点,说明漏检和困难类别仍是下一轮主要问题。
+在完整 `ReasonSeg|val` 上,模型从 base 的 `gIoU=0.3408 / cIoU=0.3177 / Dice=0.4180` 提升到 `gIoU=0.4494 / cIoU=0.3858 / Dice=0.5156`。其中 gIoU 提升 10.86 个点,且 10 个类别的 Mean IoU 均有提升,说明收益并非只来自少数大目标或单一类别。`IoU >= 0.5` 的样本增加 10 个,零 IoU 样本减少 6 个,进一步支持完整验证集上的迁移收益成立。
 
-Clean val 从 `gIoU=0.6435` 提升到 `0.7119`,说明高置信样本可被 LoRA 有效吸收。但 clean val 中仍出现 `poor_housekeeping` 和 `no_helmet` 的 0 IoU bad case,说明即使在筛选后的 easy subset 上,部分 prompt/mask 或实例选择仍不稳定。
+Mean Precision 提升 12.61 个点,对应 False Positive Area 减少 30.1%,说明误检明显减少。Mean Recall 只提升 2.84 个点,False Negative Area 仅减少 7.9%,说明漏检仍是下一轮主要问题。
+
+Clean val 从 `gIoU=0.6435` 提升到 `0.7119`,说明高置信样本可被 LoRA 有效吸收。但 clean val 仍有 1 个严格零 IoU 样本(`poor_housekeeping`)和 2 个接近零 IoU 的 `no_helmet` 样本,说明即使在筛选后的 easy subset 上,部分 prompt/mask 或实例选择仍不稳定。
+
+分类型结果中 `poor_housekeeping`、`guardrail_missing`、`helmet_missing`、`opening_unprotected` 提升较明显;但这些类别样本数仅 4-8 个,不能据此判断类别能力已经稳定。`unsafe` 虽从 0.0750 提升到 0.1849,仍有 8/19 个零 IoU,是当前最明确的主要短板。`no helmet` 和 `harness_missing` 的提升较小,下一轮也需要通过新增独立样本确认是否已接近瓶颈。
 
 判断标准:
 
@@ -156,5 +192,6 @@ Clean val 从 `gIoU=0.6435` 提升到 `0.7119`,说明高置信样本可被 LoRA 
 - 本实验使用 Clean030 作为第一轮链路验证集,不把筛选后的 clean val 作为唯一正式指标。
 - 正式结论必须以完整 `ReasonSeg|val` 的 LoRA 前后对比为准。
 - `ReasonSegClean030` 是从原始 jpg/json 复制出的子集,不包含新生成标签,也不使用模型预测 mask 作为标签。
-- Full val 最差样本仍集中在 `equipment_proximity`、`guardrail_missing`、`opening_unprotected`、`poor_housekeeping`、`unsafe` 等关系型/区域型/抽象隐患类别。
-- 下一轮建议补充人工核验 hard cases,重点覆盖 `guardrail_missing`、`unsafe`、`equipment_proximity`、`poor_housekeeping`,并继续保留完整 `ReasonSeg|val` 作为正式对比集。
+- Full val 的严格零 IoU 样本包括 `equipment_proximity` 1 个、`guardrail_missing` 1 个、`opening_unprotected` 1 个、`poor_housekeeping` 1 个、`no helmet` 2 个、`no jacket` 2 个和 `unsafe` 8 个。
+- 下一轮建议优先补充并人工核验 `unsafe` hard cases,其次覆盖 `equipment_proximity`、`guardrail_missing`、`opening_unprotected`、`poor_housekeeping`、`no helmet` 和 `no jacket`,并继续保留完整 `ReasonSeg|val` 作为正式对比集。
+- 分类型 Mean IoU 来自 `per_sample_metrics.csv` 的算术平均;小样本类别的数值仅用于定位问题,不作为稳定的类别性能结论。
