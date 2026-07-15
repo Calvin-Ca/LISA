@@ -1,34 +1,15 @@
-# Visualization Review
+# Base / Tuned Sample Comparison
 
-- Metrics: `IoU=0.118 Dice=0.211 P=0.119 R=0.923`
+- Sample: `val__002__-guardrail_missing-58-_jpg.rf.391f56af8166b7a9978f49176685f505__guardrail_missing.jpg`
+- Category: `guardrail_missing`
 - Prompt: 把缺少栏杆防护、存在坠落风险的部位分割出来。
-- COCO source label: `guardrail_missing`
-- sample_key: `guardrail_missing`
-- Source file name: `002__-guardrail_missing-58-_jpg.rf.391f56af8166b7a9978f49176685f505.jpg`
-- Source image id: `13`
-- Image: `./dataset/reason_seg/ReasonSeg/val/val__002__-guardrail_missing-58-_jpg.rf.391f56af8166b7a9978f49176685f505__guardrail_missing.jpg`
-- LISA JSON: [open](../../../../../dataset/reason_seg/ReasonSeg/val/val__002__-guardrail_missing-58-_jpg.rf.391f56af8166b7a9978f49176685f505__guardrail_missing.json)
-- LISA JSON path: `dataset/reason_seg/ReasonSeg/val/val__002__-guardrail_missing-58-_jpg.rf.391f56af8166b7a9978f49176685f505__guardrail_missing.json`
-- Edit prompt at: `text[0]`
+- Base IoU: `0.0000` | Tuned IoU: `0.1178` | Delta: `+0.1178`
+- COCO source boxes: `1` | COCO target boxes: `1` | LISA polygons: `11`
 
-## Original Image
+| COCO source annotations | COCO target annotations | LISA annotations |
+| --- | --- | --- |
+| ![](comparison_assets/0004_val__002__-guardrail_missing-58-_jpg.rf.391f56af8166b7a9978f49176685f505__guardrail_missing_coco_source.jpg) | ![](comparison_assets/0004_val__002__-guardrail_missing-58-_jpg.rf.391f56af8166b7a9978f49176685f505__guardrail_missing_coco_target.jpg) | ![](comparison_assets/0004_val__002__-guardrail_missing-58-_jpg.rf.391f56af8166b7a9978f49176685f505__guardrail_missing_lisa.jpg) |
 
-![original-image](../../../../../dataset/reason_seg/ReasonSeg/val/val__002__-guardrail_missing-58-_jpg.rf.391f56af8166b7a9978f49176685f505__guardrail_missing.jpg)
-
-## LISA Annotation Review
-
-[open](../../../../../data/phase1_feasibility/lisa_visualizations/val/val__002__-guardrail_missing-58-_jpg.rf.391f56af8166b7a9978f49176685f505__guardrail_missing_lisa_vis.jpg)
-
-This image contains: original image, COCO all categories, COCO target category, and LISA polygon/mask.
-
-![lisa-annotation-visualization](../../../../../data/phase1_feasibility/lisa_visualizations/val/val__002__-guardrail_missing-58-_jpg.rf.391f56af8166b7a9978f49176685f505__guardrail_missing_lisa_vis.jpg)
-
-## COCO Full Annotation
-
-[open](../../../../../data/phase1_feasibility/coco_visualizations/val/002__-guardrail_missing-58-_jpg.rf.391f56af8166b7a9978f49176685f505.jpg)
-
-![coco-visualization](../../../../../data/phase1_feasibility/coco_visualizations/val/002__-guardrail_missing-58-_jpg.rf.391f56af8166b7a9978f49176685f505.jpg)
-
-## LISA Prediction Review
-
-![prediction-review](00004_val__002__-guardrail_missing-58-_jpg.rf.391f56af8166b7a9978f49176685f505__guardrail_missing_mask0.jpg)
+| Base benchmark prediction | Tuned prediction |
+| --- | --- |
+| ![](comparison_assets/0004_val__002__-guardrail_missing-58-_jpg.rf.391f56af8166b7a9978f49176685f505__guardrail_missing_base_pred.jpg) | ![](comparison_assets/0004_val__002__-guardrail_missing-58-_jpg.rf.391f56af8166b7a9978f49176685f505__guardrail_missing_tuned_pred.jpg) |

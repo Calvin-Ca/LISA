@@ -1,34 +1,15 @@
-# Visualization Review
+# Base / Tuned Sample Comparison
 
-- Metrics: `IoU=0.832 Dice=0.908 P=0.987 R=0.841`
+- Sample: `val__002__-helmet_missing-19-_jpg.rf.cef508999f7777acb7cb6470fd767fef__helmet_missing.jpg`
+- Category: `helmet_missing`
 - Prompt: 标出未按规定佩戴安全帽的作业人员。
-- COCO source label: `helmet_missing`
-- sample_key: `helmet_missing`
-- Source file name: `002__-helmet_missing-19-_jpg.rf.cef508999f7777acb7cb6470fd767fef.jpg`
-- Source image id: `46`
-- Image: `./dataset/reason_seg/ReasonSegClean030/val/val__002__-helmet_missing-19-_jpg.rf.cef508999f7777acb7cb6470fd767fef__helmet_missing.jpg`
-- LISA JSON: [open](../../../../../dataset/reason_seg/ReasonSegClean030/val/val__002__-helmet_missing-19-_jpg.rf.cef508999f7777acb7cb6470fd767fef__helmet_missing.json)
-- LISA JSON path: `dataset/reason_seg/ReasonSegClean030/val/val__002__-helmet_missing-19-_jpg.rf.cef508999f7777acb7cb6470fd767fef__helmet_missing.json`
-- Edit prompt at: `text[0]`
+- Base IoU: `0.5571` | Tuned IoU: `0.8318` | Delta: `+0.2747`
+- COCO source boxes: `1` | COCO target boxes: `1` | LISA polygons: `1`
 
-## Original Image
+| COCO source annotations | COCO target annotations | LISA annotations |
+| --- | --- | --- |
+| ![](comparison_assets/0005_val__002__-helmet_missing-19-_jpg.rf.cef508999f7777acb7cb6470fd767fef__helmet_missing_coco_source.jpg) | ![](comparison_assets/0005_val__002__-helmet_missing-19-_jpg.rf.cef508999f7777acb7cb6470fd767fef__helmet_missing_coco_target.jpg) | ![](comparison_assets/0005_val__002__-helmet_missing-19-_jpg.rf.cef508999f7777acb7cb6470fd767fef__helmet_missing_lisa.jpg) |
 
-![original-image](../../../../../dataset/reason_seg/ReasonSegClean030/val/val__002__-helmet_missing-19-_jpg.rf.cef508999f7777acb7cb6470fd767fef__helmet_missing.jpg)
-
-## LISA Annotation Review
-
-[open](../../../../../data/phase1_feasibility/lisa_visualizations/val/val__002__-helmet_missing-19-_jpg.rf.cef508999f7777acb7cb6470fd767fef__helmet_missing_lisa_vis.jpg)
-
-This image contains: original image, COCO all categories, COCO target category, and LISA polygon/mask.
-
-![lisa-annotation-visualization](../../../../../data/phase1_feasibility/lisa_visualizations/val/val__002__-helmet_missing-19-_jpg.rf.cef508999f7777acb7cb6470fd767fef__helmet_missing_lisa_vis.jpg)
-
-## COCO Full Annotation
-
-[open](../../../../../data/phase1_feasibility/coco_visualizations/val/002__-helmet_missing-19-_jpg.rf.cef508999f7777acb7cb6470fd767fef.jpg)
-
-![coco-visualization](../../../../../data/phase1_feasibility/coco_visualizations/val/002__-helmet_missing-19-_jpg.rf.cef508999f7777acb7cb6470fd767fef.jpg)
-
-## LISA Prediction Review
-
-![prediction-review](00005_val__002__-helmet_missing-19-_jpg.rf.cef508999f7777acb7cb6470fd767fef__helmet_missing_mask0.jpg)
+| Base benchmark prediction | Tuned prediction |
+| --- | --- |
+| ![](comparison_assets/0005_val__002__-helmet_missing-19-_jpg.rf.cef508999f7777acb7cb6470fd767fef__helmet_missing_base_pred.jpg) | ![](comparison_assets/0005_val__002__-helmet_missing-19-_jpg.rf.cef508999f7777acb7cb6470fd767fef__helmet_missing_tuned_pred.jpg) |
