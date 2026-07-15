@@ -2,7 +2,8 @@
 Build a Markdown report that compares source annotations and model predictions.
 
 For each matched benchmark sample, the report shows:
-  - original COCO target-category annotation
+  - source COCO annotations for all categories
+  - source COCO annotation for the target category
   - generated LISA polygon annotation
   - baseline benchmark prediction mask overlay
   - fine-tuned benchmark prediction mask overlay
@@ -21,6 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import re
 from collections import defaultdict
 from pathlib import Path
@@ -107,7 +109,7 @@ def sample_source_stem(image_name: str, category: str) -> str:
 
 
 def rel_link(path: Path, md_path: Path) -> str:
-    return path.relative_to(md_path.parent).as_posix()
+    return Path(os.path.relpath(path, start=md_path.parent)).as_posix()
 
 
 def load_jsonl(path: Path) -> dict[str, dict[str, Any]]:
@@ -322,45 +324,19 @@ class CocoIndex:
         return matches[0]
 
 
-def draw_coco_panel(
+def draw_coco_annotations(
     base_image: Image.Image,
-    coco_index: CocoIndex,
-    lisa_anno: dict[str, Any],
-    row: dict[str, Any],
-) -> tuple[Image.Image, int]:
-    category = row.get("source_category") or row.get("sample_key") or ""
-    sample_key = normalize_category_name(str(row.get("sample_key") or category))
-    source_category = str((lisa_anno.get("source") or {}).get("source_category") or category)
-    source_category_norm = normalize_category_name(source_category)
-    found = coco_index.find(lisa_anno, Path(row["image"]).name, str(category))
-
-    if not found:
-        return (
-            placeholder_panel(
-                base_image.size,
-                "COCO original",
-                "No matching COCO image was found. Check --coco-root and source file names.",
-                color=(93, 68, 31),
-            ),
-            0,
-        )
-
-    dataset, image_info = found
-    anns = dataset["anns_by_image"].get(int(image_info["id"]), [])
-    categories = dataset["categories"]
-    target_anns = []
-    for ann in anns:
-        cat_name = str(categories[ann["category_id"]]["name"])
-        cat_norm = normalize_category_name(cat_name)
-        if cat_norm in {sample_key, source_category_norm}:
-            target_anns.append(ann)
-
+    anns: list[dict[str, Any]],
+    categories: dict[int, dict[str, Any]],
+    title: str,
+    subtitle: str,
+) -> Image.Image:
     panel = base_image.copy().convert("RGBA")
     overlay = Image.new("RGBA", panel.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
     label_draw = ImageDraw.Draw(panel)
     font = load_font(17)
-    for ann in target_anns:
+    for ann in anns:
         color = COCO_COLORS[int(ann["category_id"]) % len(COCO_COLORS)]
         fill = (*color, 78)
         outline = (*color, 255)
@@ -376,13 +352,56 @@ def draw_coco_panel(
         label_draw.text((bbox[0], bbox[1]), label, fill=(255, 255, 255), font=font)
 
     panel = Image.alpha_composite(panel, overlay).convert("RGB")
-    draw_corner_tag(
-        panel,
-        "COCO original",
-        f"{dataset['tag']} / target boxes: {len(target_anns)}",
-        color=(93, 68, 31),
+    draw_corner_tag(panel, title, subtitle, color=(93, 68, 31))
+    return panel
+
+
+def draw_coco_panels(
+    base_image: Image.Image,
+    coco_index: CocoIndex,
+    lisa_anno: dict[str, Any],
+    row: dict[str, Any],
+) -> tuple[Image.Image, Image.Image, int, int]:
+    category = row.get("source_category") or row.get("sample_key") or ""
+    sample_key = normalize_category_name(str(row.get("sample_key") or category))
+    source_category = str((lisa_anno.get("source") or {}).get("source_category") or category)
+    source_category_norm = normalize_category_name(source_category)
+    found = coco_index.find(lisa_anno, Path(row["image"]).name, str(category))
+
+    if not found:
+        message = "No matching COCO image was found. Check --coco-root and source file names."
+        return (
+            placeholder_panel(base_image.size, "COCO source", message, color=(93, 68, 31)),
+            placeholder_panel(base_image.size, "COCO target", message, color=(93, 68, 31)),
+            0,
+            0,
+        )
+
+    dataset, image_info = found
+    anns = dataset["anns_by_image"].get(int(image_info["id"]), [])
+    categories = dataset["categories"]
+    target_anns = []
+    for ann in anns:
+        cat_name = str(categories[ann["category_id"]]["name"])
+        cat_norm = normalize_category_name(cat_name)
+        if cat_norm in {sample_key, source_category_norm}:
+            target_anns.append(ann)
+
+    source_panel = draw_coco_annotations(
+        base_image,
+        anns,
+        categories,
+        "COCO source annotations",
+        f"{dataset['tag']} / all boxes: {len(anns)}",
     )
-    return panel, len(target_anns)
+    target_panel = draw_coco_annotations(
+        base_image,
+        target_anns,
+        categories,
+        "COCO target annotations",
+        f"{dataset['tag']} / target boxes: {len(target_anns)}",
+    )
+    return source_panel, target_panel, len(anns), len(target_anns)
 
 
 def draw_lisa_panel(base_image: Image.Image, lisa_anno: dict[str, Any]) -> tuple[Image.Image, int]:
@@ -512,13 +531,74 @@ def make_safe_stem(index: int, image_name: str) -> str:
     return f"{index:04d}_{stem}"
 
 
+def tuned_visualization_markdown_path(row: dict[str, Any]) -> Path:
+    path = row.get("visualization_markdown_path") or row.get(
+        "visualization_label_path"
+    )
+    if not path and row.get("visualization_path"):
+        path = str(Path(row["visualization_path"]).with_suffix(".md"))
+    if not path:
+        raise ValueError(f"Missing tuned visualization Markdown path: {row.get('image')}")
+    path = Path(path)
+    if path.suffix == ".txt":
+        path = path.with_suffix(".md")
+    return path
+
+
+def write_tuned_comparison_page(
+    md_path: Path,
+    row: dict[str, Any],
+    base: dict[str, Any],
+    tuned: dict[str, Any],
+    paths: dict[str, Path],
+    source_count: int,
+    target_count: int,
+    lisa_count: int,
+) -> None:
+    delta = float(tuned.get("iou", 0.0)) - float(base.get("iou", 0.0))
+    lines = [
+        "# Base / Tuned Sample Comparison",
+        "",
+        f"- Sample: `{row['image_name']}`",
+        f"- Category: `{row['category']}`",
+        f"- Prompt: {row['prompt']}",
+        (
+            f"- Base IoU: `{row['base_iou']:.4f}` | "
+            f"Tuned IoU: `{row['tuned_iou']:.4f}` | Delta: `{delta:+.4f}`"
+        ),
+        (
+            f"- COCO source boxes: `{source_count}` | COCO target boxes: `{target_count}` | "
+            f"LISA polygons: `{lisa_count}`"
+        ),
+        "",
+        "| COCO source annotations | COCO target annotations | LISA annotations |",
+        "| --- | --- | --- |",
+        (
+            f"| ![]({rel_link(paths['coco_source'], md_path)}) "
+            f"| ![]({rel_link(paths['coco_target'], md_path)}) "
+            f"| ![]({rel_link(paths['lisa'], md_path)}) |"
+        ),
+        "",
+        "| Base benchmark prediction | Tuned prediction |",
+        "| --- | --- |",
+        (
+            f"| ![]({rel_link(paths['base'], md_path)}) "
+            f"| ![]({rel_link(paths['tuned'], md_path)}) |"
+        ),
+        "",
+    ]
+    md_path.parent.mkdir(parents=True, exist_ok=True)
+    md_path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def generate_report(args: argparse.Namespace) -> Path:
     repo_root = Path.cwd()
     output_dir = args.output_dir
     asset_dir = output_dir / "assets"
     md_path = output_dir / "report.md"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    asset_dir.mkdir(parents=True, exist_ok=True)
+    if not args.update_tuned_pages:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        asset_dir.mkdir(parents=True, exist_ok=True)
 
     base_rows = load_jsonl(args.base_metrics)
     tuned_rows = load_jsonl(args.tuned_metrics)
@@ -561,16 +641,25 @@ def generate_report(args: argparse.Namespace) -> Path:
 
         if json_path:
             lisa_anno = read_lisa_json(json_path)
-            coco_panel, coco_count = draw_coco_panel(base_image, coco_index, lisa_anno, tuned)
+            coco_source_panel, coco_target_panel, source_count, target_count = draw_coco_panels(
+                base_image, coco_index, lisa_anno, tuned
+            )
             lisa_panel, lisa_count = draw_lisa_panel(base_image, lisa_anno)
         else:
             lisa_anno = {}
-            coco_count = 0
+            source_count = 0
+            target_count = 0
             lisa_count = 0
-            coco_panel = placeholder_panel(
+            coco_source_panel = placeholder_panel(
                 base_image.size,
-                "COCO original",
+                "COCO source annotations",
                 "Missing LISA JSON, cannot locate source COCO annotation.",
+                color=(93, 68, 31),
+            )
+            coco_target_panel = placeholder_panel(
+                base_image.size,
+                "COCO target annotations",
+                "Missing LISA JSON, cannot locate target COCO annotation.",
                 color=(93, 68, 31),
             )
             lisa_panel = placeholder_panel(
@@ -588,17 +677,39 @@ def generate_report(args: argparse.Namespace) -> Path:
             base_image, tuned, "LoRA prediction", repo_root, color=(180, 70, 34)
         )
 
-        safe_stem = make_safe_stem(rank, row["image_name"])
+        sample_index = int(tuned.get("sample_index", rank - 1))
+        safe_stem = make_safe_stem(sample_index, row["image_name"])
+        if args.update_tuned_pages:
+            sample_md_path = tuned_visualization_markdown_path(tuned)
+            sample_asset_dir = sample_md_path.parent / "comparison_assets"
+        else:
+            sample_md_path = md_path
+            sample_asset_dir = asset_dir
         paths = {
-            "coco": asset_dir / f"{safe_stem}_coco.jpg",
-            "lisa": asset_dir / f"{safe_stem}_lisa.jpg",
-            "base": asset_dir / f"{safe_stem}_base_pred.jpg",
-            "tuned": asset_dir / f"{safe_stem}_lora_pred.jpg",
+            "coco_source": sample_asset_dir / f"{safe_stem}_coco_source.jpg",
+            "coco_target": sample_asset_dir / f"{safe_stem}_coco_target.jpg",
+            "lisa": sample_asset_dir / f"{safe_stem}_lisa.jpg",
+            "base": sample_asset_dir / f"{safe_stem}_base_pred.jpg",
+            "tuned": sample_asset_dir / f"{safe_stem}_tuned_pred.jpg",
         }
-        save_panel(coco_panel, paths["coco"], args.max_side)
+        save_panel(coco_source_panel, paths["coco_source"], args.max_side)
+        save_panel(coco_target_panel, paths["coco_target"], args.max_side)
         save_panel(lisa_panel, paths["lisa"], args.max_side)
         save_panel(base_pred_panel, paths["base"], args.max_side)
         save_panel(tuned_pred_panel, paths["tuned"], args.max_side)
+
+        if args.update_tuned_pages:
+            write_tuned_comparison_page(
+                sample_md_path,
+                row,
+                base,
+                tuned,
+                paths,
+                source_count,
+                target_count,
+                lisa_count,
+            )
+            continue
 
         delta = row["delta_iou"]
         lines.extend(
@@ -612,12 +723,16 @@ def generate_report(args: argparse.Namespace) -> Path:
                     f"Delta: `{delta:+.4f}`"
                 ),
                 f"- Prompt: {row['prompt']}",
-                f"- COCO target boxes: `{coco_count}` | LISA polygons: `{lisa_count}`",
-                "",
-                "| COCO original annotation | LISA annotation | Base benchmark prediction | Clean030-LoRA prediction |",
-                "| --- | --- | --- | --- |",
                 (
-                    f"| ![]({rel_link(paths['coco'], md_path)}) "
+                    f"- COCO source boxes: `{source_count}` | "
+                    f"COCO target boxes: `{target_count}` | LISA polygons: `{lisa_count}`"
+                ),
+                "",
+                "| COCO source annotations | COCO target annotations | LISA annotations | Base benchmark prediction | Tuned prediction |",
+                "| --- | --- | --- | --- | --- |",
+                (
+                    f"| ![]({rel_link(paths['coco_source'], md_path)}) "
+                    f"| ![]({rel_link(paths['coco_target'], md_path)}) "
                     f"| ![]({rel_link(paths['lisa'], md_path)}) "
                     f"| ![]({rel_link(paths['base'], md_path)}) "
                     f"| ![]({rel_link(paths['tuned'], md_path)}) |"
@@ -625,6 +740,10 @@ def generate_report(args: argparse.Namespace) -> Path:
                 "",
             ]
         )
+
+    if args.update_tuned_pages:
+        print(f"[done] updated tuned visualization pages: {len(rows)}")
+        return args.tuned_metrics
 
     if missing_assets:
         lines.extend(
@@ -658,6 +777,15 @@ def parse_args() -> argparse.Namespace:
         help="Root searched recursively for _annotations.coco.json files.",
     )
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR, type=Path)
+    parser.add_argument(
+        "--update-tuned-pages",
+        action="store_true",
+        help=(
+            "Replace each tuned visualization Markdown page with a five-panel "
+            "COCO/LISA/base/tuned comparison. Generated JPG assets are stored "
+            "beside the tuned pages under comparison_assets/."
+        ),
+    )
     parser.add_argument(
         "--only",
         choices=["all", "bad", "improved", "regressed"],

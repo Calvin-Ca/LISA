@@ -117,8 +117,8 @@ def format_sample_table(
     lines = [
         f"{heading} {title}",
         "",
-        "| Rank | Change | Delta IoU | Base IoU | Tuned IoU | Delta Dice | Label | Image | Base View | Tuned View | Prompt |",
-        "| ---: | --- | ---: | ---: | ---: | ---: | --- | --- | --- | --- | --- |",
+        "| Rank | Change | Delta IoU | Base IoU | Tuned IoU | Delta Dice | Label | Image | Comparison | Prompt |",
+        "| ---: | --- | ---: | ---: | ---: | ---: | --- | --- | --- | --- |",
     ]
     for idx, row in enumerate(rows, start=1):
         prompt = str(row["prompt"]).replace("|", "\\|")
@@ -132,7 +132,7 @@ def format_sample_table(
             change = "Unchanged"
         lines.append(
             "| {idx} | {change} | {delta} | {base} | {tuned} | {delta_dice} | "
-            "{label} | `{image}` | {base_view} | {tuned_view} | {prompt} |".format(
+            "{label} | `{image}` | {comparison} | {prompt} |".format(
                 idx=idx,
                 change=change,
                 delta=fmt_float(row["delta_iou"], signed=True),
@@ -141,11 +141,8 @@ def format_sample_table(
                 delta_dice=fmt_float(row["delta_dice"], signed=True),
                 label=label,
                 image=image,
-                base_view=markdown_link(
-                    row["base_visualization"], report_path, "base"
-                ),
-                tuned_view=markdown_link(
-                    row["tuned_visualization"], report_path, "tuned"
+                comparison=markdown_link(
+                    row["tuned_visualization"], report_path, "comparison"
                 ),
                 prompt=prompt,
             )

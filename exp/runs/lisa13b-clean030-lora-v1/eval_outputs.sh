@@ -14,6 +14,7 @@ CLEAN_OUTPUT_DIR="./exp/runs/${EXP_NAME}/clean-eval-outputs"
 FULL_OUTPUT_DIR="./exp/runs/${EXP_NAME}/full-eval-outputs"
 BASE_VAL_METRICS="./exp/runs/lisa13b-local-val/outputs/per_sample_metrics.jsonl"
 COMPARE_SCRIPT="./exp/compare_benchmark_metrics.py"
+COMPARISON_PAGE_SCRIPT="./exp/build_annotation_prediction_report.py"
 EXPERIMENT_DOC="./exp/runs/${EXP_NAME}/EXPERIMENT.md"
 LISA_BENCHMARK_FONT_PATH="/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
 
@@ -125,6 +126,16 @@ run_eval "ReasonSegClean030|val" "$CLEAN_OUTPUT_DIR"
 
 echo "[eval] ReasonSeg|val -> $FULL_OUTPUT_DIR"
 run_eval "ReasonSeg|val" "$FULL_OUTPUT_DIR"
+
+python "$COMPARISON_PAGE_SCRIPT" \
+  --base-metrics "$BASE_VAL_METRICS" \
+  --tuned-metrics "${CLEAN_OUTPUT_DIR}/per_sample_metrics.jsonl" \
+  --update-tuned-pages
+
+python "$COMPARISON_PAGE_SCRIPT" \
+  --base-metrics "$BASE_VAL_METRICS" \
+  --tuned-metrics "${FULL_OUTPUT_DIR}/per_sample_metrics.jsonl" \
+  --update-tuned-pages
 
 python "$COMPARE_SCRIPT" \
   --quiet \
