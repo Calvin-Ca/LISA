@@ -2,40 +2,20 @@
 .DS_Store
 /runs/
 .vscode/
-data/
-data_by_category/
 
-# 数据合成 pipeline 的生成物 / 原料(保留目录结构,忽略内容)
-data_pipeline/ingest/*
-data_pipeline/raw/*
-data_pipeline/out/*
-data_pipeline/vis/*
-!data_pipeline/**/.gitkeep
+# 数据、pipeline 和实验目录保留非图片文件，全仓库仅忽略未跟踪的栅格图片
+*.[pP][nN][gG]
+*.[jJ][pP][gG]
+*.[jJ][pP][eE][gG]
+*.[wW][eE][bB][pP]
+*.[bB][mM][pP]
+*.[gG][iI][fF]
+*.[tT][iI][fF]
+*.[tT][iI][fF][fF]
 
-# LISA 训练数据(样本不入库,保留目录骨架)
-dataset/reason_seg/ReasonSeg/train/*
-dataset/reason_seg/ReasonSeg/val/*
-dataset/reason_seg/ReasonSeg/explanatory/*
-dataset/reason_seg/ReasonSegClean*/train/*
-dataset/reason_seg/ReasonSegClean*/val/*
-dataset/reason_seg/ReasonSegClean*/clean_subset_manifest.json
-dataset/reason_seg/ReasonSegClean*/clean_subset_summary.json
-!dataset/**/.gitkeep
-!dataset/README.md
-
-# 实验结果
-benchmark/
-benchmark_outputs/
-
-# exp 台账保留文本/指标文件，仅忽略图片
-exp/**/*.png
-exp/**/*.jpg
-exp/**/*.jpeg
-exp/**/*.webp
-exp/**/*.bmp
-exp/**/*.gif
-exp/**/*.tif
-exp/**/*.tiff
-
-# SAM / GroundingDINO 权重
+# 训练和模型权重
 *.pth
+*.pt
+*.bin
+*.safetensors
+*.ckpt
