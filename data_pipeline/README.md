@@ -16,6 +16,7 @@
 | `visualize_coco_bboxes.py` | 本地可跑 | `python data_pipeline/visualize_coco_bboxes.py --data-root data/phase1_feasibility --output-root data/phase1_feasibility/vis_bboxes` | 可视化 COCO bbox，人工检查类别和框质量。 |
 | `build_lisa_from_coco.py` | 远程执行 | `python data_pipeline/build_lisa_from_coco.py --overwrite` | 调用 SAM 将 COCO bbox 转 mask，再写成 LISA/ReasonSeg jpg/json。需要 GPU 和 SAM 权重。 |
 | `visualize_lisa_annotations.py` | 本地可跑 | `python data_pipeline/visualize_lisa_annotations.py --input-dir dataset/reason_seg/ReasonSeg/train` | 可视化 LISA json 多边形，确认训练实际读取的 mask。 |
+| `rephrase_reason_seg_instructions.py` | 本地/远程均可 | `python data_pipeline/rephrase_reason_seg_instructions.py --dry-run` | 调用 OpenAI API 为 Relabel train prompt 生成严格等价改写；先写审计 manifest，确认后才用 `--apply` 更新 JSON。 |
 
 当前主线典型顺序：
 
@@ -27,6 +28,42 @@ python data_pipeline/visualize_lisa_annotations.py --input-dir dataset/reason_se
 ```
 
 其中 `build_lisa_from_coco.py` 需要远程 Linux GPU 服务器执行；其他脚本只做文件整理或可视化，数据量不大时本地可跑。
+
+### ReasonSeg 训练指令改写
+
+`rephrase_reason_seg_instructions.py` 默认只读取 `ReasonSegRelabel/train/*.json`，不处理 val，也不加载任何视觉模型。先在无网络、无费用的 dry-run 中检查范围：
+
+```bash
+python data_pipeline/rephrase_reason_seg_instructions.py --dry-run
+```
+
+正式生成前由当前 shell 提供 `OPENAI_API_KEY`，不得将 key 写入仓库。首先用少量样本验证 prompt 约束和账号模型权限：
+
+```bash
+python data_pipeline/rephrase_reason_seg_instructions.py --limit 10
+```
+
+`--limit` 默认使用固定 `--seed 42` 做分类别轮询抽样，使首批 10 条尽量覆盖全部类别，而不是按文件名连续抽到同一类。
+
+默认按用户指定的官方方案使用 `gpt-3.5-turbo`，但该模型已在 OpenAI 当前目录中标记为 deprecated。可通过 `--model` 显式选择当前账号可用且支持 Structured Outputs 的新模型：
+
+```bash
+python data_pipeline/rephrase_reason_seg_instructions.py --model gpt-5-mini --limit 10
+```
+
+生成结果先写入 `instruction_rewrites.jsonl`，不会立即修改标注。人工检查语义等价性后，复用 manifest 并写入每个 JSON 的 `text` 列表：
+
+```bash
+python data_pipeline/rephrase_reason_seg_instructions.py --apply
+```
+
+`--apply` 只会应用已缓存的成功记录，绝不调用 API；没有审核记录的样本会被跳过。默认每个样本保留 1 条标准指令并增加 4 条改写，共 5 条。脚本支持断点复用；除非显式加 `--force`，已有合法 manifest 记录的样本不会重复调用 API。
+
+为避免误发全量付费请求，生成模式必须显式指定 `--limit N` 或 `--all`。小批量验证通过后才可全量生成：
+
+```bash
+python data_pipeline/rephrase_reason_seg_instructions.py --all
+```
 
 ## 评估后数据派生
 

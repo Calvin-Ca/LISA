@@ -19,11 +19,29 @@
 
 | 实验 | 用途 | 模型 | 数据划分 | 状态 | 关键输出 |
 |---|---|---|---|---|---|
-| `lisa13b-local-train` | 在训练集上评估,观察拟合情况和标注问题 | 本地 `./LISA13B` | `ReasonSeg|train` | 待远程执行并回填 | `outputs/summary.json` |
-| `lisa13b-local-val` | 在验证集上评估,作为正式汇报指标来源 | 本地 `./LISA13B` | `ReasonSeg|val` | 待远程执行并回填 | `outputs/summary.json` |
-| `lisa13b-clean030-lora-v1` | 用 Clean030 子集做 LoRA 微调,并在 clean/full val 上做正式对比 | `./LISA13B` | `ReasonSegClean030|train` / `ReasonSegClean030|val` / `ReasonSeg|val` | 已有脚本,结果写入扁平目录 | `clean-eval-outputs/`, `full-eval-outputs/` |
+| `lisa13b-local-train` | 在训练集上评估,观察域适配情况和标注问题 | 本地 `./LISA13B` | `ReasonSeg|train` | 已完成（2026-07-10） | `outputs/summary.json` |
+| `lisa13b-local-val` | 在验证集上评估,作为正式汇报指标来源 | 本地 `./LISA13B` | `ReasonSeg|val` | 已完成（2026-07-10） | `outputs/summary.json` |
+| `lisa13b-clean030-lora-v1` | 用 Clean030 子集做 LoRA 微调,并在 clean/full val 上做正式对比 | `./LISA13B` | `ReasonSegClean030|train` / `ReasonSegClean030|val` / `ReasonSeg|val` | 已完成训练与评估（2026-07-13～14） | `clean-eval-outputs/`, `full-eval-outputs/` |
 
-> 当前常规 benchmark 仍以 train / val 两个实验为主。另有 `lisa13b-clean030-lora-v1` 作为 Clean030 LoRA 专项实验。旧 smoke 和历史 outputs 已清空,待重新远程执行生成。
+> Base train/val benchmark 和 Clean030 LoRA 实验均已完成。正式泛化结论以同一个完整 `ReasonSeg|val` 上的 Base/LoRA 对比为准，`ReasonSegClean030|val` 只用于观察高置信子集的学习情况。
+
+## Base vs Clean030 LoRA 最终对比
+
+两组结果均在完整 `ReasonSeg|val` 的同一批 86 个样本上评估。Base 来自 `lisa13b-local-val/outputs/`，LoRA 来自 `lisa13b-clean030-lora-v1/full-eval-outputs/`。
+
+| 指标 | Base LISA-13B | Clean030 LoRA | 变化 |
+| --- | ---: | ---: | ---: |
+| gIoU | 0.3408 | 0.4494 | +0.1086 |
+| cIoU | 0.3177 | 0.3858 | +0.0681 |
+| Mean Dice | 0.4180 | 0.5156 | +0.0976 |
+| Mean Precision | 0.4071 | 0.5332 | +0.1261 |
+| Mean Recall | 0.5132 | 0.5416 | +0.0284 |
+| IoU = 0 样本数 | 22 | 16 | -6 |
+| IoU >= 0.5 样本数 | 29 | 39 | +10 |
+| False Positive Area | 2,321,866 | 1,623,031 | -698,835（-30.1%） |
+| False Negative Area | 1,821,927 | 1,677,931 | -143,996（-7.9%） |
+
+Clean030 LoRA 在完整验证集上的主要收益是降低误检：Precision 提升 12.61 个点，False Positive Area 下降 30.1%。Recall 只提升 2.84 个点，False Negative Area 下降 7.9%，因此漏检仍是下一轮数据治理和训练的主要问题。
 
 ## 自动记录远程结果
 

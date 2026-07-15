@@ -32,3 +32,40 @@
 ## 操作脚本文档
 
 COCO 到 LISA 的 pipeline 脚本清单、训练/评估命令和当前实验入口已迁移到 `docs_caich/readme`。
+
+## 项目待办（面试准备）
+
+当前已完成 COCO bbox -> SAM mask -> LISA ReasonSeg -> LoRA -> benchmark 的完整链路。Base LISA-13B 在完整 `ReasonSeg|val` 上的指标为 `gIoU=0.3408 / cIoU=0.3177 / Dice=0.4180`，Clean030 LoRA 后为 `gIoU=0.4494 / cIoU=0.3858 / Dice=0.5156`。后续优先完善证据链、数据质量和实验设计，不急于盲目扩大模型或堆叠超参数实验。
+
+### P0：实验结论与数据可信度
+
+- [x] 修正 `exp/README.md`、`lisa13b-local-train/EXPERIMENT.md` 和 `lisa13b-local-val/EXPERIMENT.md` 中已有结果但仍标记为“待执行/待评估”的内容。
+- [x] 整理一张 Base LISA-13B vs Clean030 LoRA 的最终对比表，包含 gIoU、cIoU、Dice、Precision、Recall、零 IoU 数、`IoU >= 0.5` 数和误检/漏检面积变化。
+- [ ] 建立人工核验的小型 golden test，优先覆盖 30～60 张独立图片，人工检查 prompt、目标语义和 mask 边界。
+- [ ] golden test 按原始视频、拍摄序列或工地分组划分，避免相邻帧跨 train/test；冻结后不再根据模型结果修改。
+- [ ] 在 golden test 上重新评估 Base 和当前最佳 LoRA，明确区分“接近 SAM 伪标签”与“接近人工认定的真实目标”。
+
+### P0：Relabel 与 bad case 闭环
+
+- [ ] 使用 `dataset/reason_seg/ReasonSegRelabel/samples_by_iou.md` 优先审核 IoU 为 0、IoU < 0.1、LoRA 后严重退化以及 Target Area 异常的样本。
+- [ ] 为 bad case 建立固定错误类型：prompt/mask 错配、prompt 过于抽象、SAM 越界、SAM 漏标、多实例选择不一致、目标不可辨认、语义理解失败、边界分割不准。
+- [ ] Relabel 时同时核验 prompt 和 mask，不只做同义句替换；记录每条标签的修改类型和原因。
+- [ ] 优先制定 `safe/unsafe` 的统一标注规则，明确分割对象是人员、设备、危险行为还是整片危险区域；必要时将 `unsafe` 拆分为具体隐患类别。
+- [ ] 统计 Relabel 前后的错误类型、修改数量和类别分布，形成可追溯的数据治理结论。
+
+### P1：关键消融与稳定性
+
+- [ ] 在相同 LoRA 参数、训练步数、随机种子和评估集下对比 Base、Clean030 LoRA 和 Relabel Full LoRA。
+- [ ] GPU 时间允许时增加 Original Full LoRA，用于判断收益主要来自 LoRA、Clean030 筛选还是 Relabel 数据清洗。
+- [ ] 如困难类别仍明显落后，增加 Relabel + 类别均衡/hard-case 采样实验，优先关注 `unsafe`、`guardrail_missing`、`opening_unprotected` 和 `equipment_proximity`。
+- [ ] 对最终配置至少运行 3 个随机种子，报告 `mean ± std`，不只报最好单次结果。
+- [ ] 增加 Base/LoRA paired bootstrap 置信区间；按独立 `source_file_name` 聚类采样，不将同一图片的多个标签视为完全独立样本。
+- [ ] 统一输出总体、分类别、分目标尺寸和分错误类型指标，并保留回归样本分析。
+
+### P2：面试展示与工程化
+
+- [ ] 准备一个图片 + 自然语言 prompt -> mask overlay 的推理 Demo，支持 Base/LoRA 并排对比。
+- [ ] Demo 中展示模型版本、GPU、显存占用、纯推理时间和端到端延迟，不将当前约 0.42 秒/样本的 benchmark 时间直接等同于完整产品延迟。
+- [ ] 准备 3 个成功样例和 2 个可解释的失败样例，说明模型能力边界和改进方向。
+- [ ] 整理一页项目总览，包含任务定义、数据流程、模型改造、实验表、bad case、局限性和下一步。
+- [ ] 准备“数据 -> 训练 -> 评估 -> 失败分析 -> 迭代”的五段式面试叙述，能在 2 分钟内介绍项目主线。

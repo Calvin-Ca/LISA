@@ -54,15 +54,13 @@
 
 ## 结论
 
-待评估完成后,以本实验作为正式验证集基线。
+评估已完成，本实验已作为正式 Base LISA-13B 验证集基线。Base 在完整 86 个样本上的结果为 `gIoU=0.3408 / cIoU=0.3177 / Dice=0.4180`，其中 22 个样本 IoU 为 0，33 个样本 IoU < 0.1，29 个样本 IoU >= 0.5。这说明 base 模型具有一定的通用语义分割能力，但对施工隐患概念的稳定定位仍不足。
 
-重点关注:
+Clean030 LoRA 后，同一完整 `ReasonSeg|val` 上的指标提升到 `gIoU=0.4494 / cIoU=0.3858 / Dice=0.5156`。gIoU 提升 0.1086，零 IoU 样本减少 6 个，`IoU >= 0.5` 样本增加 10 个，证明高置信数据上的 LoRA 领域适配对完整验证集有真实迁移收益。
 
-- base LISA 在施工隐患概念上的总体定位能力。
-- 低 IoU 样本中的数据问题和真实困难样本比例。
-- 后续 LoRA 微调是否能在同一 `ReasonSeg|val` 上提升 gIoU/cIoU/Dice。
+收益主要来自误检降低：Mean Precision 从 0.4071 提升到 0.5332，False Positive Area 下降 30.1%；Mean Recall 仅从 0.5132 提升到 0.5416，False Negative Area 下降 7.9%。因此漏检和 `unsafe` 等抽象隐患类别仍是后续主要短板。
 
 ## 备注
 
 - 本实验是正式 base benchmark。
-- 执行完成后,`benchmark_reason_seg.py` 会自动更新配置和核心指标;结论和 bad case 分析需要人工补充。
+- 评估产物、核心指标和 Base/LoRA 结论已回填；后续修改验证集标注时，必须在同一冻结版本上重新评估 Base 和 LoRA，不得直接与当前指标混用。

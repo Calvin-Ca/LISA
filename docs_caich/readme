@@ -15,6 +15,7 @@
 - `[本项目新增]` `data_pipeline/visualize_coco_bboxes.py`：可视化 COCO bbox，既可看原始 COCO，也可看 `data/phase1_feasibility`，用于人工抽检框和类别是否合理。
 - `[本项目新增]` `data_pipeline/build_lisa_from_coco.py`：COCO 到 LISA 的主转换脚本，读取 phase1 COCO 子集，调用 SAM 把 bbox 转成 mask，再转 LabelMe 多边形，直接写入 `dataset/reason_seg/ReasonSeg/{train,val}/<name>.jpg/.json`，并生成 `phase1_manifest.csv`、`phase1_build_summary.json`。
 - `[本项目新增]` `data_pipeline/visualize_lisa_annotations.py`：可视化生成后的 LISA jpg/json，并可同时对照 COCO 全部类别框和当前目标类别框，用于确认训练实际读取的 mask。
+- `[本项目新增]` `data_pipeline/rephrase_reason_seg_instructions.py`：使用 OpenAI API 为 `ReasonSegRelabel|train` 的标准 prompt 生成严格等价改写；默认先生成可审计 JSONL manifest，人工确认后再用 `--apply` 写回标注。不加载 GPU 模型，不得将 `OPENAI_API_KEY` 写入仓库。
 - `[论文原有/本项目改造]` `train_ds.py`：远程执行 LoRA 微调；当前施工场景默认使用 `--dataset "reason_seg"`、`--reason_seg_data "ReasonSeg|train"`、`--explanatory -1`。
 - `[本项目新增]` `benchmark_reason_seg.py`：远程执行 ReasonSeg 评估，示例 `python benchmark_reason_seg.py --version ./runs/<name>/merged_hf --vision-tower ... --dataset_dir ./dataset --val_dataset ReasonSeg|val --vision_pretrained ... --output_dir ./exp/runs/<name>/outputs`；输出 `summary.json`、`summary.md`、`per_sample_metrics.*`、预测 mask 和可视化结果。
 

@@ -55,15 +55,13 @@
 
 ## 结论
 
-待评估完成后,结合 `outputs/summary.md` 和 `outputs/samples_by_iou.md` 分析。
+评估已完成。Base LISA-13B 在 415 个训练样本上取得 `gIoU=0.3432 / cIoU=0.2938 / Dice=0.4163`。其中 91 个样本 IoU 为 0，170 个样本 IoU < 0.1，132 个样本 IoU >= 0.5，说明 base 模型对部分具体目标已有定位能力，但低分长尾仍很明显。
 
-重点关注:
+train 与 val 的 gIoU（0.3432 vs 0.3408）和 Dice（0.4163 vs 0.4180）非常接近。由于这里评估的 base LISA 并未在当前 ReasonSeg 上微调，这不是传统意义上的训练集拟合对比；它更说明当前两个划分对 base 模型具有相近难度，主要瓶颈是施工安全语义的领域 gap、prompt/mask 一致性和 SAM 辅助标注质量。
 
-- 低 IoU 样本是否属于标注错误、prompt 错配、目标不可见等数据问题。
-- 低 IoU 是否集中在 `guardrail_missing`、`opening_unprotected`、`equipment_proximity` 等施工领域概念。
-- train 与 val 指标是否接近,用于判断瓶颈是数据质量/领域 gap 还是泛化问题。
+本结果已用于构建 Clean030 高置信子集，并通过 `outputs/samples_by_iou.md` 和 `dataset/reason_seg/ReasonSegRelabel/samples_by_iou.md` 继续开展低分样本审核。
 
 ## 备注
 
 - 本实验用于数据审计,不是正式泛化指标。
-- 执行完成后,`benchmark_reason_seg.py` 会自动更新配置和核心指标;结论和 bad case 分析需要人工补充。
+- 评估产物和核心指标已回填；bad case 的人工分类和 Relabel 修正属于后续数据治理工作。
