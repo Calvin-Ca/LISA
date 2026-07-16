@@ -1,0 +1,15 @@
+# Base / Tuned Sample Comparison
+
+- Sample: `val__002__-helmet_missing-238-_jpg.rf.d793369e91ce496d9e82d59c120a433a__helmet_missing.jpg`
+- Category: `helmet_missing`
+- Prompt: 现场哪些人员存在未戴安全帽的安全隐患?请分割出来。
+- Base IoU: `0.5328` | Tuned IoU: `0.9635` | Delta: `+0.4307`
+- COCO source boxes: `1` | COCO target boxes: `1` | LISA polygons: `1`
+
+| COCO source annotations | COCO target annotations | LISA annotations |
+| --- | --- | --- |
+| ![](comparison_assets/0012_val__002__-helmet_missing-238-_jpg.rf.d793369e91ce496d9e82d59c120a433a__helmet_missing_coco_source.jpg) | ![](comparison_assets/0012_val__002__-helmet_missing-238-_jpg.rf.d793369e91ce496d9e82d59c120a433a__helmet_missing_coco_target.jpg) | ![](comparison_assets/0012_val__002__-helmet_missing-238-_jpg.rf.d793369e91ce496d9e82d59c120a433a__helmet_missing_lisa.jpg) |
+
+| Base benchmark prediction | Tuned prediction |
+| --- | --- |
+| ![](comparison_assets/0012_val__002__-helmet_missing-238-_jpg.rf.d793369e91ce496d9e82d59c120a433a__helmet_missing_base_pred.jpg) | ![](comparison_assets/0012_val__002__-helmet_missing-238-_jpg.rf.d793369e91ce496d9e82d59c120a433a__helmet_missing_tuned_pred.jpg) |
