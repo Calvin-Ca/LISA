@@ -1,6 +1,8 @@
 **/__pycache__
 .DS_Store
 /runs/
+/artifacts/
+production/.env
 .vscode/
 
 # 数据、pipeline 和实验目录保留非图片文件，全仓库仅忽略未跟踪的栅格图片
