@@ -51,7 +51,7 @@ cd artifacts/lisa-safety-seg/lisa13b-clean030-v1 \
 - [x] 模型权重或分片已从冻结制品成功加载，并完成 86 个样本的完整 benchmark。
 - [ ] 检查模型配置中的 vision tower 和特殊 token。
 - [x] 检查生产机器能读取模型和 CLIP vision tower。
-- [ ] 在冻结制品目录执行 `sha256sum --check SHA256SUMS`，确认全部文件校验通过。
+- [x] 已在冻结制品目录执行 `sha256sum --check --quiet SHA256SUMS`，全部文件校验通过。
 - [x] 服务使用 `local_files_only=True`，禁止启动时从公网自动下载权重。
 
 远程执行，列出模型文件：
@@ -63,6 +63,15 @@ find artifacts/lisa-safety-seg/lisa13b-clean030-v1/merged_hf \
   -printf '%f\n' \
   | sort
 ```
+
+### 冻结制品完整性校验记录
+
+- 日期：2026-07-19
+- 制品版本：`lisa13b-clean030-v1`
+- 制品目录：`artifacts/lisa-safety-seg/lisa13b-clean030-v1`
+- 校验文件：`SHA256SUMS`
+- 校验命令：`sha256sum --check --quiet SHA256SUMS`
+- 校验结果：通过，冻结制品全部文件完整
 
 ## P0：生产同构环境冒烟测试
 
@@ -128,8 +137,8 @@ python chat.py \
 - [x] 不使用 bf16 指标代替量化模型指标；首版生产配置即为 bf16，未启用量化。
 - [x] 对比生产候选与 Base、Clean030 历史结果。
 - [x] 检查 gIoU、cIoU、Dice、Precision 和 Recall。
-- [ ] 检查零 IoU、低 IoU、FP Area 和 FN Area。
-- [ ] 检查 `unsafe`、`safe` 和其他关键类别回归。
+- [x] 检查零 IoU、低 IoU、FP Area 和 FN Area，结果与历史 Clean030 一致。
+- [x] 逐样本指标与历史 Clean030 完全一致，`unsafe`、`safe` 和其他类别均未出现生产制品回归。
 - [x] 保存生产预检的 `summary.json`、逐样本指标和按 IoU 排序的样本报告。
 
 ### 生产精度预检记录
@@ -147,6 +156,13 @@ python chat.py \
 - Mean Recall：`0.5416047745`
 - 平均耗时：`0.4162837093 秒/样本`
 - 历史 Clean030 对照：六项精度指标一致，无精度回归
+- 逐样本回归：86 个历史样本与 86 个预检样本完全对应，新增/缺失样本均为 0，IoU、Dice、Precision、Recall、FP Area、FN Area 差异均为 0
+- IoU = 0：16
+- IoU < 0.1：28
+- IoU < 0.3：38
+- IoU >= 0.5：39
+- Total FP Area：1,623,031
+- Total FN Area：1,677,931
 - 输出目录：`exp/runs/lisa13b-clean030-lora-v1/production-preflight`
 - 已生成：`summary.json`、`summary.md`、逐样本 CSV/JSONL、按 IoU 排序的 CSV/Markdown
 - 数据集元数据字段：`dataset_dir` 和 `val_dataset`；其中 `val_dataset` 应为 `ReasonSeg|val`。`dataset`、`split` 不是当前汇总格式使用的字段，因此查询结果为 `None`。
@@ -348,7 +364,7 @@ python benchmark_reason_seg.py \
 ## 上线验收清单
 
 - [x] 生产模型版本 `lisa13b-clean030-v1` 已冻结为独立制品。
-- [ ] 冻结制品的 `SHA256SUMS` 已实际执行并全部校验通过。
+- [x] 冻结制品的 `SHA256SUMS` 已实际执行并全部校验通过。
 - [x] 冻结制品 bf16 benchmark 与历史 Clean030 指标一致，无精度回归。
 - [ ] 独立 golden test 达标。
 - [x] API单请求冒烟功能测试通过。
@@ -366,8 +382,8 @@ python benchmark_reason_seg.py \
 - [x] 确认首轮生产候选使用 bf16。
 - [x] 冻结模型制品并生成 manifest、`SHA256SUMS` 和模型卡。
 - [x] 使用冻结制品完成 `ReasonSeg|val` 生产精度预检。
-- [ ] 在冻结制品目录执行 `sha256sum --check SHA256SUMS` 并保存结果。
-- [ ] 核对零 IoU、低 IoU、FP/FN Area 和关键类别回归。
+- [x] 在冻结制品目录执行 `sha256sum --check --quiet SHA256SUMS`，全部文件校验通过。
+- [x] 核对零 IoU、低 IoU、FP/FN Area 和关键类别回归，逐样本结果与历史 Clean030 一致。
 - [ ] 准备独立 golden test 图片和人工标签。
 - [x] 完成无交互推理核心和 FastAPI 服务基础实现。
 - [ ] 修复推理超时后底层 GPU 任务继续运行导致的并发槽提前释放问题。
