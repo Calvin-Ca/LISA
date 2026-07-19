@@ -6,23 +6,24 @@
 
 当前推荐：
 
-- 生产候选：`runs/lisa13b-clean030-lora-v1/merged_hf`
-- 影子候选：`runs/lisa13b-relabel303-lora-v1/merged_hf`
+- 生产候选制品：`artifacts/lisa-safety-seg/lisa13b-clean030-v1/merged_hf`
+- 生产候选来源：`runs/lisa13b-clean030-lora-v1/merged_hf`
+- 影子候选来源：`runs/lisa13b-relabel303-lora-v1/merged_hf`，尚未冻结为生产制品
 - 当前对比集：`ReasonSeg|val`，86 个样本
 - 当前生产候选指标：gIoU `0.4494`、cIoU `0.3858`、Dice `0.5156`
 
-Clean030 LoRA 当前总体指标优于 Relabel303 LoRA。正式上线前仍需通过独立 golden test、生产精度复评和生产同构环境压测。
+Clean030 LoRA 当前总体指标优于 Relabel303 LoRA。冻结制品已完成生产精度复评且与历史 Clean030 指标一致；正式上线前仍需完成 SHA-256 实际校验、独立 golden test、生产同构环境压测、监控告警、灰度和回滚演练。
 
 ## P0：模型版本与制品冻结
 
-- [ ] 确认首个生产候选使用 Clean030 LoRA，不直接用 Relabel303 替换。
+- [x] 确认首个生产候选使用 Clean030 LoRA，不直接用 Relabel303 替换。
 - [x] 为生产模型定义固定版本，例如 `lisa13b-clean030-v1`。
-- [ ] 将合并后的 Hugging Face 模型目录复制到独立制品目录，不直接引用可变化的训练目录。
-- [ ] 确认部署对象是 `merged_hf/`，不是 `ckpt_model/` 或单独的 `pytorch_model.bin`。
-- [ ] 确认 CLIP vision tower `clip-vit-large-patch14` 可作为独立制品部署。
+- [x] 将合并后的 Hugging Face 模型目录复制到独立制品目录，不直接引用可变化的训练目录。
+- [x] 确认部署对象是 `merged_hf/`，不是 `ckpt_model/` 或单独的 `pytorch_model.bin`。
+- [x] 确认 CLIP vision tower `clip-vit-large-patch14` 可在服务器本地读取。
 - [x] 提供生成模型 SHA-256 文件清单的制品冻结工具。
 - [x] 制品 manifest 自动保存 Git commit、文件大小和校验值。
-- [ ] 记录 Python、CUDA、PyTorch、Transformers、DeepSpeed 和 bitsandbytes 版本。
+- [ ] 补充记录 DeepSpeed 和 bitsandbytes 版本；Python、CUDA、PyTorch 和 Transformers 已核对。
 - [ ] 将模型权重上传到对象存储、内部模型仓库或制品平台，不提交到 Git。
 - [x] 定义制品目录结构：
 
@@ -35,31 +36,28 @@ artifacts/lisa-safety-seg/
     └── MODEL_CARD.md
 ```
 
-远程执行，生成校验文件：
+远程执行，校验冻结制品：
 
 ```bash
-find runs/lisa13b-clean030-lora-v1/merged_hf \
-  -type f \
-  -print0 \
-  | sort -z \
-  | xargs -0 sha256sum \
-  > runs/lisa13b-clean030-lora-v1/merged_hf.sha256
+cd artifacts/lisa-safety-seg/lisa13b-clean030-v1 \
+  && sha256sum --check SHA256SUMS \
+  && cd ../../..
 ```
 
 ## P0：模型产物检查
 
-- [ ] 检查 `merged_hf/config.json` 存在。
-- [ ] 检查 tokenizer 配置和 tokenizer 模型存在。
-- [ ] 检查模型权重或分片权重完整。
+- [x] 检查 `merged_hf/config.json` 存在。
+- [x] tokenizer 已从冻结制品成功加载，`tokenizer_config.json` 等运行所需文件可用。
+- [x] 模型权重或分片已从冻结制品成功加载，并完成 86 个样本的完整 benchmark。
 - [ ] 检查模型配置中的 vision tower 和特殊 token。
-- [ ] 检查生产机器能读取模型和 CLIP vision tower。
-- [ ] 校验传输后的 SHA-256 与训练服务器一致。
-- [ ] 禁止服务启动时从公网自动下载权重。
+- [x] 检查生产机器能读取模型和 CLIP vision tower。
+- [ ] 在冻结制品目录执行 `sha256sum --check SHA256SUMS`，确认全部文件校验通过。
+- [x] 服务使用 `local_files_only=True`，禁止启动时从公网自动下载权重。
 
 远程执行，列出模型文件：
 
 ```bash
-find runs/lisa13b-clean030-lora-v1/merged_hf \
+find artifacts/lisa-safety-seg/lisa13b-clean030-v1/merged_hf \
   -maxdepth 1 \
   -type f \
   -printf '%f\n' \
@@ -68,21 +66,44 @@ find runs/lisa13b-clean030-lora-v1/merged_hf \
 
 ## P0：生产同构环境冒烟测试
 
-- [ ] 在预发布 Linux GPU 机器准备与生产一致的 CUDA 和 Python 环境。
-- [ ] 使用 `chat.py` 验证合并模型能成功加载。
-- [ ] 使用固定图片和固定 Prompt 作为 smoke case。
-- [ ] 检查模型文本输出包含有效分割响应。
-- [ ] 检查输出 mask 非空、尺寸正确且无 NaN。
-- [ ] 记录模型加载时间、首次推理时间和预热后推理时间。
+- [x] 在远程 Linux A100 40GB GPU 机器准备并核对 CUDA 和 Python 环境。
+- [x] 使用生产 FastAPI 后端验证合并模型能成功加载。
+- [x] 使用固定图片和固定 Prompt 作为 smoke case。
+- [x] 检查模型文本输出包含有效分割响应。
+- [x] 检查输出 mask 非空、尺寸正确且像素值有效。
+- [ ] 完整记录模型冷启动、首次推理和预热后多次推理时间；首次API推理已记录。
 - [ ] 记录模型加载显存和推理峰值显存。
 - [ ] 保留 smoke case 的输入、期望输出和实际产物。
 
-远程执行，bf16 冒烟测试：
+### 冒烟测试记录
+
+- 日期：2026-07-16
+- 服务器环境：Python 3.10、PyTorch `2.1.0+cu121`、Transformers `4.31.0`
+- API依赖：FastAPI `0.100.1`、Uvicorn `0.23.2`、OpenCV `4.8.0`
+- GPU：NVIDIA A100-PCIE-40GB，单GPU
+- 模型：`lisa13b-clean030-v1`
+- 模型路径：`runs/lisa13b-clean030-lora-v1/merged_hf`（首次 API 冒烟；冻结制品随后已通过完整 benchmark）
+- 模型大小：约 27GB
+- 推理精度：bf16
+- 并发：1
+- 服务端口：`127.0.0.1:8001`
+- smoke Prompt：`标出未按规定佩戴安全帽的作业人员。`
+- 返回文本：`Sure, [SEG] .`
+- API首次实测延迟：`942.156 ms`
+- 输入/输出尺寸：`512 × 512`
+- mask数量：1
+- mask像素范围：`0～255`
+- mask前景像素：11,012
+- mask前景比例：`0.042007`
+- `/metrics`：模型只加载1次，请求1次且成功1次，返回mask 1张
+- 人工叠加图检查：通过
+
+远程执行，bf16 模型链路诊断（非 API 冒烟）：
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 \
 python chat.py \
-  --version ./runs/lisa13b-clean030-lora-v1/merged_hf \
+  --version ./artifacts/lisa-safety-seg/lisa13b-clean030-v1/merged_hf \
   --vision-tower ./clip-vit-large-patch14 \
   --precision bf16 \
   --vis_save_path ./vis_output/clean030-production-smoke
@@ -93,7 +114,7 @@ python chat.py \
 ```bash
 CUDA_VISIBLE_DEVICES=0 \
 python chat.py \
-  --version ./runs/lisa13b-clean030-lora-v1/merged_hf \
+  --version ./artifacts/lisa-safety-seg/lisa13b-clean030-v1/merged_hf \
   --vision-tower ./clip-vit-large-patch14 \
   --precision fp16 \
   --load_in_8bit \
@@ -102,21 +123,40 @@ python chat.py \
 
 ## P0：生产精度复评
 
-- [ ] 明确生产使用 bf16、fp16、8bit 或 4bit。
-- [ ] 使用最终生产精度重新运行完整 benchmark。
-- [ ] 不使用 bf16 指标代替量化模型指标。
-- [ ] 对比生产候选与 Base、Clean030 历史结果。
-- [ ] 检查 gIoU、cIoU、Dice、Precision 和 Recall。
+- [x] 首轮生产候选明确使用 bf16；量化方案如后续启用需重新评估。
+- [x] 使用最终生产精度重新运行完整 benchmark。
+- [x] 不使用 bf16 指标代替量化模型指标；首版生产配置即为 bf16，未启用量化。
+- [x] 对比生产候选与 Base、Clean030 历史结果。
+- [x] 检查 gIoU、cIoU、Dice、Precision 和 Recall。
 - [ ] 检查零 IoU、低 IoU、FP Area 和 FN Area。
 - [ ] 检查 `unsafe`、`safe` 和其他关键类别回归。
-- [ ] 保存生产预检的 `summary.json`、逐样本指标、mask 和可视化。
+- [x] 保存生产预检的 `summary.json`、逐样本指标和按 IoU 排序的样本报告。
+
+### 生产精度预检记录
+
+- 日期：2026-07-19
+- 模型版本：`lisa13b-clean030-v1`
+- 冻结制品：`artifacts/lisa-safety-seg/lisa13b-clean030-v1/merged_hf`
+- 推理精度：bf16，未启用 8bit/4bit 量化
+- 评估集：`ReasonSeg|val`
+- 样本数：86
+- gIoU：`0.4494459628`
+- cIoU：`0.3858078868`
+- Mean Dice：`0.5156411951`
+- Mean Precision：`0.5331799687`
+- Mean Recall：`0.5416047745`
+- 平均耗时：`0.4162837093 秒/样本`
+- 历史 Clean030 对照：六项精度指标一致，无精度回归
+- 输出目录：`exp/runs/lisa13b-clean030-lora-v1/production-preflight`
+- 已生成：`summary.json`、`summary.md`、逐样本 CSV/JSONL、按 IoU 排序的 CSV/Markdown
+- 数据集元数据字段：`dataset_dir` 和 `val_dataset`；其中 `val_dataset` 应为 `ReasonSeg|val`。`dataset`、`split` 不是当前汇总格式使用的字段，因此查询结果为 `None`。
 
 远程执行，bf16 完整复评：
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 \
 python benchmark_reason_seg.py \
-  --version ./runs/lisa13b-clean030-lora-v1/merged_hf \
+  --version ./artifacts/lisa-safety-seg/lisa13b-clean030-v1/merged_hf \
   --vision-tower ./clip-vit-large-patch14 \
   --dataset_dir ./dataset \
   --val_dataset "ReasonSeg|val" \
@@ -154,7 +194,7 @@ python benchmark_reason_seg.py \
 - [x] 固定并记录 mask threshold。
 - [x] 增加启动时模型预热加载选项。
 - [ ] 增加 CUDA OOM 捕获与恢复策略。
-- [x] 增加HTTP推理等待超时。
+- [x] 增加后端推理等待超时，并明确超时不会中断已经提交的同步 GPU 任务。
 - [ ] 增加可中断正在执行的GPU推理机制。
 - [x] 编写纯逻辑单元测试，不在本地加载模型。
 
@@ -167,7 +207,8 @@ python benchmark_reason_seg.py \
 - [x] 实现 `GET /health`，仅检查进程存活。
 - [x] 实现 `GET /ready`，检查模型已加载并可接收请求。
 - [x] 实现 `GET /metrics`，输出进程内JSON指标。
-- [x] 限制图片大小、分辨率和文件格式。
+- [x] 限制解码后图片字节数和像素数，并拒绝 OpenCV 无法解码的内容。
+- [ ] 如业务只允许 JPEG/PNG，增加基于文件签名和解码结果的明确格式白名单。
 - [x] 限制 Prompt 长度。
 - [x] 支持 request ID 和基础链路追踪。
 - [x] 增加可选 API Key 访问控制和进程内并发限制。
@@ -179,7 +220,7 @@ python benchmark_reason_seg.py \
 
 ```json
 {
-  "image": "base64或受控对象存储地址",
+  "image_base64": "图片内容的Base64字符串",
   "prompt": "定位画面左侧未佩戴安全帽的作业人员",
   "request_id": "request-001"
 }
@@ -191,11 +232,18 @@ python benchmark_reason_seg.py \
 {
   "request_id": "request-001",
   "model_version": "lisa13b-clean030-v1",
-  "mask_format": "png_base64",
-  "mask": "...",
   "width": 1920,
   "height": 1080,
   "has_segmentation": true,
+  "mask_count": 1,
+  "masks": [
+    {
+      "index": 0,
+      "format": "png_base64",
+      "data": "..."
+    }
+  ],
+  "text": "Sure, [SEG] .",
   "latency_ms": 850
 }
 ```
@@ -203,7 +251,8 @@ python benchmark_reason_seg.py \
 ## P1：GPU并发与任务队列
 
 - [x] 默认从单进程、单GPU、串行推理开始。
-- [x] 增加有界进程内并发控制，避免请求同时占用GPU。
+- [x] 使用 semaphore 限制正常执行路径中的进程内 GPU 推理并发。
+- [ ] 修复超时后的并发槽释放问题：底层 `to_thread` 推理未结束前不得让新请求进入 GPU。
 - [ ] 明确最大队列长度和排队超时。
 - [ ] 测试并发 1、2、4 时的吞吐与显存。
 - [ ] 评估动态 batching 是否适用于图片尺寸和 Prompt 长度差异。
@@ -243,13 +292,13 @@ python benchmark_reason_seg.py \
 - [ ] 测试超长 Prompt、空 Prompt 和异常字符。
 - [ ] 测试空 mask、多 mask 和极小目标。
 - [ ] 测试 CUDA OOM 后服务恢复。
-- [ ] 测试依赖的对象存储或图片下载超时。
 
 注意：benchmark 中约 `0.42` 秒/样本不等于生产端到端延迟。生产延迟还包括图片传输、解码、排队、预处理、结果编码和网络返回。
 
 ## P1：监控与告警
 
-- [x] 提供请求数、成功数、失败数、超时数和mask数的进程内指标。
+- [x] 提供进入模型运行时的请求数、成功数、推理失败数、推理超时数和 mask 数指标。
+- [ ] 将鉴权失败、请求校验失败和图片解码失败纳入完整 HTTP 请求/失败指标。
 - [ ] 监控 P50、P95、P99 延迟。
 - [ ] 监控队列长度和排队时间。
 - [ ] 监控 GPU 利用率、显存和温度。
@@ -287,8 +336,10 @@ python benchmark_reason_seg.py \
 - [x] 默认不持久化原始图片。
 - [ ] 如需保存 bad case，进行访问控制和脱敏。
 - [x] 不接受外部图片 URL，避免 SSRF。
-- [x] 限制文件大小和解码像素数，防止资源耗尽攻击。
-- [x] 使用 OpenCV 解码并校验真实图片格式。
+- [x] 对 Base64 解码后的字节数和 OpenCV 解码后的像素数设置上限。
+- [ ] 在反向代理或 ASGI 层限制 HTTP 请求体大小，避免超大 Base64 在业务校验前占用内存。
+- [ ] 增加解码前的图片尺寸/格式检查，降低超大图片完整解码造成的资源风险。
+- [x] 使用 OpenCV 解码，并拒绝无法作为图片解码的内容。
 - [x] 对服务接口增加可选 API Key 身份认证。
 - [ ] 增加持久化审计日志。
 - [ ] 定期扫描镜像和依赖漏洞。
@@ -296,10 +347,11 @@ python benchmark_reason_seg.py \
 
 ## 上线验收清单
 
-- [ ] 生产模型版本已冻结且 SHA-256 校验通过。
-- [ ] 生产精度 benchmark 达标。
+- [x] 生产模型版本 `lisa13b-clean030-v1` 已冻结为独立制品。
+- [ ] 冻结制品的 `SHA256SUMS` 已实际执行并全部校验通过。
+- [x] 冻结制品 bf16 benchmark 与历史 Clean030 指标一致，无精度回归。
 - [ ] 独立 golden test 达标。
-- [ ] API功能测试通过。
+- [x] API单请求冒烟功能测试通过。
 - [ ] 并发和稳定性压测通过。
 - [ ] 健康检查、监控和告警已接入。
 - [x] 模型版本能够在响应和响应头中追踪。
@@ -309,9 +361,15 @@ python benchmark_reason_seg.py \
 
 ## 当前下一步
 
-- [ ] 确认生产首发模型为 Clean030 LoRA。
-- [ ] 确认生产GPU型号、显存和期望并发。
-- [ ] 确认生产使用 bf16、8bit 还是4bit。
+- [x] 确认生产首发模型为 Clean030 LoRA。
+- [x] 确认首轮环境为 A100 40GB、单GPU、并发1。
+- [x] 确认首轮生产候选使用 bf16。
+- [x] 冻结模型制品并生成 manifest、`SHA256SUMS` 和模型卡。
+- [x] 使用冻结制品完成 `ReasonSeg|val` 生产精度预检。
+- [ ] 在冻结制品目录执行 `sha256sum --check SHA256SUMS` 并保存结果。
+- [ ] 核对零 IoU、低 IoU、FP/FN Area 和关键类别回归。
 - [ ] 准备独立 golden test 图片和人工标签。
-- [ ] 冻结模型制品并生成 manifest。
 - [x] 完成无交互推理核心和 FastAPI 服务基础实现。
+- [ ] 修复推理超时后底层 GPU 任务继续运行导致的并发槽提前释放问题。
+- [ ] 完成 API 多次请求、异常输入、并发和显存稳定性压测。
+- [ ] 完成容器实测、监控告警、灰度和回滚演练。
