@@ -173,6 +173,12 @@ docker build \
 镜像安装独立的 `production/requirements.txt`，不复用包含训练、评估和
 Demo 依赖的根目录 `requirements.txt`。
 
+仓库同时提供根目录 `.dockerignore` 和
+`production/Dockerfile.dockerignore`。前者兼容 legacy Docker builder，
+后者供支持 Dockerfile-specific ignore 的 BuildKit 使用；两者均采用目录
+白名单并在白名单之后排除 `.env`，避免将大模型、数据集、实验输出或本地
+运行凭据发送给 Docker daemon。
+
 远程运行：
 
 ```bash

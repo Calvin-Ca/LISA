@@ -77,6 +77,32 @@ def build_checks(
 
 
 class ContainerSmokeTest(unittest.TestCase):
+    def test_docker_context_is_allowlisted_and_excludes_env_files(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        ignore_paths = (
+            repo_root / ".dockerignore",
+            repo_root / "production" / "Dockerfile.dockerignore",
+        )
+        for ignore_path in ignore_paths:
+            rules = {
+                line.strip()
+                for line in ignore_path.read_text(
+                    encoding="utf-8"
+                ).splitlines()
+                if line.strip() and not line.startswith("#")
+            }
+            with self.subTest(ignore_path=ignore_path):
+                self.assertIn("**", rules)
+                self.assertIn("!production/**", rules)
+                self.assertIn("!model/**", rules)
+                self.assertIn("!utils/**", rules)
+                self.assertIn("**/.env", rules)
+                self.assertIn("**/.env.*", rules)
+                self.assertNotIn("!dataset/**", rules)
+                self.assertNotIn("!artifacts/**", rules)
+                self.assertNotIn("!runs/**", rules)
+                self.assertNotIn("!exp/**", rules)
+
     def test_docker_uses_pinned_production_inference_requirements(self):
         repo_root = Path(__file__).resolve().parents[2]
         dockerfile = (

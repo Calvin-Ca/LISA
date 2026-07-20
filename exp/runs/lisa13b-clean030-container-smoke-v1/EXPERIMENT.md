@@ -57,7 +57,7 @@ Docker 构建只复制生产运行所需的 `production/`、`model/` 和 `utils/
 1. 检查 Docker、NVIDIA Runtime、端口、冻结制品和完整 CLIP 缓存。
 2. 重新执行冻结模型 `SHA256SUMS` 校验。
 3. 使用固定版本的生产推理依赖构建镜像并保存完整构建日志。
-4. 在镜像内以 CPU 模式运行当前全部 43 项纯逻辑测试。
+4. 在镜像内以 CPU 模式运行当前全部 44 项纯逻辑测试。
 5. 记录实验前共享 GPU 计算进程和显存。
 6. 启动 200 ms 间隔的 GPU 显存、利用率和温度采样。
 7. 使用 GPU 0 启动一个容器，等待 Docker healthcheck 和 `/ready`。
@@ -76,7 +76,7 @@ Docker 构建只复制生产运行所需的 `production/`、`model/` 和 `utils/
 全部检查必须通过：
 
 - Docker 镜像构建成功。
-- 镜像内全部纯逻辑测试成功，数量不少于 43。
+- 镜像内全部纯逻辑测试成功，数量不少于 44。
 - 镜像配置用户为 `lisa`，运行 UID 为 10001，GID 非 root。
 - 模型和 CLIP 两个挂载均为只读。
 - 镜像内不存在 `production/.env`、协作文档、数据集、实验输出、训练输出或
@@ -148,7 +148,33 @@ exp/runs/lisa13b-clean030-container-smoke-v1/outputs/
 所需的固定版本依赖，不安装 `pycocotools`，也不在 runtime 镜像中加入 GCC
 和完整编译工具链。
 
-当前状态：等待使用修复后的镜像重新执行。
+第二次远程执行已成功构建镜像、通过 43 项容器内纯逻辑测试，并完成两轮
+真实 GPU 冒烟：
+
+- 构建提交：`be9b3b2836b3da5e1e254b9810986013099e5ee6`
+- 构建时间：2,387.428 秒
+- 构建上下文：299.6 GB
+- 两轮 ready/healthy：均通过
+- 两轮 HTTP / mask：均为 HTTP 200，各返回 1 个有效 mask
+- 两轮客户端延迟：1,022.431 ms、648.153 ms
+- GPU 基线 / 峰值 / 停止后：2,337 / 31,752 / 2,337 MiB
+- 峰值剩余显存：9,208 MiB
+- 停止后显存漂移：0 MiB
+- 非 root 用户、只读模型挂载、日志脱敏和共享 GPU 进程存活：均通过
+
+第二次执行唯一失败项为
+`runtime_image_excludes_secrets_and_unrelated_files`：服务器本地
+`production/.env` 被复制到了 `/app/production/.env`。原因是服务器使用
+legacy Docker builder，它没有应用已有的
+`production/Dockerfile.dockerignore`；因此既发送了整个 299.6 GB 仓库，
+也让本地 `.env` 进入 `COPY production` 的输入。
+
+修复为同时维护仓库根目录 `.dockerignore` 和 Dockerfile-specific ignore。
+两者均使用白名单，只发送 `production/`、`model/`、`utils/`，并在白名单
+之后再次排除所有 `.env` / `.env.*`。新增静态回归后纯逻辑测试累计 44 项。
+
+当前状态：等待使用 Docker ignore 修复后的镜像重新执行；本次已生成的
+PyTorch 和生产依赖安装层可由 Docker 缓存复用。
 
 ## 局限
 
@@ -157,4 +183,6 @@ exp/runs/lisa13b-clean030-container-smoke-v1/outputs/
 - 只确认 `bge-m3` GPU 进程存活，未接入它的业务健康和延迟指标。
 - 不主动制造 CUDA OOM，避免影响共享 GPU 上的常驻服务。
 - 当前 Docker 依赖中仍有少量间接或未固定版本，完整依赖锁定仍是独立待办。
+- 目标服务器仍使用已弃用的 legacy builder；根目录 `.dockerignore` 已兼容
+  该构建器，后续仍建议安装 buildx 并迁移到 BuildKit。
 - 本实验验证单机 Docker，不代表 Kubernetes、反向代理或网关配置已经完成。

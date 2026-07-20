@@ -1,5 +1,5 @@
-# BuildKit prefers this Dockerfile-specific file over the context-root file.
-# Keep it aligned with /.dockerignore.
+# Legacy Docker builder reads only the context-root ignore file.
+# Keep the production image context allowlisted to runtime source trees.
 **
 !production/
 !production/**

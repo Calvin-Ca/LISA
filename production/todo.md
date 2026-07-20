@@ -301,6 +301,7 @@ python benchmark_reason_seg.py \
 - [x] 编写生产 Dockerfile。
 - [x] 固定基础 CUDA 12.1.1 + cuDNN 8 镜像版本。
 - [x] Docker 构建仅复制 `production/`、`model/` 和 `utils/` 运行目录，不复制数据集、实验输出、权重或本地协作文档。
+- [x] 同时提供 legacy builder 使用的根目录 `.dockerignore` 和 BuildKit 使用的 Dockerfile-specific ignore；构建上下文采用目录白名单并排除所有 `.env`。
 - [x] 准备双启动、双冒烟、非 root、只读挂载、GPU 显存和日志脱敏的自包含容器验收实验。
 - [x] 将生产推理依赖与训练/评估依赖拆分，直接生产依赖均固定版本，不在 runtime 镜像安装 `pycocotools`、Gradio、Ray 或编译工具链。
 - [ ] 生成包含全部间接依赖及哈希的完整 lock 文件。
@@ -519,7 +520,7 @@ exp/runs/lisa13b-clean030-int4-v1/
 - [x] 完成 OOM 恢复状态机、JPEG/PNG 预检和推理错误脱敏实现；加入 robustness 验收逻辑后共通过 33 项本地纯逻辑测试。
 - [x] 完成 `lisa13b-clean030-api-robustness-v1`：15/15 用例及 20/20 准入项通过，异常后服务 ready，敏感哨兵无泄漏。
 - [x] 准备 `lisa13b-clean030-api-concurrency-v1` 自包含脚本、逐阶段指标快照和并发准入逻辑。
-- [x] 准备 `lisa13b-clean030-container-smoke-v1` 容器构建、双启动冒烟和准入脚本；修复生产镜像误装 `pycocotools` 的问题，生产纯逻辑测试累计 43 项通过。
+- [x] 准备 `lisa13b-clean030-container-smoke-v1` 容器构建、双启动冒烟和准入脚本；修复生产镜像误装 `pycocotools`、299.6 GB 构建上下文及本地 `.env` 进入镜像的问题，生产纯逻辑测试累计 44 项。
 - [x] 完成 API 多次请求、核心异常输入、并发和显存稳定性压测；控制字符、空/多 mask 与真实 OOM 仍保留为独立待办。
 - [x] 根据bf16实测显存决定当前不启动8bit；4bit仅在未来8bit仍不满足容量目标时评估。
 - [ ] 完成容器实测、监控告警、灰度和回滚演练。
