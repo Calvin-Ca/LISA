@@ -102,7 +102,7 @@ find artifacts/lisa-safety-seg/lisa13b-clean030-v1/merged_hf \
 - [x] 检查输出 mask 非空、尺寸正确且像素值有效。
 - [x] 已通过三轮 shared-GPU 实验记录模型ready、首次推理、预热和正式请求延迟。
 - [x] 已记录共享基线、模型加载、预热、总峰值、剩余显存和预热后显存漂移。
-- [ ] 保留 smoke case 的输入、期望输出和实际产物。
+- [x] 已在容器验收输出中保留 smoke case 的输入元数据、准入预期、响应、mask 和实际指标。
 
 ### 冒烟测试记录
 
@@ -303,6 +303,7 @@ python benchmark_reason_seg.py \
 - [x] Docker 构建仅复制 `production/`、`model/` 和 `utils/` 运行目录，不复制数据集、实验输出、权重或本地协作文档。
 - [x] 同时提供 legacy builder 使用的根目录 `.dockerignore` 和 BuildKit 使用的 Dockerfile-specific ignore；构建上下文采用目录白名单并排除所有 `.env`。
 - [x] 准备双启动、双冒烟、非 root、只读挂载、GPU 显存和日志脱敏的自包含容器验收实验。
+- [x] 完成真实 shared-GPU 容器验收：44 项测试、两轮启动与推理及全部准入项通过。
 - [x] 将生产推理依赖与训练/评估依赖拆分，直接生产依赖均固定版本，不在 runtime 镜像安装 `pycocotools`、Gradio、Ray 或编译工具链。
 - [ ] 生成包含全部间接依赖及哈希的完整 lock 文件。
 - [ ] 在镜像构建阶段运行静态检查和CPU单元测试。
@@ -311,7 +312,27 @@ python benchmark_reason_seg.py \
 - [x] 使用环境变量注入 GPU、模型版本和阈值。
 - [x] 增加非 root 用户。
 - [x] 增加容器健康检查。
-- [ ] 设置共享内存和GPU运行参数。
+- [x] 容器验收已使用 `--gpus device=0` 和 `--shm-size 8g` 验证 GPU 与共享内存运行参数。
+
+### 容器验收记录
+
+- 日期：2026-07-20
+- 实验：`lisa13b-clean030-container-smoke-v1`
+- Git commit：`0de93e76d7c29da8b70eb326a64816f4526ef990`
+- 镜像：`lisa-safety-seg:lisa13b-clean030-v1-0092463`
+- 构建时间：17.179 秒
+- 容器内测试：44 项全部通过
+- 启动与重启：两轮均 healthy、ready
+- 推理：两轮均 HTTP 200，各返回 1 个有效 mask
+- 客户端延迟：1,022.529 ms、635.262 ms
+- GPU 基线 / 峰值 / 停止后：2,337 / 30,214 / 2,337 MiB
+- 峰值剩余显存：10,746 MiB
+- 停止后显存漂移：0 MiB
+- 运行用户：`lisa`，UID/GID 10001/10001
+- 模型和 CLIP：只读挂载
+- 敏感文件、私有路径和错误日志检查：全部通过
+- 共享 GPU 原有计算进程：保持存活
+- 准入结果：`PASS`
 
 建议挂载：
 
@@ -495,6 +516,7 @@ exp/runs/lisa13b-clean030-int4-v1/
 - [ ] 独立 golden test 达标。
 - [x] API单请求冒烟功能测试通过。
 - [x] 并发和稳定性压测通过。
+- [x] 生产 Docker 镜像双启动、真实 GPU 冒烟、权限、挂载、显存和日志准入通过。
 - [ ] 健康检查、监控和告警已接入。
 - [x] 模型版本能够在响应和响应头中追踪。
 - [ ] 灰度方案已确认。
@@ -521,6 +543,8 @@ exp/runs/lisa13b-clean030-int4-v1/
 - [x] 完成 `lisa13b-clean030-api-robustness-v1`：15/15 用例及 20/20 准入项通过，异常后服务 ready，敏感哨兵无泄漏。
 - [x] 准备 `lisa13b-clean030-api-concurrency-v1` 自包含脚本、逐阶段指标快照和并发准入逻辑。
 - [x] 准备 `lisa13b-clean030-container-smoke-v1` 容器构建、双启动冒烟和准入脚本；修复生产镜像误装 `pycocotools`、299.6 GB 构建上下文及本地 `.env` 进入镜像的问题，生产纯逻辑测试累计 44 项。
+- [x] 完成 `lisa13b-clean030-container-smoke-v1` 真实容器验收：构建 17.179 秒，两轮 healthy/ready 和 GPU 推理通过，峰值 30,214 MiB，停止后显存漂移 0 MiB，最终 `PASS`。
 - [x] 完成 API 多次请求、核心异常输入、并发和显存稳定性压测；控制字符、空/多 mask 与真实 OOM 仍保留为独立待办。
 - [x] 根据bf16实测显存决定当前不启动8bit；4bit仅在未来8bit仍不满足容量目标时评估。
-- [ ] 完成容器实测、监控告警、灰度和回滚演练。
+- [x] 完成容器实测。
+- [ ] 完成监控告警、灰度和回滚演练。
