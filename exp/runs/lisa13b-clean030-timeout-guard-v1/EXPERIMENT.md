@@ -2,7 +2,7 @@
 
 ## 状态
 
-方案已确认，等待远程 Linux GPU 服务器执行。
+已完成，真实共享 GPU 超时串行化回归通过。
 
 ## 背景
 
@@ -97,4 +97,59 @@ exp/runs/lisa13b-clean030-timeout-guard-v1/outputs/
 
 ## 结果
 
-等待服务器执行后补充。
+执行时间：2026-07-20。
+
+临时 LISA 服务成功加载，ready 时间为 `14,288.142 ms`。两个请求通过线程
+屏障并发释放，均按预期返回 HTTP 504 和 `inference_timeout`：
+
+| Request | HTTP | Error code | Client latency ms | 结果 |
+| --- | ---: | --- | ---: | --- |
+| `timeout-guard-1` | 504 | `inference_timeout` | 729.018 | PASS |
+| `timeout-guard-2` | 504 | `inference_timeout` | 118.723 | PASS |
+
+线程调度顺序不由 request ID 决定。两个请求的客户端延迟相差约
+`610.295 ms`，与累计队列等待 `0.613056 s` 接近，说明其中一个请求先进入
+GPU，另一个在单 GPU worker 后排队；排队请求只有在前一个底层推理真正完成
+后才开始自己的 0.1 秒 HTTP 推理等待。
+
+运行时指标：
+
+| 指标 | 实际值 | 准入值 |
+| --- | ---: | ---: |
+| Requests received | 2 | 2 |
+| Requests started | 2 | 2 |
+| Requests timed out | 2 | 2 |
+| GPU inference succeeded | 2 | 2 |
+| GPU inference failed | 0 | 0 |
+| Maximum GPU in flight | 1 | 1 |
+| Final GPU in flight | 0 | 0 |
+| Total queue wait | 0.613056 s | > 0 |
+
+全部 12 项准入检查通过：
+
+- 两个 HTTP 响应均为预期超时。
+- 两个 HTTP 请求结束后，两个后台 GPU 推理均成功完成。
+- 历史最大 GPU 在途任务数为 1，最终回到 0。
+- 实验前已有的共享 GPU 计算进程没有消失。
+- 服务日志没有 CUDA OOM。
+
+最终结果：`PASS`。
+
+## 结论
+
+本次真实 A100 共享 GPU 验证确认了修复目标：HTTP 超时不会强制取消已经
+提交的同步 CUDA 推理，但也不会提前释放 GPU worker。前一个后台推理真正
+结束前，后一个请求只能排队，因此生产配置
+`LISA_MAX_CONCURRENCY=1` 能够保证实际 GPU 在途任务上限为 1，不再出现
+旧版 semaphore 提前释放造成的隐性并发。
+
+实验使用独立子进程注入 0.1 秒超时，没有修改正式
+`production/.env`；正式推理超时仍为 120 秒。临时 LISA 服务在结果保存后
+自动停止，`bge-m3` 保持在线。
+
+## 局限
+
+- 本实验验证两个并发请求和一个固定输入，不替代并发 1、2、4 及长时间稳定性压测。
+- 验证目标是防止超时后的 GPU 任务重叠，不代表同步 CUDA 推理已经支持强制中断。
+- 只确认 `bge-m3` GPU 进程存活，没有验证其业务接口延迟和吞吐是否受影响。
+- 尚未覆盖队列满、排队超时、CUDA OOM 恢复和异常输入的真实 GPU/API 场景。
