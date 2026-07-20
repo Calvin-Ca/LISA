@@ -339,7 +339,7 @@ python benchmark_reason_seg.py \
 - [x] 增加容器健康检查。
 - [x] 容器验收已使用 `--gpus device=0` 和 `--shm-size 8g` 验证 GPU 与共享内存运行参数。
 - [x] Dockerfile 支持 OCI 源码 commit 和 LISA 模型版本标签；后续容器验收构建会写入真实值。
-- [x] 当前纯逻辑测试累计 56 项：包含制品发布、HTTP 指标、滚动分位数、告警阈值、Prometheus 输出和 mask 计数测试。
+- [x] 当前纯逻辑测试累计 59 项：包含制品发布、HTTP 指标、滚动分位数、告警阈值、Prometheus 输出、mask 计数和监控验收工具测试。
 
 ### 容器验收记录
 
@@ -502,6 +502,11 @@ exp/runs/lisa13b-clean030-int4-v1/
 当前应用内监控实现完成；外部 Prometheus、Alertmanager、Grafana 与 NVIDIA
 DCGM Exporter 尚未部署，因此“健康检查、监控和告警已接入”仍保持未完成。
 
+- [x] 准备 `lisa13b-clean030-monitoring-v1` 自包含容器验收实验，覆盖
+  JSON/Prometheus 一致性、Bearer 鉴权、4xx 告警触发与恢复、GPU 串行化、
+  显存和日志脱敏。
+- [ ] 在远程 shared-GPU 服务器执行该监控验收实验并记录结果。
+
 ## P1：灰度发布与回滚
 
 - [ ] 保留当前线上模型及完整启动配置。
@@ -577,8 +582,10 @@ DCGM Exporter 尚未部署，因此“健康检查、监控和告警已接入”
 - [x] 完成正式发布工具：复用并绑定已验收镜像，生成模型/镜像/验收证据联合 release manifest，并提供不可变上传复核。
 - [x] 已记录外部模型/镜像发布的目的、风险、触发条件和未来执行步骤；当前决定暂不实际发布。
 - [x] 完成应用内 HTTP、延迟、队列、推理、mask 和错误指标，提供 Prometheus 输出、进程内 alerts 与外部告警规则模板。
+- [x] 准备 `lisa13b-clean030-monitoring-v1` 真实容器监控验收脚本。
 - [x] 完成 API 多次请求、核心异常输入、并发和显存稳定性压测；控制字符、空/多 mask 与真实 OOM 仍保留为独立待办。
 - [x] 根据bf16实测显存决定当前不启动8bit；4bit仅在未来8bit仍不满足容量目标时评估。
 - [x] 完成容器实测。
-- [ ] 在远程环境验证新增监控接口并接入外部 Prometheus/DCGM/Alertmanager。
+- [ ] 在远程环境完成新增监控接口验收。
+- [ ] 接入外部 Prometheus/DCGM/Alertmanager。
 - [ ] 完成灰度和回滚演练。

@@ -6,15 +6,15 @@ set -euo pipefail
 MODEL_VERSION="lisa13b-clean030-v1"
 MODEL_ARTIFACT="./artifacts/lisa-safety-seg/lisa13b-clean030-v1"
 DOCKERFILE="./production/Dockerfile"
-IMAGE_TAG="lisa-safety-seg:lisa13b-clean030-v1-0092463"
-CONTAINER_NAME="lisa-clean030-container-smoke-v1"
+IMAGE_TAG="lisa-safety-seg:lisa13b-clean030-monitoring-v1"
+CONTAINER_NAME="lisa-clean030-monitoring-v1"
 SMOKE_IMAGE="./dataset/reason_seg/ReasonSeg/val/val__002__-helmet_missing-19-_jpg.rf.cef508999f7777acb7cb6470fd767fef__helmet_missing.jpg"
 SMOKE_PROMPT="标出未按规定佩戴安全帽的作业人员。"
-OUTPUT_DIR="./exp/runs/lisa13b-clean030-container-smoke-v1/outputs"
+OUTPUT_DIR="./exp/runs/lisa13b-clean030-monitoring-v1/outputs"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 GPU_INDEX="0"
 HOST="127.0.0.1"
-PORT="8004"
+PORT="8005"
 MINIMUM_UNIT_TESTS="59"
 MAX_PEAK_MEMORY_MIB="36864"
 MIN_REMAINING_MEMORY_MIB="4096"
@@ -22,11 +22,11 @@ MAX_POST_STOP_DRIFT_MIB="500"
 REQUIRED_SHARED_PROCESS="VLLM::EngineCore"
 
 if ! command -v docker >/dev/null 2>&1; then
-  echo "docker is required for the container smoke verification." >&2
+  echo "docker is required for the monitoring verification." >&2
   exit 1
 fi
 if ! command -v nvidia-smi >/dev/null 2>&1; then
-  echo "nvidia-smi is required for the container smoke verification." >&2
+  echo "nvidia-smi is required for the monitoring verification." >&2
   exit 1
 fi
 if ! docker info --format '{{json .Runtimes}}' | grep -q '"nvidia"'; then
@@ -46,11 +46,11 @@ if [ ! -f "$MODEL_ARTIFACT/SHA256SUMS" ]; then
   exit 1
 fi
 if [ ! -f "$SMOKE_IMAGE" ]; then
-  echo "Missing fixed smoke image: $SMOKE_IMAGE" >&2
+  echo "Missing fixed monitoring image: $SMOKE_IMAGE" >&2
   exit 1
 fi
 if [ -d "$OUTPUT_DIR" ] && [ -n "$(find "$OUTPUT_DIR" -mindepth 1 -print -quit)" ]; then
-  echo "Container smoke output directory is not empty: $OUTPUT_DIR" >&2
+  echo "Monitoring output directory is not empty: $OUTPUT_DIR" >&2
   echo "Preserve or move the existing outputs before rerunning." >&2
   exit 1
 fi
@@ -61,7 +61,10 @@ if docker container inspect "$CONTAINER_NAME" >/dev/null 2>&1; then
 fi
 
 HF_CACHE_ROOT="${HF_HOME:-${HOME}/.cache/huggingface}"
-CLIP_CONFIG="$(find "$HF_CACHE_ROOT" -path "*/models--openai--clip-vit-large-patch14/snapshots/*/config.json" -print -quit)"
+CLIP_CONFIG="$(find "$HF_CACHE_ROOT" \
+  -path "*/models--openai--clip-vit-large-patch14/snapshots/*/config.json" \
+  -print \
+  -quit)"
 if [ -z "$CLIP_CONFIG" ]; then
   echo "CLIP snapshot config was not found under: $HF_CACHE_ROOT" >&2
   exit 1
@@ -84,7 +87,7 @@ fi
 echo "Frozen model SHA-256 verification passed."
 
 set +e
-"$PYTHON_BIN" -m production.verify_container_smoke \
+"$PYTHON_BIN" -m production.verify_monitoring \
   --dockerfile "$DOCKERFILE" \
   --image-tag "$IMAGE_TAG" \
   --container-name "$CONTAINER_NAME" \
@@ -109,7 +112,7 @@ set -e
 if [ -f "$OUTPUT_DIR/summary.md" ]; then
   sed -n '1,360p' "$OUTPUT_DIR/summary.md"
 else
-  echo "Container smoke did not generate summary.md." >&2
+  echo "Monitoring verification did not generate summary.md." >&2
   if [ -f "$OUTPUT_DIR/server.log" ]; then
     tail -160 "$OUTPUT_DIR/server.log" >&2
   fi
