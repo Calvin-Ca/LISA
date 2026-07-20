@@ -492,7 +492,8 @@ exp/runs/lisa13b-clean030-int4-v1/
 - [x] 准备保持 `bge-m3` 在线的三轮 shared-GPU 共存性能实验。
 - [x] 完成三轮 shared-GPU 共存实验，408次请求零失败，性能和显存准入通过。
 - [x] 完成 `lisa13b-clean030-timeout-guard-v1` 真实 GPU 回归：2 个超时响应、2 个后台推理成功、历史最大 GPU 在途数 1、无 CUDA OOM。
-- [x] 完成 OOM 恢复状态机、JPEG/PNG 预检和推理错误脱敏实现，并通过 30 项本地纯逻辑测试。
+- [x] 完成 OOM 恢复状态机、JPEG/PNG 预检和推理错误脱敏实现；加入 robustness 验收逻辑后共通过 33 项本地纯逻辑测试。
+- [ ] 执行 `lisa13b-clean030-api-robustness-v1`，验证非法输入不进入 GPU、真实 JPEG/PNG、队列满、排队超时和日志脱敏。
 - [ ] 完成 API 多次请求、异常输入、并发和显存稳定性压测。
 - [x] 根据bf16实测显存决定当前不启动8bit；4bit仅在未来8bit仍不满足容量目标时评估。
 - [ ] 完成容器实测、监控告警、灰度和回滚演练。
