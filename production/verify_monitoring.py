@@ -536,7 +536,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--port", type=int, default=8005)
     parser.add_argument("--startup-timeout", type=float, default=360.0)
     parser.add_argument("--client-timeout", type=float, default=150.0)
-    parser.add_argument("--minimum-unit-tests", type=int, default=62)
+    parser.add_argument("--minimum-unit-tests", type=int, default=65)
     parser.add_argument("--max-peak-memory-mib", type=int, default=36864)
     parser.add_argument("--min-remaining-memory-mib", type=int, default=4096)
     parser.add_argument("--max-post-stop-drift-mib", type=int, default=500)
