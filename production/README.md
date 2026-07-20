@@ -168,6 +168,9 @@ docker build \
   .
 ```
 
+镜像只复制 `production/`、`model/` 和 `utils/` 运行目录。
+`production/.env`、数据集、实验输出、训练权重和 Git 元数据均不进入镜像。
+
 远程运行：
 
 ```bash

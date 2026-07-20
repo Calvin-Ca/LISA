@@ -300,6 +300,8 @@ python benchmark_reason_seg.py \
 
 - [x] 编写生产 Dockerfile。
 - [x] 固定基础 CUDA 12.1.1 + cuDNN 8 镜像版本。
+- [x] Docker 构建仅复制 `production/`、`model/` 和 `utils/` 运行目录，不复制数据集、实验输出、权重或本地协作文档。
+- [x] 准备双启动、双冒烟、非 root、只读挂载、GPU 显存和日志脱敏的自包含容器验收实验。
 - [ ] 冻结 Python 依赖版本。
 - [ ] 在镜像构建阶段运行静态检查和CPU单元测试。
 - [x] 权重通过只读卷挂载，不提交到镜像源码层。
@@ -515,7 +517,8 @@ exp/runs/lisa13b-clean030-int4-v1/
 - [x] 完成 `lisa13b-clean030-timeout-guard-v1` 真实 GPU 回归：2 个超时响应、2 个后台推理成功、历史最大 GPU 在途数 1、无 CUDA OOM。
 - [x] 完成 OOM 恢复状态机、JPEG/PNG 预检和推理错误脱敏实现；加入 robustness 验收逻辑后共通过 33 项本地纯逻辑测试。
 - [x] 完成 `lisa13b-clean030-api-robustness-v1`：15/15 用例及 20/20 准入项通过，异常后服务 ready，敏感哨兵无泄漏。
-- [x] 准备 `lisa13b-clean030-api-concurrency-v1` 自包含脚本、逐阶段指标快照和并发准入逻辑；生产纯逻辑测试累计 38 项通过。
+- [x] 准备 `lisa13b-clean030-api-concurrency-v1` 自包含脚本、逐阶段指标快照和并发准入逻辑。
+- [x] 准备 `lisa13b-clean030-container-smoke-v1` 容器构建、双启动冒烟和准入脚本；生产纯逻辑测试累计 42 项通过。
 - [x] 完成 API 多次请求、核心异常输入、并发和显存稳定性压测；控制字符、空/多 mask 与真实 OOM 仍保留为独立待办。
 - [x] 根据bf16实测显存决定当前不启动8bit；4bit仅在未来8bit仍不满足容量目标时评估。
 - [ ] 完成容器实测、监控告警、灰度和回滚演练。
