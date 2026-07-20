@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import gc
 from dataclasses import dataclass
 from typing import Any
 
 from .config import Settings
-from .errors import InferenceError
+from .errors import CudaOutOfMemoryError, InferenceError
 from .image_io import encode_png_base64
 
 
@@ -126,7 +127,30 @@ class LisaBackend:
         try:
             return self._segment(image_bgr, prompt_text)
         except Exception as exc:
-            raise InferenceError(f"LISA inference failed: {exc}") from exc
+            if self._is_cuda_oom(exc):
+                raise CudaOutOfMemoryError(
+                    "GPU memory was exhausted during inference"
+                ) from None
+            raise InferenceError("LISA inference failed") from None
+
+    def _is_cuda_oom(self, exc: Exception) -> bool:
+        torch = self._objects.get("torch")
+        oom_type = getattr(getattr(torch, "cuda", None), "OutOfMemoryError", None)
+        if oom_type is not None and isinstance(exc, oom_type):
+            return True
+        return isinstance(exc, RuntimeError) and "CUDA out of memory" in str(exc)
+
+    def recover_from_cuda_oom(self) -> bool:
+        torch = self._objects.get("torch")
+        if torch is None:
+            return False
+        try:
+            gc.collect()
+            with torch.cuda.device(self.settings.gpu_index):
+                torch.cuda.empty_cache()
+        except Exception:
+            return False
+        return True
 
     def _segment(self, image_bgr, prompt_text: str) -> SegmentationResult:
         import cv2

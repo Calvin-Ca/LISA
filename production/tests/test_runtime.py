@@ -6,9 +6,11 @@ from dataclasses import replace
 from production.backend import SegmentationResult
 from production.config import Settings
 from production.errors import (
+    CudaOutOfMemoryError,
     InferenceQueueFullError,
     InferenceQueueTimeoutError,
     InferenceTimeoutError,
+    ModelNotReadyError,
 )
 from production.runtime import ModelRuntime
 
@@ -79,6 +81,31 @@ class BlockingBackend(FakeBackend):
         finally:
             with self._lock:
                 self.active -= 1
+
+
+class OOMBackend(FakeBackend):
+    def __init__(self, settings, recovery_succeeds=True):
+        super().__init__(settings)
+        self.recovery_succeeds = recovery_succeeds
+        self.calls = 0
+        self.recovery_calls = 0
+
+    def segment(self, image, prompt):
+        self.calls += 1
+        if self.calls == 1:
+            raise CudaOutOfMemoryError(
+                "GPU memory was exhausted during inference"
+            )
+        return super().segment(image, prompt)
+
+    def recover_from_cuda_oom(self):
+        self.recovery_calls += 1
+        return self.recovery_succeeds
+
+
+class FailedRecoveryOOMBackend(OOMBackend):
+    def __init__(self, settings):
+        super().__init__(settings, recovery_succeeds=False)
 
 
 async def wait_for_thread_event(
@@ -205,6 +232,56 @@ class RuntimeTest(unittest.IsolatedAsyncioTestCase):
                 if not task.done():
                     task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
+            await runtime.shutdown()
+
+    async def test_cuda_oom_recovers_without_retrying_failed_request(self):
+        runtime = ModelRuntime(make_settings(), backend_factory=OOMBackend)
+        try:
+            with self.assertRaises(CudaOutOfMemoryError):
+                await runtime.segment(object(), "first")
+
+            self.assertTrue(runtime.ready)
+            self.assertEqual(runtime.readiness_status, "ready")
+            self.assertEqual(runtime.backend.calls, 1)
+            self.assertEqual(runtime.backend.recovery_calls, 1)
+            self.assertFalse(runtime._workers[0].done())
+
+            result = await runtime.segment(object(), "second")
+            self.assertEqual(result.masks, ["encoded-mask"])
+            self.assertEqual(runtime.backend.calls, 2)
+
+            metrics = runtime.metrics_snapshot()
+            self.assertEqual(metrics["cuda_oom_total"], 1)
+            self.assertEqual(
+                metrics["cuda_oom_recovery_succeeded_total"], 1
+            )
+            self.assertEqual(metrics["gpu_inference_failed_total"], 1)
+            self.assertEqual(metrics["gpu_inference_succeeded_total"], 1)
+        finally:
+            await runtime.shutdown()
+
+    async def test_failed_cuda_oom_recovery_marks_model_unavailable(self):
+        runtime = ModelRuntime(
+            make_settings(),
+            backend_factory=FailedRecoveryOOMBackend,
+        )
+        try:
+            with self.assertRaises(CudaOutOfMemoryError):
+                await runtime.segment(object(), "first")
+
+            self.assertFalse(runtime.ready)
+            self.assertEqual(runtime.readiness_status, "unavailable")
+            with self.assertRaises(ModelNotReadyError):
+                await runtime.segment(object(), "second")
+            self.assertEqual(runtime.backend.calls, 1)
+
+            metrics = runtime.metrics_snapshot()
+            self.assertEqual(metrics["cuda_oom_total"], 1)
+            self.assertEqual(metrics["cuda_oom_recovery_failed_total"], 1)
+            self.assertEqual(
+                metrics["model_unavailable_rejected_total"], 1
+            )
+        finally:
             await runtime.shutdown()
 
 

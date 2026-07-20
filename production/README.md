@@ -12,6 +12,9 @@
 - 有界 GPU 任务队列和固定数量的 GPU worker
 - 排队超时、推理超时和队列满保护
 - HTTP 推理超时后继续占用原 GPU worker，直到底层同步推理真正结束
+- CUDA OOM 专用错误、一次缓存清理和恢复失败后的 unavailable 状态
+- JPEG/PNG 文件签名、编码长度和头部像素尺寸预检
+- 不记录 API Key、完整 Base64 图片、Prompt 或底层推理异常详情
 - 可选 API Key
 - `/health`、`/ready`、`/metrics`
 - 当前队列长度、GPU 在途任务数及其历史最大值
@@ -87,6 +90,35 @@ LISA_REQUEST_TIMEOUT_SECONDS=120
 任务超时后会被取消。`LISA_REQUEST_TIMEOUT_SECONDS` 从任务实际开始执行时
 计时；如果 HTTP 等待超时，底层同步 GPU 推理会继续完成，但该 worker 在
 任务真正结束前不会处理下一个任务。
+
+## OOM 恢复规则
+
+推理阶段发生 CUDA OOM 时，接口返回 HTTP 503 和
+`cuda_out_of_memory`，不会自动重试当前请求。运行时会断开可能引用临时
+CUDA tensor 的异常链，执行 Python 垃圾回收和一次
+`torch.cuda.empty_cache()`：
+
+- 缓存清理成功：服务恢复为 ready，后续新请求可以继续进入队列。
+- 缓存清理失败：服务保持 unavailable，`/ready` 返回 503，后续请求被
+  拒绝，需要运维重启进程。
+
+`/metrics` 会记录 OOM 次数、恢复成功/失败次数和 unavailable 拒绝次数。
+代码不会无限重试 OOM 请求。真实 CUDA OOM 后的服务恢复仍需在可控 GPU
+环境单独验收，不能在承载重要共存服务的 GPU 上随意制造 OOM。
+
+## 图片输入边界
+
+输入只接受 JPEG 和 PNG。服务在 OpenCV 完整解码前依次检查：
+
+1. Base64 编码长度是否可能超过配置的解码字节上限。
+2. Base64 是否严格合法。
+3. 文件签名是否为 JPEG 或 PNG。
+4. JPEG SOF 或 PNG IHDR 中的宽高和像素数是否超限。
+5. OpenCV 是否能成功解码，并再次检查实际像素数。
+
+GIF、WebP、伪造签名、损坏头部和超过限制的图片均返回
+`invalid_request`，不会进入 GPU 队列。反向代理或 ASGI 层的 HTTP 请求体
+总大小限制仍需单独配置。
 
 ## 健康检查
 
@@ -169,5 +201,7 @@ python3 -m unittest discover \
 - 当前请求只接受 Base64 图片，不允许服务端访问任意 URL，从而避免 SSRF。
 - 请求超时只控制HTTP等待时间，已经提交到GPU的同步推理不会被强制中断；
   专用GPU worker会等它真正结束后才处理下一个任务，避免产生隐性并发。
+- 应用不记录请求体、API Key、完整图片或 Prompt；返回客户端的推理错误
+  使用固定脱敏文本，不包含底层异常和服务器路径。
 - 13B模型没有在本地执行；必须在远程GPU环境进行冒烟、benchmark和压测。
 - 正式上线前仍必须完成 `todo.md` 中的 golden test、制品冻结、精度复评、监控、灰度和回滚。

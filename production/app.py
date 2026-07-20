@@ -120,7 +120,7 @@ def create_app(
         return JSONResponse(
             status_code=status_code,
             content={
-                "status": "ready" if runtime.ready else "loading",
+                "status": runtime.readiness_status,
                 "model_version": settings.model_version,
             },
         )

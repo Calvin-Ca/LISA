@@ -10,6 +10,7 @@ from typing import Any, Callable
 from .backend import LisaBackend, SegmentationResult
 from .config import Settings
 from .errors import (
+    CudaOutOfMemoryError,
     InferenceQueueFullError,
     InferenceQueueTimeoutError,
     InferenceTimeoutError,
@@ -35,6 +36,18 @@ def _consume_future_exception(
     future.exception()
 
 
+def _detach_exception_chain(exc: BaseException) -> None:
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        next_exception = current.__cause__ or current.__context__
+        current.__traceback__ = None
+        current.__cause__ = None
+        current.__context__ = None
+        current = next_exception
+
+
 class ModelRuntime:
     def __init__(
         self,
@@ -48,18 +61,27 @@ class ModelRuntime:
             maxsize=settings.max_queue_size
         )
         self._workers: list[asyncio.Task[None]] = []
+        self._healthy = True
         self.metrics = Counter()
         self.started_at = time.monotonic()
 
     @property
     def ready(self) -> bool:
-        return self.backend.loaded
+        return self.backend.loaded and self._healthy
+
+    @property
+    def readiness_status(self) -> str:
+        if self.ready:
+            return "ready"
+        if self.backend.loaded and not self._healthy:
+            return "unavailable"
+        return "loading"
 
     def load(self) -> None:
-        if self.ready:
+        if self.backend.loaded:
             return
         with self._load_lock:
-            if not self.ready:
+            if not self.backend.loaded:
                 self.backend.load()
                 self.metrics["model_loads_total"] += 1
 
@@ -97,6 +119,16 @@ class ModelRuntime:
                 if job.cancelled_before_start:
                     self.metrics["queue_cancelled_total"] += 1
                     continue
+                if self.backend.loaded and not self._healthy:
+                    self.metrics["model_unavailable_rejected_total"] += 1
+                    job.started.set()
+                    if not job.future.done():
+                        job.future.set_exception(
+                            ModelNotReadyError(
+                                "model is unavailable after CUDA OOM"
+                            )
+                        )
+                    continue
 
                 self.metrics["requests_started_total"] += 1
                 self.metrics["gpu_inference_in_flight"] += 1
@@ -119,8 +151,16 @@ class ModelRuntime:
                     )
                 except Exception as exc:
                     self.metrics["gpu_inference_failed_total"] += 1
+                    if isinstance(exc, CudaOutOfMemoryError):
+                        response_error: Exception = CudaOutOfMemoryError(
+                            exc.message
+                        )
+                        _detach_exception_chain(exc)
+                        await self._recover_from_cuda_oom()
+                    else:
+                        response_error = exc
                     if not job.future.done():
-                        job.future.set_exception(exc)
+                        job.future.set_exception(response_error)
                 else:
                     self.metrics["gpu_inference_succeeded_total"] += 1
                     if not job.future.done():
@@ -133,9 +173,31 @@ class ModelRuntime:
             finally:
                 self._queue.task_done()
 
+    async def _recover_from_cuda_oom(self) -> None:
+        self._healthy = False
+        self.metrics["cuda_oom_total"] += 1
+        recovery = getattr(self.backend, "recover_from_cuda_oom", None)
+        if recovery is None:
+            self.metrics["cuda_oom_recovery_failed_total"] += 1
+            return
+        try:
+            recovered = bool(recovery())
+        except Exception:
+            recovered = False
+        if recovered:
+            self._healthy = True
+            self.metrics["cuda_oom_recovery_succeeded_total"] += 1
+        else:
+            self.metrics["cuda_oom_recovery_failed_total"] += 1
+
     async def segment(self, image, prompt: str) -> SegmentationResult:
         await self.start()
         self.metrics["requests_received_total"] += 1
+        if self.backend.loaded and not self._healthy:
+            self.metrics["model_unavailable_rejected_total"] += 1
+            raise ModelNotReadyError(
+                "model is unavailable after CUDA OOM"
+            )
 
         loop = asyncio.get_running_loop()
         job = _InferenceJob(

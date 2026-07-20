@@ -32,6 +32,11 @@ class InferenceQueueTimeoutError(ServiceError):
     status_code = 504
 
 
+class CudaOutOfMemoryError(ServiceError):
+    code = "cuda_out_of_memory"
+    status_code = 503
+
+
 class InferenceError(ServiceError):
     code = "inference_failed"
     status_code = 500
