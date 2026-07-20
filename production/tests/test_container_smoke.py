@@ -1,10 +1,12 @@
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from production.verify_container_smoke import (
     build_acceptance_checks,
     find_log_issues,
     sanitize_container_inspect,
+    validate_docker_ignore_files,
 )
 
 
@@ -79,29 +81,38 @@ def build_checks(
 class ContainerSmokeTest(unittest.TestCase):
     def test_docker_context_is_allowlisted_and_excludes_env_files(self):
         repo_root = Path(__file__).resolve().parents[2]
-        ignore_paths = (
-            repo_root / ".dockerignore",
-            repo_root / "production" / "Dockerfile.dockerignore",
+        if (repo_root / ".dockerignore").is_file():
+            validate_docker_ignore_files(repo_root)
+
+        rules = "\n".join(
+            (
+                "**",
+                "!production/",
+                "!production/**",
+                "!model/",
+                "!model/**",
+                "!utils/",
+                "!utils/**",
+                "!.dockerignore",
+                "**/.env",
+                "**/.env.*",
+            )
         )
-        for ignore_path in ignore_paths:
-            rules = {
-                line.strip()
-                for line in ignore_path.read_text(
-                    encoding="utf-8"
-                ).splitlines()
-                if line.strip() and not line.startswith("#")
-            }
-            with self.subTest(ignore_path=ignore_path):
-                self.assertIn("**", rules)
-                self.assertIn("!production/**", rules)
-                self.assertIn("!model/**", rules)
-                self.assertIn("!utils/**", rules)
-                self.assertIn("**/.env", rules)
-                self.assertIn("**/.env.*", rules)
-                self.assertNotIn("!dataset/**", rules)
-                self.assertNotIn("!artifacts/**", rules)
-                self.assertNotIn("!runs/**", rules)
-                self.assertNotIn("!exp/**", rules)
+        with TemporaryDirectory() as temp_dir:
+            isolated_root = Path(temp_dir)
+            production_dir = isolated_root / "production"
+            production_dir.mkdir()
+            (isolated_root / ".dockerignore").write_text(
+                rules + "\n",
+                encoding="utf-8",
+            )
+            (
+                production_dir / "Dockerfile.dockerignore"
+            ).write_text(
+                rules + "\n",
+                encoding="utf-8",
+            )
+            validate_docker_ignore_files(isolated_root)
 
     def test_docker_uses_pinned_production_inference_requirements(self):
         repo_root = Path(__file__).resolve().parents[2]

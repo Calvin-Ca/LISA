@@ -36,6 +36,60 @@ def ensure_port_available(host: str, port: int) -> None:
             raise RuntimeError(f"{host}:{port} is already in use") from exc
 
 
+def validate_docker_ignore_files(repo_root: Path) -> None:
+    ignore_paths = (
+        repo_root / ".dockerignore",
+        repo_root / "production" / "Dockerfile.dockerignore",
+    )
+    required_rules = {
+        "**",
+        "!production/",
+        "!production/**",
+        "!model/",
+        "!model/**",
+        "!utils/",
+        "!utils/**",
+        "**/.env",
+        "**/.env.*",
+    }
+    forbidden_rules = {
+        "!dataset/**",
+        "!artifacts/**",
+        "!runs/**",
+        "!exp/**",
+    }
+    rule_sets: list[set[str]] = []
+    for ignore_path in ignore_paths:
+        if not ignore_path.is_file():
+            raise FileNotFoundError(
+                f"missing Docker ignore file: {ignore_path}"
+            )
+        rules = {
+            line.strip()
+            for line in ignore_path.read_text(
+                encoding="utf-8"
+            ).splitlines()
+            if line.strip() and not line.startswith("#")
+        }
+        missing_rules = required_rules - rules
+        if missing_rules:
+            raise ValueError(
+                f"{ignore_path} is missing required rules: "
+                f"{sorted(missing_rules)}"
+            )
+        unexpected_rules = forbidden_rules & rules
+        if unexpected_rules:
+            raise ValueError(
+                f"{ignore_path} exposes forbidden trees: "
+                f"{sorted(unexpected_rules)}"
+            )
+        rule_sets.append(rules)
+    if rule_sets[0] != rule_sets[1]:
+        raise ValueError(
+            "root and Dockerfile-specific ignore rules are not aligned"
+        )
+
+
 def run_logged(command: list[str], path: Path) -> tuple[int, str]:
     lines: list[str] = []
     with path.open("w", encoding="utf-8") as handle:
@@ -699,6 +753,7 @@ def main() -> int:
     for path, description in required_files:
         if not path.is_file():
             raise FileNotFoundError(f"missing {description}: {path}")
+    validate_docker_ignore_files(repo_root)
     if not (vision_model_dir / "blobs").is_dir():
         raise FileNotFoundError(
             f"CLIP cache blobs directory is missing: {vision_model_dir / 'blobs'}"

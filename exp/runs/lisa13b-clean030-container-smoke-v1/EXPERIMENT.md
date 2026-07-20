@@ -176,6 +176,19 @@ legacy Docker builder，它没有应用已有的
 当前状态：等待使用 Docker ignore 修复后的镜像重新执行；本次已生成的
 PyTorch 和生产依赖安装层可由 Docker 缓存复用。
 
+第三次远程执行已应用根目录 `.dockerignore` 并成功构建镜像，但在容器内
+运行纯逻辑测试时停止，尚未启动 GPU 服务。失败用例为
+`test_docker_context_is_allowlisted_and_excludes_env_files`：测试错误地要求
+容器内存在 `/app/.dockerignore`。
+
+根目录 `.dockerignore` 是 Docker 客户端构建输入，不属于运行时文件，也不应
+通过 Dockerfile 复制进镜像。修复后由宿主机验收脚本在 `docker build` 前
+校验根目录和 Dockerfile-specific 两份真实规则；容器内单测使用临时目录
+验证同一个校验器，不依赖任何 ignore 构建元数据被复制进运行镜像。不会为了
+通过测试而把构建元数据加入运行镜像。
+
+当前状态：等待使用测试路径修复后的镜像重新执行。
+
 ## 局限
 
 - 使用一个固定图片和 Prompt，只验证容器链路，不替代 86 样本精度回归和
