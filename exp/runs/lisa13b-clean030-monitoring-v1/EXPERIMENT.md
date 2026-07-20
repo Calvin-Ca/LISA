@@ -2,7 +2,7 @@
 
 ## 状态
 
-实验方案已确认，等待远程 Linux GPU 服务器执行。
+已完成，远程 shared-GPU 生产容器监控验收全部通过。
 
 ## 背景与目的
 
@@ -165,7 +165,35 @@ exp/runs/lisa13b-clean030-monitoring-v1/outputs/
 
 ## 结果
 
-等待远程执行后，根据 `outputs/summary.json`、`summary.md` 和日志补充。
+远程执行最终 22 项准入检查全部通过，`Overall: PASS`：
+
+- Docker 构建成功，容器内 59 项纯逻辑测试全部通过。
+- 初始 alerts 为 `ok`。
+- 1 个有效请求和 1 个鉴权失败请求后，
+  `http_4xx_rate_high` 正确进入 `firing`。
+- 再执行 4 个有效请求后，4xx 比例降至阈值以下，alerts 恢复为 `ok`。
+- 5 个有效请求全部成功，错误 API Key 请求正确返回 HTTP 401 /
+  `unauthorized`。
+- 最终精确指标符合预期：HTTP 请求 6 个，其中 2xx=5、4xx=1、5xx=0；
+  鉴权失败 1 次；进入运行时、开始、成功和 GPU 推理成功均为 5 次。
+- HTTP、队列等待和 GPU 推理滚动窗口均存在 P50/P95/P99，窗口样本数量
+  分别为 6、5、5。
+- JSON 与 Prometheus 关键指标逐项一致，没有缺失或数值差异。
+- GPU 最大在途数为 1，最终在途数为 0；GPU 推理失败、排队/推理超时、
+  队列拒绝/取消、CUDA OOM 和 unexpected error 均为 0。
+- 镜像配置用户为 `lisa`，运行 UID/GID 为 10001/10001，模型和 CLIP
+  挂载均为只读。
+- 整卡峰值显存为 31,752 MiB，峰值剩余 9,208 MiB；容器停止后显存漂移
+  为 0 MiB。
+- 原有共享 GPU 计算进程全部保持存活。
+- JSON/Prometheus/alerts 监控接口输出及容器日志未发现敏感值或私有路径；
+  日志无 CUDA OOM、Traceback 和 ERROR。
+- 请求结束后服务保持 `ready`，容器正常停止且退出码为 0。
+
+结论：新增应用内监控没有改变模型推理结果链路、GPU 串行化或显存回收行为；
+JSON 和 Prometheus 两套指标口径一致，Bearer 鉴权可用，4xx 告警能够完成
+“触发—恢复”闭环。当前应用内监控已经具备进入后续灰度与外部监控接入阶段
+的条件。
 
 ## 局限
 
