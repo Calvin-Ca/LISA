@@ -383,8 +383,8 @@ exp/runs/lisa13b-clean030-int4-v1/
 - [x] 共享基线2,337 MiB，总峰值31,740 MiB，峰值剩余9,220 MiB。
 - [x] 三轮共408次请求零失败，最大预热后显存漂移为0 MiB。
 - [ ] 测试并发 1、2、4。
-- [ ] 测试超大图片、损坏图片和不支持的格式。
-- [ ] 测试超长 Prompt、空 Prompt 和异常字符。
+- [x] 真实 API 已验证超大头部图片、损坏 JPEG/PNG、非法 Base64、GIF 和 WebP 均在进入 GPU 前被拒绝。
+- [ ] 超长、空和纯空格 Prompt 已通过真实 API 验证；仍需补充控制字符等异常字符集。
 - [ ] 测试空 mask、多 mask 和极小目标。
 - [ ] 测试 CUDA OOM 后服务恢复。
 
@@ -493,7 +493,7 @@ exp/runs/lisa13b-clean030-int4-v1/
 - [x] 完成三轮 shared-GPU 共存实验，408次请求零失败，性能和显存准入通过。
 - [x] 完成 `lisa13b-clean030-timeout-guard-v1` 真实 GPU 回归：2 个超时响应、2 个后台推理成功、历史最大 GPU 在途数 1、无 CUDA OOM。
 - [x] 完成 OOM 恢复状态机、JPEG/PNG 预检和推理错误脱敏实现；加入 robustness 验收逻辑后共通过 33 项本地纯逻辑测试。
-- [ ] 执行 `lisa13b-clean030-api-robustness-v1`，验证非法输入不进入 GPU、真实 JPEG/PNG、队列满、排队超时和日志脱敏。
+- [x] 完成 `lisa13b-clean030-api-robustness-v1`：15/15 用例及 20/20 准入项通过，异常后服务 ready，敏感哨兵无泄漏。
 - [ ] 完成 API 多次请求、异常输入、并发和显存稳定性压测。
 - [x] 根据bf16实测显存决定当前不启动8bit；4bit仅在未来8bit仍不满足容量目标时评估。
 - [ ] 完成容器实测、监控告警、灰度和回滚演练。

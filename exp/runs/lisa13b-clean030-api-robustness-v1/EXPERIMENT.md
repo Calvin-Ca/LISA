@@ -2,7 +2,7 @@
 
 ## 状态
 
-方案已确认，等待远程 Linux GPU 服务器执行。
+已完成，真实共享 GPU API robustness 验证全部通过。
 
 ## 背景
 
@@ -134,4 +134,85 @@ exp/runs/lisa13b-clean030-api-robustness-v1/outputs/
 
 ## 结果
 
-等待服务器执行后补充。
+执行时间：2026-07-20。
+
+临时 LISA 服务成功加载，ready 时间为 `14,286.349 ms`。15 个用例全部通过：
+
+| Case | HTTP | Code | Masks | Latency ms | 结果 |
+| --- | ---: | --- | ---: | ---: | --- |
+| `auth-invalid` | 401 | `unauthorized` | 0 | 1.911 | PASS |
+| `prompt-empty` | 422 | `validation_error` | 0 | 4.211 | PASS |
+| `prompt-blank` | 400 | `invalid_request` | 0 | 1.030 | PASS |
+| `prompt-too-long` | 400 | `invalid_request` | 0 | 0.840 | PASS |
+| `image-invalid-base64` | 400 | `invalid_request` | 0 | 0.970 | PASS |
+| `image-gif` | 400 | `invalid_request` | 0 | 0.804 | PASS |
+| `image-webp` | 400 | `invalid_request` | 0 | 0.776 | PASS |
+| `image-corrupt-png` | 400 | `invalid_request` | 0 | 0.785 | PASS |
+| `image-corrupt-jpeg` | 400 | `invalid_request` | 0 | 0.791 | PASS |
+| `image-oversized-header` | 400 | `invalid_request` | 0 | 0.773 | PASS |
+| `valid-jpeg` | 200 | - | 1 | 662.416 | PASS |
+| `valid-png` | 200 | - | 1 | 381.536 | PASS |
+| `queue-primary` | 200 | - | 1 | 389.602 | PASS |
+| `queue-timeout` | 504 | `inference_queue_timeout` | 0 | 155.171 | PASS |
+| `queue-full` | 503 | `inference_queue_full` | 0 | 3.146 | PASS |
+
+10 个非法请求中最慢的空 Prompt 验证为 `4.211 ms`，全部完成后
+`requests_received_total=0`，证明鉴权、Prompt 和图片问题均在进入运行时 GPU
+队列前被拒绝。
+
+真实 JPEG、PNG 和队列主请求均返回一个 mask。JPEG 的 `662.416 ms` 包含
+本轮首次实际推理开销；后续 PNG 和主请求分别为 `381.536 ms` 和
+`389.602 ms`，与此前预热后的约 0.4 秒基线一致。
+
+队列保护符合配置：等待任务在 `155.171 ms` 返回，与 0.15 秒排队超时接近；
+队列满请求在 `3.146 ms` 内拒绝，没有进入 GPU。
+
+最终运行时指标：
+
+| 指标 | 实际值 | 准入值 |
+| --- | ---: | ---: |
+| Requests received | 5 | 5 |
+| GPU requests started | 3 | 3 |
+| Requests succeeded | 3 | 3 |
+| Queue timeout | 1 | 1 |
+| Queue rejected | 1 | 1 |
+| Queue cancelled | 1 | 1 |
+| GPU inference succeeded | 3 | 3 |
+| GPU inference failed | 0 | 0 |
+| Maximum GPU in flight | 1 | 1 |
+| Final GPU in flight | 0 | 0 |
+| Masks returned | 3 | >= 3 |
+| CUDA OOM | 0 | 0 |
+| Unexpected errors | 0 | 0 |
+
+全部 20 项准入检查通过：
+
+- 异常完成后服务仍为 ready。
+- 响应和服务日志均未发现敏感哨兵。
+- 实验前已有共享 GPU 计算进程没有消失。
+- 服务日志没有 CUDA OOM。
+
+最终结果：`PASS`。
+
+## 结论
+
+JPEG/PNG 白名单、头部尺寸预检、Prompt 校验、API Key、错误脱敏、有界队列、
+排队超时和队列满保护均已在真实 FastAPI、OpenCV、LISA 和共享 A100 环境
+通过验证。
+
+无效输入能够在毫秒级拒绝且不进入 GPU，正常 JPEG/PNG 没有功能回归。单
+GPU worker 在队列压力下保持最大在途任务数 1，排队超时任务被取消且不会
+事后执行，队列满请求快速失败。异常矩阵执行后服务仍然 ready。
+
+实验使用独立子进程注入队列大小 1 和 0.15 秒排队超时，没有修改正式
+`production/.env`。正式配置仍为等待队列 8、排队超时 30 秒和推理超时
+120 秒。
+
+## 局限
+
+- 使用一个固定图像，不代表全部图片尺寸、编码器和业务 Prompt 分布。
+- 未覆盖控制字符等异常 Prompt 字符集。
+- 未覆盖空 mask、多 mask 和极小目标。
+- 未主动制造 CUDA OOM，OOM 恢复目前只有纯逻辑测试。
+- 队列实验验证的是单 GPU worker 的保护行为，不替代客户端并发 1、2、4 的吞吐和长时间稳定性压测。
+- 只确认 `bge-m3` GPU 进程存活，没有验证其业务延迟和吞吐。
