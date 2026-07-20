@@ -29,6 +29,12 @@ RUN useradd --create-home --uid 10001 lisa \
 
 USER lisa
 
+ARG LISA_MODEL_VERSION=unknown
+ARG LISA_SOURCE_COMMIT=unknown
+LABEL io.lisa.model.version="${LISA_MODEL_VERSION}" \
+    org.opencontainers.image.revision="${LISA_SOURCE_COMMIT}" \
+    org.opencontainers.image.title="LISA Safety Segmentation API"
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=180s --retries=3 \

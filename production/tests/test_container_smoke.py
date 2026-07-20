@@ -126,6 +126,8 @@ class ContainerSmokeTest(unittest.TestCase):
             "COPY production/requirements.txt /app/requirements.txt",
             dockerfile,
         )
+        self.assertIn("io.lisa.model.version", dockerfile)
+        self.assertIn("org.opencontainers.image.revision", dockerfile)
         for training_dependency in (
             "pycocotools",
             "deepspeed",

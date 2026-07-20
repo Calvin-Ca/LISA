@@ -194,6 +194,39 @@ docker run --rm \
 
 模型目录和 CLIP vision tower 不进入镜像，也不提交 Git。
 
+## 正式发布模型与镜像
+
+`production/publish_release.sh` 发布已经通过容器 GPU 验收的确切镜像，不会
+重新构建一个未经相同验收的新镜像。脚本会：
+
+1. 从容器 `summary.json` 读取已验证镜像标签、镜像 ID 和源码 Git commit。
+2. 重新校验冻结模型的 `SHA256SUMS`。
+3. 用模型版本和已验证 commit 生成不可变镜像标签并推送。
+4. 核对推送后镜像 ID 与容器验收中的镜像 ID 完全一致。
+5. 生成绑定模型校验值、镜像 digest 和精度/容器报告的
+   `release-manifest.json`。
+6. 使用 rclone 的 immutable/check 流程上传并复核模型制品。
+
+发布脚本不会执行 `docker login`、创建 rclone 凭据或把凭据写入仓库。先在
+远程发布服务器外部完成镜像仓库和对象存储认证，再设置两个非敏感目标：
+
+```bash
+export LISA_IMAGE_REPOSITORY="registry.example.com/safety/lisa-safety-seg"
+
+export LISA_MODEL_REMOTE="internal-models:lisa-safety-seg/lisa13b-clean030-v1"
+```
+
+远程 Linux 发布服务器执行：
+
+```bash
+bash production/publish_release.sh
+```
+
+其中 `LISA_MODEL_REMOTE` 是已配置好的 rclone remote 目标。脚本使用
+`--immutable`，目标中已有同名但内容不同的文件时会失败，不会静默覆盖已发布
+制品。最终以镜像 registry digest 和 `release-manifest.json` 作为发布身份，
+不再只依赖可变 tag。
+
 ## 本地纯逻辑测试
 
 本地安装基础 Python 依赖后可执行：
