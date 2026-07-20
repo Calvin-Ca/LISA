@@ -17,6 +17,7 @@ from .observability import (
     evaluate_alerts,
     render_prometheus,
 )
+from .request_limit import RequestBodyLimitMiddleware
 from .runtime import ModelRuntime
 from .schemas import ErrorPayload, MaskPayload, SegmentRequest, SegmentResponse
 
@@ -47,6 +48,13 @@ def create_app(
     app.state.runtime = runtime
     http_metrics = HttpMetrics(settings.metrics_window_size)
     app.state.http_metrics = http_metrics
+    app.add_middleware(
+        RequestBodyLimitMiddleware,
+        max_bytes=settings.max_request_bytes,
+        on_rejected=lambda: http_metrics.increment(
+            "request_body_too_large_total"
+        ),
+    )
 
     def monitoring_snapshot() -> dict[str, float | int | bool]:
         return {

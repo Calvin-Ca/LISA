@@ -31,6 +31,7 @@ def make_settings() -> Settings:
         max_image_bytes=1024,
         max_image_pixels=1024,
         max_prompt_chars=100,
+        max_request_bytes=2048,
         max_concurrency=1,
         max_queue_size=8,
         queue_timeout_seconds=1.0,

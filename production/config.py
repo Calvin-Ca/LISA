@@ -57,6 +57,7 @@ class Settings:
     max_image_bytes: int
     max_image_pixels: int
     max_prompt_chars: int
+    max_request_bytes: int
     max_concurrency: int
     max_queue_size: int
     queue_timeout_seconds: float
@@ -109,6 +110,10 @@ class Settings:
             max_image_bytes=_get_int("LISA_MAX_IMAGE_BYTES", 20 * 1024 * 1024),
             max_image_pixels=_get_int("LISA_MAX_IMAGE_PIXELS", 25_000_000),
             max_prompt_chars=_get_int("LISA_MAX_PROMPT_CHARS", 1000),
+            max_request_bytes=_get_int(
+                "LISA_MAX_REQUEST_BYTES",
+                30 * 1024 * 1024,
+            ),
             max_concurrency=_get_int("LISA_MAX_CONCURRENCY", 1),
             max_queue_size=_get_int("LISA_MAX_QUEUE_SIZE", 8),
             queue_timeout_seconds=_get_positive_float(

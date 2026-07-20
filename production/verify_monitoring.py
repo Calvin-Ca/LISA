@@ -536,7 +536,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--port", type=int, default=8005)
     parser.add_argument("--startup-timeout", type=float, default=360.0)
     parser.add_argument("--client-timeout", type=float, default=150.0)
-    parser.add_argument("--minimum-unit-tests", type=int, default=59)
+    parser.add_argument("--minimum-unit-tests", type=int, default=62)
     parser.add_argument("--max-peak-memory-mib", type=int, default=36864)
     parser.add_argument("--min-remaining-memory-mib", type=int, default=4096)
     parser.add_argument("--max-post-stop-drift-mib", type=int, default=500)
@@ -734,6 +734,7 @@ def main() -> int:
             "LISA_MAX_IMAGE_BYTES": "20971520",
             "LISA_MAX_IMAGE_PIXELS": "25000000",
             "LISA_MAX_PROMPT_CHARS": "1000",
+            "LISA_MAX_REQUEST_BYTES": "31457280",
             "LISA_MAX_CONCURRENCY": "1",
             "LISA_MAX_QUEUE_SIZE": "8",
             "LISA_QUEUE_TIMEOUT_SECONDS": "30",

@@ -43,8 +43,8 @@ def passing_inputs():
     return {
         "build_exit_code": 0,
         "unit_test_exit_code": 0,
-        "unit_test_count": 59,
-        "minimum_unit_tests": 59,
+        "unit_test_count": 62,
+        "minimum_unit_tests": 62,
         "initial_alerts": {"status": "ok", "alerts": []},
         "firing_alerts": {
             "status": "firing",

@@ -26,6 +26,7 @@ class ObservabilityTest(unittest.TestCase):
         initial = metrics.snapshot()
         self.assertEqual(initial["http_requests_total"], 0)
         self.assertEqual(initial["http_responses_5xx_total"], 0)
+        self.assertEqual(initial["request_body_too_large_total"], 0)
         metrics.begin_request()
         metrics.finish_request(200, 100.0)
         metrics.begin_request()

@@ -22,6 +22,7 @@ HTTP_COUNTER_NAMES = (
     "request_validation_failed_total",
     "prompt_validation_failed_total",
     "image_validation_failed_total",
+    "request_body_too_large_total",
     "service_errors_total",
     "http_exception_total",
     "unexpected_http_errors_total",

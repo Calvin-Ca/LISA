@@ -500,6 +500,7 @@ def main() -> int:
             "LISA_MAX_IMAGE_BYTES": str(20 * 1024 * 1024),
             "LISA_MAX_IMAGE_PIXELS": "25000000",
             "LISA_MAX_PROMPT_CHARS": "1000",
+            "LISA_MAX_REQUEST_BYTES": str(30 * 1024 * 1024),
             "LISA_MAX_CONCURRENCY": "1",
             "LISA_MAX_QUEUE_SIZE": str(args.max_queue_size),
             "LISA_QUEUE_TIMEOUT_SECONDS": str(args.queue_timeout),

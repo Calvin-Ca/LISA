@@ -14,6 +14,7 @@ class SettingsTest(unittest.TestCase):
         self.assertEqual(settings.max_concurrency, 1)
         self.assertEqual(settings.max_queue_size, 8)
         self.assertEqual(settings.queue_timeout_seconds, 30.0)
+        self.assertEqual(settings.max_request_bytes, 30 * 1024 * 1024)
         self.assertEqual(settings.metrics_window_size, 1000)
         self.assertEqual(settings.alert_max_4xx_rate, 0.2)
         self.assertEqual(settings.alert_max_5xx_rate, 0.01)

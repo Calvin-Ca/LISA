@@ -6,7 +6,7 @@
 
 - 模型延迟加载和进程内单例
 - 图片 Base64 输入
-- Prompt 和图片大小校验
+- HTTP 请求体、Prompt 和图片大小校验
 - PNG Base64 mask 输出
 - 多 mask 和空 mask 协议
 - 有界 GPU 任务队列和固定数量的 GPU worker
@@ -14,6 +14,7 @@
 - HTTP 推理超时后继续占用原 GPU worker，直到底层同步推理真正结束
 - CUDA OOM 专用错误、一次缓存清理和恢复失败后的 unavailable 状态
 - JPEG/PNG 文件签名、编码长度和头部像素尺寸预检
+- 根据 Content-Length 和实际接收字节数限制完整 HTTP 请求体
 - 不记录 API Key、完整 Base64 图片、Prompt 或底层推理异常详情
 - 可选 API Key
 - `/health`、`/ready`、`/metrics`、`/metrics/prometheus`、`/alerts`
@@ -110,6 +111,17 @@ CUDA tensor 的异常链，执行 Python 垃圾回收和一次
 
 ## 图片输入边界
 
+完整 HTTP 请求体默认限制为 30 MiB：
+
+```text
+LISA_MAX_REQUEST_BYTES=31457280
+```
+
+服务会先检查 `Content-Length`，对没有可信长度或使用 chunked 传输的请求，
+再按实际接收字节累计。超过限制时返回 HTTP 413 和
+`request_too_large`，不会解析 JSON、解码 Base64 或进入 GPU 队列；响应要求
+客户端关闭并重新建立连接。
+
 输入只接受 JPEG 和 PNG。服务在 OpenCV 完整解码前依次检查：
 
 1. Base64 编码长度是否可能超过配置的解码字节上限。
@@ -119,8 +131,9 @@ CUDA tensor 的异常链，执行 Python 垃圾回收和一次
 5. OpenCV 是否能成功解码，并再次检查实际像素数。
 
 GIF、WebP、伪造签名、损坏头部和超过限制的图片均返回
-`invalid_request`，不会进入 GPU 队列。反向代理或 ASGI 层的 HTTP 请求体
-总大小限制仍需单独配置。
+`invalid_request`，不会进入 GPU 队列。应用侧已经执行 30 MiB 硬限制；
+正式对外暴露时仍应在 Nginx/Caddy 等反向代理配置相同或更小的请求体上限，
+形成入口和应用双层保护。
 
 ## 健康检查
 
