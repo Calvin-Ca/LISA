@@ -170,6 +170,8 @@ docker build \
 
 镜像只复制 `production/`、`model/` 和 `utils/` 运行目录。
 `production/.env`、数据集、实验输出、训练权重和 Git 元数据均不进入镜像。
+镜像安装独立的 `production/requirements.txt`，不复用包含训练、评估和
+Demo 依赖的根目录 `requirements.txt`。
 
 远程运行：
 

@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 from production.verify_container_smoke import (
     build_acceptance_checks,
@@ -76,6 +77,33 @@ def build_checks(
 
 
 class ContainerSmokeTest(unittest.TestCase):
+    def test_docker_uses_pinned_production_inference_requirements(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        dockerfile = (
+            repo_root / "production" / "Dockerfile"
+        ).read_text(encoding="utf-8")
+        requirements = (
+            repo_root / "production" / "requirements.txt"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "COPY production/requirements.txt /app/requirements.txt",
+            dockerfile,
+        )
+        for training_dependency in (
+            "pycocotools",
+            "deepspeed",
+            "gradio",
+            "ray",
+        ):
+            self.assertNotIn(training_dependency, requirements.lower())
+        package_lines = [
+            line.strip()
+            for line in requirements.splitlines()
+            if line.strip() and not line.startswith("--")
+        ]
+        self.assertTrue(package_lines)
+        self.assertTrue(all("==" in line for line in package_lines))
+
     def test_sanitize_inspect_drops_sources_and_environment(self):
         result = sanitize_container_inspect(
             {

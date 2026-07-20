@@ -56,8 +56,8 @@ Docker 构建只复制生产运行所需的 `production/`、`model/` 和 `utils/
 
 1. 检查 Docker、NVIDIA Runtime、端口、冻结制品和完整 CLIP 缓存。
 2. 重新执行冻结模型 `SHA256SUMS` 校验。
-3. 构建固定标签的生产镜像并保存完整构建日志。
-4. 在镜像内以 CPU 模式运行当前全部 42 项纯逻辑测试。
+3. 使用固定版本的生产推理依赖构建镜像并保存完整构建日志。
+4. 在镜像内以 CPU 模式运行当前全部 43 项纯逻辑测试。
 5. 记录实验前共享 GPU 计算进程和显存。
 6. 启动 200 ms 间隔的 GPU 显存、利用率和温度采样。
 7. 使用 GPU 0 启动一个容器，等待 Docker healthcheck 和 `/ready`。
@@ -76,7 +76,7 @@ Docker 构建只复制生产运行所需的 `production/`、`model/` 和 `utils/
 全部检查必须通过：
 
 - Docker 镜像构建成功。
-- 镜像内全部纯逻辑测试成功，数量不少于 42。
+- 镜像内全部纯逻辑测试成功，数量不少于 43。
 - 镜像配置用户为 `lisa`，运行 UID 为 10001，GID 非 root。
 - 模型和 CLIP 两个挂载均为只读。
 - 镜像内不存在 `production/.env`、协作文档、数据集、实验输出、训练输出或
@@ -135,7 +135,20 @@ exp/runs/lisa13b-clean030-container-smoke-v1/outputs/
 
 ## 结果
 
-等待远程执行。
+首次远程构建未进入容器启动和 GPU 推理阶段。构建在安装
+`pycocotools==2.0.6` 时失败：该包没有使用现成 wheel，pip 尝试通过
+`x86_64-linux-gnu-gcc` 编译扩展，而 CUDA runtime 镜像没有 GCC。
+
+根因不是 Docker NVIDIA Runtime 或模型制品，而是 Dockerfile 复用了根目录
+完整开发依赖。该依赖集合包含训练、评估和交互 Demo 使用的
+`pycocotools`、Gradio、Ray 等包，生产 API 推理不需要这些组件。
+
+修复后 Dockerfile 改为安装独立的 `production/requirements.txt`。生产清单
+只保留 LISA API、LLaVA/LISA、SAM、CLIP、OpenCV 和可选 bitsandbytes 加载
+所需的固定版本依赖，不安装 `pycocotools`，也不在 runtime 镜像中加入 GCC
+和完整编译工具链。
+
+当前状态：等待使用修复后的镜像重新执行。
 
 ## 局限
 
