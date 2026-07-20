@@ -1,0 +1,106 @@
+groups:
+  - name: lisa-safety-seg
+    rules:
+      - alert: LISAServiceDown
+        expr: up{job="lisa-safety-seg"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: LISA metrics endpoint is unavailable
+
+      - alert: LISAModelNotReady
+        expr: lisa_ready{job="lisa-safety-seg"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: LISA model is not ready
+
+      - alert: LISACudaOOM
+        expr: increase(lisa_cuda_oom_total{job="lisa-safety-seg"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: LISA encountered a CUDA out-of-memory error
+
+      - alert: LISAUnexpectedError
+        expr: increase(lisa_unexpected_errors_total{job="lisa-safety-seg"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: LISA encountered an unexpected server error
+
+      - alert: LISAHigh5xxRate
+        expr: |
+          (
+            rate(lisa_http_responses_5xx_total{job="lisa-safety-seg"}[5m])
+            /
+            clamp_min(
+              rate(lisa_http_requests_total{job="lisa-safety-seg"}[5m]),
+              0.001
+            )
+          ) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: LISA HTTP 5xx rate is above 1 percent
+
+      - alert: LISAHigh4xxRate
+        expr: |
+          (
+            rate(lisa_http_responses_4xx_total{job="lisa-safety-seg"}[5m])
+            /
+            clamp_min(
+              rate(lisa_http_requests_total{job="lisa-safety-seg"}[5m]),
+              0.001
+            )
+          ) > 0.20
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: LISA HTTP 4xx rate is above 20 percent
+
+      - alert: LISAHighP95Latency
+        expr: lisa_http_request_latency_ms_p95{job="lisa-safety-seg"} > 2000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: LISA rolling HTTP P95 latency is above 2000 ms
+
+      - alert: LISAHighQueueUtilization
+        expr: lisa_queue_utilization{job="lisa-safety-seg"} >= 0.8
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: LISA inference queue utilization is at least 80 percent
+
+      - alert: LISAGPUMemoryHigh
+        expr: |
+          (
+            DCGM_FI_DEV_FB_USED{job="nvidia-dcgm"}
+            /
+            (
+              DCGM_FI_DEV_FB_USED{job="nvidia-dcgm"}
+              + DCGM_FI_DEV_FB_FREE{job="nvidia-dcgm"}
+            )
+          ) > 0.90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: GPU framebuffer memory utilization is above 90 percent
+
+      - alert: LISAGPUTemperatureHigh
+        expr: DCGM_FI_DEV_GPU_TEMP{job="nvidia-dcgm"} > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: GPU temperature is above 85 degrees Celsius

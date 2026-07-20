@@ -14,6 +14,10 @@ class SettingsTest(unittest.TestCase):
         self.assertEqual(settings.max_concurrency, 1)
         self.assertEqual(settings.max_queue_size, 8)
         self.assertEqual(settings.queue_timeout_seconds, 30.0)
+        self.assertEqual(settings.metrics_window_size, 1000)
+        self.assertEqual(settings.alert_max_4xx_rate, 0.2)
+        self.assertEqual(settings.alert_max_5xx_rate, 0.01)
+        self.assertEqual(settings.alert_max_p95_latency_ms, 2000.0)
         self.assertTrue(settings.eager_load)
 
     def test_quantization_requires_fp16(self):
@@ -47,6 +51,23 @@ class SettingsTest(unittest.TestCase):
         with patch.dict(
             os.environ,
             {"LISA_REQUEST_TIMEOUT_SECONDS": "-1"},
+            clear=True,
+        ):
+            with self.assertRaises(ValueError):
+                Settings.from_env()
+
+    def test_alert_ratios_must_be_between_zero_and_one(self):
+        with patch.dict(
+            os.environ,
+            {"LISA_ALERT_MAX_5XX_RATE": "1.1"},
+            clear=True,
+        ):
+            with self.assertRaises(ValueError):
+                Settings.from_env()
+
+        with patch.dict(
+            os.environ,
+            {"LISA_ALERT_MAX_QUEUE_UTILIZATION": "-0.1"},
             clear=True,
         ):
             with self.assertRaises(ValueError):

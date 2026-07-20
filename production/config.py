@@ -34,6 +34,13 @@ def _get_positive_float(name: str, default: float) -> float:
     return value
 
 
+def _get_ratio(name: str, default: float) -> float:
+    value = _get_float(name, default)
+    if value < 0 or value > 1:
+        raise ValueError(f"{name} must be between 0 and 1, got {value}")
+    return value
+
+
 @dataclass(frozen=True)
 class Settings:
     model_version: str
@@ -54,6 +61,12 @@ class Settings:
     max_queue_size: int
     queue_timeout_seconds: float
     request_timeout_seconds: float
+    metrics_window_size: int
+    alert_minimum_requests: int
+    alert_max_4xx_rate: float
+    alert_max_5xx_rate: float
+    alert_max_p95_latency_ms: float
+    alert_max_queue_utilization: float
     eager_load: bool
     api_key: str | None
 
@@ -103,6 +116,24 @@ class Settings:
             ),
             request_timeout_seconds=_get_positive_float(
                 "LISA_REQUEST_TIMEOUT_SECONDS", 120.0
+            ),
+            metrics_window_size=_get_int(
+                "LISA_METRICS_WINDOW_SIZE", 1000
+            ),
+            alert_minimum_requests=_get_int(
+                "LISA_ALERT_MINIMUM_REQUESTS", 20
+            ),
+            alert_max_4xx_rate=_get_ratio(
+                "LISA_ALERT_MAX_4XX_RATE", 0.2
+            ),
+            alert_max_5xx_rate=_get_ratio(
+                "LISA_ALERT_MAX_5XX_RATE", 0.01
+            ),
+            alert_max_p95_latency_ms=_get_positive_float(
+                "LISA_ALERT_MAX_P95_LATENCY_MS", 2000.0
+            ),
+            alert_max_queue_utilization=_get_ratio(
+                "LISA_ALERT_MAX_QUEUE_UTILIZATION", 0.8
             ),
             eager_load=_get_bool("LISA_EAGER_LOAD", True),
             api_key=api_key,

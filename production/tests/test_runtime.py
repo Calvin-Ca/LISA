@@ -35,6 +35,12 @@ def make_settings() -> Settings:
         max_queue_size=8,
         queue_timeout_seconds=1.0,
         request_timeout_seconds=1.0,
+        metrics_window_size=100,
+        alert_minimum_requests=20,
+        alert_max_4xx_rate=0.2,
+        alert_max_5xx_rate=0.01,
+        alert_max_p95_latency_ms=2000.0,
+        alert_max_queue_utilization=0.8,
         eager_load=False,
         api_key=None,
     )
@@ -53,6 +59,22 @@ class FakeBackend:
             height=2,
             text="[SEG]",
             masks=["encoded-mask"],
+        )
+
+
+class MaskCountBackend(FakeBackend):
+    def __init__(self, settings):
+        super().__init__(settings)
+        self.calls = 0
+
+    def segment(self, _image, _prompt):
+        self.calls += 1
+        masks = [] if self.calls == 1 else ["mask-1", "mask-2"]
+        return SegmentationResult(
+            width=2,
+            height=2,
+            text="[SEG]",
+            masks=masks,
         )
 
 
@@ -131,6 +153,26 @@ class RuntimeTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(metrics["requests_succeeded_total"], 1)
             self.assertEqual(metrics["masks_returned_total"], 1)
             self.assertEqual(metrics["gpu_inference_succeeded_total"], 1)
+            self.assertEqual(metrics["queue_wait_ms_window_samples"], 1)
+            self.assertEqual(
+                metrics["gpu_inference_ms_window_samples"],
+                1,
+            )
+        finally:
+            await runtime.shutdown()
+
+    async def test_empty_and_multi_mask_metrics(self):
+        runtime = ModelRuntime(
+            make_settings(),
+            backend_factory=MaskCountBackend,
+        )
+        try:
+            await runtime.segment(object(), "empty")
+            await runtime.segment(object(), "multi")
+            metrics = runtime.metrics_snapshot()
+            self.assertEqual(metrics["empty_mask_responses_total"], 1)
+            self.assertEqual(metrics["multi_mask_responses_total"], 1)
+            self.assertEqual(metrics["masks_returned_total"], 2)
         finally:
             await runtime.shutdown()
 

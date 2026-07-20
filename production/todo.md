@@ -266,6 +266,8 @@ python benchmark_reason_seg.py \
 - [x] 实现 `GET /health`，仅检查进程存活。
 - [x] 实现 `GET /ready`，检查模型已加载并可接收请求。
 - [x] 实现 `GET /metrics`，输出进程内JSON指标。
+- [x] 实现 `GET /metrics/prometheus`，保持原 JSON 指标接口兼容。
+- [x] 实现 `GET /alerts`，按可配置阈值返回进程内告警状态。
 - [x] 限制解码后图片字节数和像素数，并拒绝 OpenCV 无法解码的内容。
 - [x] 增加 JPEG/PNG 文件签名白名单，并在 OpenCV 解码前检查编码长度和头部像素尺寸。
 - [x] 限制 Prompt 长度。
@@ -337,7 +339,7 @@ python benchmark_reason_seg.py \
 - [x] 增加容器健康检查。
 - [x] 容器验收已使用 `--gpus device=0` 和 `--shm-size 8g` 验证 GPU 与共享内存运行参数。
 - [x] Dockerfile 支持 OCI 源码 commit 和 LISA 模型版本标签；后续容器验收构建会写入真实值。
-- [x] 当前纯逻辑测试累计 49 项，其中新增 5 项覆盖制品损坏、路径穿越、镜像 ID 绑定和禁止重建未验收镜像。
+- [x] 当前纯逻辑测试累计 56 项：包含制品发布、HTTP 指标、滚动分位数、告警阈值、Prometheus 输出和 mask 计数测试。
 
 ### 容器验收记录
 
@@ -485,17 +487,20 @@ exp/runs/lisa13b-clean030-int4-v1/
 ## P1：监控与告警
 
 - [x] 提供进入模型运行时的请求数、成功数、推理失败数、推理超时数和 mask 数指标。
-- [ ] 将鉴权失败、请求校验失败和图片解码失败纳入完整 HTTP 请求/失败指标。
-- [ ] 监控 P50、P95、P99 延迟。
-- [ ] 监控队列长度和排队时间。
+- [x] 将鉴权失败、请求校验失败、Prompt 校验失败和图片解码失败纳入完整 HTTP 请求/失败指标。
+- [x] 提供 `/v1/segment` HTTP 延迟、队列等待和 GPU 推理时间的滚动 P50、P95、P99。
+- [x] 监控队列长度、容量、利用率和排队时间。
 - [ ] 监控 GPU 利用率、显存和温度。
 - [x] 进程内指标记录 CUDA OOM、恢复成功、恢复失败和 unavailable 拒绝次数。
 - [ ] 将 CUDA OOM、恢复失败和进程/模型重启次数接入外部监控告警。
-- [ ] 监控空 mask 率和多 mask 率。
+- [x] 记录空 mask 响应、多 mask 响应和总 mask 数；比率由 Prometheus 计算。
 - [ ] 监控输入图片尺寸和 Prompt 长度分布。
 - [x] 在响应、响应头和指标中记录模型版本。
-- [ ] 建立关键指标告警阈值。
+- [x] 建立 4xx/5xx、P95、队列利用率、CUDA OOM、unexpected error、模型 ready、GPU 显存和温度的初始告警阈值与 Prometheus 规则。
 - [ ] 建立人工抽检和线上 bad case 回流机制。
+
+当前应用内监控实现完成；外部 Prometheus、Alertmanager、Grafana 与 NVIDIA
+DCGM Exporter 尚未部署，因此“健康检查、监控和告警已接入”仍保持未完成。
 
 ## P1：灰度发布与回滚
 
@@ -571,7 +576,9 @@ exp/runs/lisa13b-clean030-int4-v1/
 - [x] 完成 `lisa13b-clean030-container-smoke-v1` 真实容器验收：构建 17.179 秒，两轮 healthy/ready 和 GPU 推理通过，峰值 30,214 MiB，停止后显存漂移 0 MiB，最终 `PASS`。
 - [x] 完成正式发布工具：复用并绑定已验收镜像，生成模型/镜像/验收证据联合 release manifest，并提供不可变上传复核。
 - [x] 已记录外部模型/镜像发布的目的、风险、触发条件和未来执行步骤；当前决定暂不实际发布。
+- [x] 完成应用内 HTTP、延迟、队列、推理、mask 和错误指标，提供 Prometheus 输出、进程内 alerts 与外部告警规则模板。
 - [x] 完成 API 多次请求、核心异常输入、并发和显存稳定性压测；控制字符、空/多 mask 与真实 OOM 仍保留为独立待办。
 - [x] 根据bf16实测显存决定当前不启动8bit；4bit仅在未来8bit仍不满足容量目标时评估。
 - [x] 完成容器实测。
-- [ ] 完成监控告警、灰度和回滚演练。
+- [ ] 在远程环境验证新增监控接口并接入外部 Prometheus/DCGM/Alertmanager。
+- [ ] 完成灰度和回滚演练。

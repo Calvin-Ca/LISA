@@ -16,8 +16,10 @@
 - JPEG/PNG 文件签名、编码长度和头部像素尺寸预检
 - 不记录 API Key、完整 Base64 图片、Prompt 或底层推理异常详情
 - 可选 API Key
-- `/health`、`/ready`、`/metrics`
+- `/health`、`/ready`、`/metrics`、`/metrics/prometheus`、`/alerts`
+- 完整 HTTP 状态、滚动延迟分位数、队列等待和 GPU 推理时间
 - 当前队列长度、GPU 在途任务数及其历史最大值
+- 空 mask、多 mask、CUDA OOM、鉴权和输入校验失败指标
 - request ID 和模型版本响应头
 - Dockerfile 和环境变量配置
 - 不加载模型的纯逻辑单元测试
@@ -129,6 +131,28 @@ curl -s http://127.0.0.1:8000/health
 ```bash
 curl -s http://127.0.0.1:8000/ready
 ```
+
+JSON 指标：
+
+```bash
+curl -s http://127.0.0.1:8000/metrics
+```
+
+Prometheus 指标：
+
+```bash
+curl -s http://127.0.0.1:8000/metrics/prometheus
+```
+
+进程内告警状态：
+
+```bash
+curl -s http://127.0.0.1:8000/alerts
+```
+
+配置 API Key 时，上述三个监控接口使用 `X-API-Key` 或
+`Authorization: Bearer`。完整 Prometheus、Alertmanager、Grafana 和 NVIDIA
+DCGM Exporter 接入说明位于 `production/monitoring/README.md`。
 
 ## 推理请求
 
@@ -264,7 +288,8 @@ python3 -m unittest discover \
 
 ## 生产限制
 
-- 当前 `/metrics` 返回 JSON 快照，后续接入 Prometheus 时可替换为标准文本格式。
+- 当前同时提供 JSON 和 Prometheus 指标，但外部 Prometheus、Alertmanager、
+  Grafana 与 NVIDIA DCGM Exporter 尚未在目标服务器部署。
 - 当前请求只接受 Base64 图片，不允许服务端访问任意 URL，从而避免 SSRF。
 - 请求超时只控制HTTP等待时间，已经提交到GPU的同步推理不会被强制中断；
   专用GPU worker会等它真正结束后才处理下一个任务，避免产生隐性并发。

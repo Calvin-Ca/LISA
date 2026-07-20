@@ -16,6 +16,34 @@ from .errors import (
     InferenceTimeoutError,
     ModelNotReadyError,
 )
+from .observability import RollingWindow
+
+
+RUNTIME_COUNTER_NAMES = (
+    "model_loads_total",
+    "requests_received_total",
+    "requests_started_total",
+    "requests_succeeded_total",
+    "requests_failed_total",
+    "requests_timeout_total",
+    "masks_returned_total",
+    "empty_mask_responses_total",
+    "multi_mask_responses_total",
+    "queue_rejected_total",
+    "queue_timeout_total",
+    "queue_cancelled_total",
+    "queue_wait_seconds_total",
+    "gpu_inference_succeeded_total",
+    "gpu_inference_failed_total",
+    "gpu_inference_seconds_total",
+    "gpu_inference_in_flight",
+    "gpu_inference_in_flight_max",
+    "cuda_oom_total",
+    "cuda_oom_recovery_succeeded_total",
+    "cuda_oom_recovery_failed_total",
+    "model_unavailable_rejected_total",
+    "unexpected_errors_total",
+)
 
 
 @dataclass
@@ -62,7 +90,15 @@ class ModelRuntime:
         )
         self._workers: list[asyncio.Task[None]] = []
         self._healthy = True
-        self.metrics = Counter()
+        self.metrics = Counter(
+            {name: 0 for name in RUNTIME_COUNTER_NAMES}
+        )
+        self._queue_wait_ms = RollingWindow(
+            settings.metrics_window_size
+        )
+        self._gpu_inference_ms = RollingWindow(
+            settings.metrics_window_size
+        )
         self.started_at = time.monotonic()
 
     @property
@@ -136,9 +172,9 @@ class ModelRuntime:
                     self.metrics["gpu_inference_in_flight_max"],
                     self.metrics["gpu_inference_in_flight"],
                 )
-                self.metrics["queue_wait_seconds_total"] += (
-                    time.monotonic() - job.enqueued_at
-                )
+                queue_wait_seconds = time.monotonic() - job.enqueued_at
+                self.metrics["queue_wait_seconds_total"] += queue_wait_seconds
+                self._queue_wait_ms.observe(queue_wait_seconds * 1000)
                 job.started.set()
                 inference_started = time.monotonic()
                 try:
@@ -166,8 +202,14 @@ class ModelRuntime:
                     if not job.future.done():
                         job.future.set_result(result)
                 finally:
-                    self.metrics["gpu_inference_seconds_total"] += (
+                    inference_seconds = (
                         time.monotonic() - inference_started
+                    )
+                    self.metrics[
+                        "gpu_inference_seconds_total"
+                    ] += inference_seconds
+                    self._gpu_inference_ms.observe(
+                        inference_seconds * 1000
                     )
                     self.metrics["gpu_inference_in_flight"] -= 1
             finally:
@@ -256,6 +298,10 @@ class ModelRuntime:
 
         self.metrics["requests_succeeded_total"] += 1
         self.metrics["masks_returned_total"] += len(result.masks)
+        if not result.masks:
+            self.metrics["empty_mask_responses_total"] += 1
+        elif len(result.masks) > 1:
+            self.metrics["multi_mask_responses_total"] += 1
         return result
 
     def require_ready(self) -> None:
@@ -263,11 +309,18 @@ class ModelRuntime:
             raise ModelNotReadyError("model has not finished loading")
 
     def metrics_snapshot(self) -> dict[str, float | int | bool]:
+        queue_size = self._queue.qsize()
         return {
             "ready": self.ready,
             "uptime_seconds": round(time.monotonic() - self.started_at, 3),
-            "queue_size": self._queue.qsize(),
+            "queue_size": queue_size,
             "queue_capacity": self.settings.max_queue_size,
+            "queue_utilization": round(
+                queue_size / self.settings.max_queue_size,
+                6,
+            ),
             "gpu_worker_count": len(self._workers),
             **dict(self.metrics),
+            **self._queue_wait_ms.snapshot("queue_wait_ms"),
+            **self._gpu_inference_ms.snapshot("gpu_inference_ms"),
         }
