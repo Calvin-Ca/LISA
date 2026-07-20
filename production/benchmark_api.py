@@ -117,7 +117,7 @@ def query_gpu_memory(gpu_index: int) -> int:
     return int(result.stdout.strip().splitlines()[0])
 
 
-def existing_compute_processes(gpu_index: int) -> list[str]:
+def existing_compute_processes(gpu_index: int) -> list[dict[str, Any]]:
     result = subprocess.run(
         [
             "nvidia-smi",
@@ -129,7 +129,34 @@ def existing_compute_processes(gpu_index: int) -> list[str]:
         capture_output=True,
         text=True,
     )
-    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    processes: list[dict[str, Any]] = []
+    for line in result.stdout.splitlines():
+        parts = [part.strip() for part in line.split(",", 2)]
+        if len(parts) != 3 or not parts[0].isdigit():
+            continue
+        processes.append(
+            {
+                "pid": int(parts[0]),
+                "process_name": parts[1],
+                "used_memory_mib": int(parts[2]),
+            }
+        )
+    return processes
+
+
+def query_gpu_total_memory(gpu_index: int) -> int:
+    result = subprocess.run(
+        [
+            "nvidia-smi",
+            f"--id={gpu_index}",
+            "--query-gpu=memory.total",
+            "--format=csv,noheader,nounits",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return int(result.stdout.strip().splitlines()[0])
 
 
 def ensure_port_available(host: str, port: int) -> None:
@@ -291,6 +318,7 @@ def write_markdown(path: Path, summary: dict[str, Any]) -> None:
         f"- Model version: `{summary['model_version']}`",
         f"- Model path: `{summary['model_path']}`",
         f"- GPU: `{summary['gpu_name']}`",
+        f"- GPU mode: `{'shared' if summary['shared_gpu'] else 'exclusive'}`",
         f"- Ready time: `{summary['ready_time_ms']:.3f} ms`",
         "",
         "## GPU memory",
@@ -301,9 +329,32 @@ def write_markdown(path: Path, summary: dict[str, Any]) -> None:
         f"| Model loaded | {summary['gpu_memory_mib']['loaded']} |",
         f"| After warmup | {summary['gpu_memory_mib']['after_warmup']} |",
         f"| Peak | {summary['gpu_memory_mib']['peak']} |",
+        f"| Peak increment over baseline | {summary['gpu_memory_mib']['peak_increment_over_baseline']} |",
+        f"| Remaining at peak | {summary['gpu_memory_mib']['remaining_at_peak']} |",
         f"| After requests | {summary['gpu_memory_mib']['after_requests']} |",
         f"| Model load delta | {summary['gpu_memory_mib']['model_load_delta']} |",
         f"| Post-warmup drift | {summary['gpu_memory_mib']['post_warmup_drift']} |",
+        "",
+        "## Existing compute processes",
+        "",
+    ]
+    existing = summary["existing_compute_processes_before"]
+    if existing:
+        lines.extend(
+            [
+                "| PID | Process | Memory MiB |",
+                "| ---: | --- | ---: |",
+            ]
+        )
+        for process in existing:
+            lines.append(
+                f"| {process['pid']} | {process['process_name']} | "
+                f"{process['used_memory_mib']} |"
+            )
+    else:
+        lines.append("None.")
+    lines.extend(
+        [
         "",
         "## Measured requests",
         "",
@@ -324,7 +375,8 @@ def write_markdown(path: Path, summary: dict[str, Any]) -> None:
         "",
         "## Acceptance",
         "",
-    ]
+        ]
+    )
     for name, item in acceptance["checks"].items():
         marker = "PASS" if item["passed"] else "FAIL"
         lines.append(
@@ -378,6 +430,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-p95-ms", type=float, default=1500.0)
     parser.add_argument("--max-peak-memory-mib", type=int, default=36864)
     parser.add_argument("--max-memory-drift-mib", type=int, default=500)
+    parser.add_argument(
+        "--allow-existing-compute-processes",
+        action="store_true",
+        help=(
+            "Run on a shared GPU and record existing compute processes instead "
+            "of requiring an exclusive GPU."
+        ),
+    )
+    parser.add_argument(
+        "--require-existing-process-substring",
+        help=(
+            "When sharing the GPU, require an existing compute process name "
+            "containing this text."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -403,14 +470,33 @@ def main() -> int:
 
     ensure_port_available(args.host, args.port)
     active_processes = existing_compute_processes(args.gpu_index)
-    if active_processes:
-        formatted = "\n".join(f"- {item}" for item in active_processes)
+    if active_processes and not args.allow_existing_compute_processes:
+        formatted = "\n".join(
+            "- {pid}, {process_name}, {used_memory_mib} MiB".format(**item)
+            for item in active_processes
+        )
         raise RuntimeError(
             "GPU has existing compute processes; stop them before the "
             f"dedicated benchmark:\n{formatted}"
         )
+    if args.require_existing_process_substring:
+        if not args.allow_existing_compute_processes:
+            raise ValueError(
+                "--require-existing-process-substring requires "
+                "--allow-existing-compute-processes"
+            )
+        required = args.require_existing_process_substring.lower()
+        if not any(
+            required in item["process_name"].lower()
+            for item in active_processes
+        ):
+            raise RuntimeError(
+                "required shared GPU process was not found: "
+                f"{args.require_existing_process_substring}"
+            )
 
     baseline_memory = query_gpu_memory(args.gpu_index)
+    total_gpu_memory = query_gpu_total_memory(args.gpu_index)
     gpu_csv = output_dir / "gpu_metrics.csv"
     server_log = output_dir / "server.log"
     runtime_config = {
@@ -429,6 +515,8 @@ def main() -> int:
         "prompt": args.prompt,
         "precision": args.precision,
         "gpu_index": args.gpu_index,
+        "shared_gpu": bool(active_processes),
+        "existing_compute_processes_before": active_processes,
         "host": args.host,
         "port": args.port,
         "warmup_requests": args.warmup_requests,
@@ -547,6 +635,7 @@ def main() -> int:
                 after_warmup_memory = query_gpu_memory(args.gpu_index)
 
         after_requests_memory = query_gpu_memory(args.gpu_index)
+        processes_after = existing_compute_processes(args.gpu_index)
         write_requests_csv(output_dir / "requests.csv", rows)
         time.sleep(0.5)
         stop_process(monitor, timeout=5)
@@ -554,6 +643,10 @@ def main() -> int:
         monitor_handle.close()
         monitor_handle = None
         peak_memory = read_peak_gpu_memory(gpu_csv)
+        if peak_memory <= 0:
+            raise RuntimeError(
+                "GPU monitor produced no valid memory samples"
+            )
 
         gpu_name = subprocess.run(
             [
@@ -575,6 +668,11 @@ def main() -> int:
         )
         total_failed = sum(not row["success"] for row in rows)
         drift = after_requests_memory - after_warmup_memory
+        initial_process_ids = {item["pid"] for item in active_processes}
+        final_process_ids = {item["pid"] for item in processes_after}
+        missing_initial_process_ids = sorted(
+            initial_process_ids - final_process_ids
+        )
         checks = {
             "all_requests_succeeded": {
                 "actual": total_failed,
@@ -597,6 +695,12 @@ def main() -> int:
                 "passed": drift <= args.max_memory_drift_mib,
             },
         }
+        if active_processes:
+            checks["existing_compute_processes_remained"] = {
+                "actual": missing_initial_process_ids,
+                "limit": [],
+                "passed": not missing_initial_process_ids,
+            }
         summary = {
             **runtime_config,
             "gpu_name": gpu_name,
@@ -608,8 +712,12 @@ def main() -> int:
                 "peak": peak_memory,
                 "after_requests": after_requests_memory,
                 "model_load_delta": loaded_memory - baseline_memory,
+                "peak_increment_over_baseline": peak_memory - baseline_memory,
+                "total": total_gpu_memory,
+                "remaining_at_peak": total_gpu_memory - peak_memory,
                 "post_warmup_drift": drift,
             },
+            "existing_compute_processes_after": processes_after,
             "phases": phase_summaries,
             "total_requests": len(rows),
             "total_failed": total_failed,

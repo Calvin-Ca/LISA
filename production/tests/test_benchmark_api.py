@@ -9,6 +9,7 @@ from production.benchmark_api import (
     summarize_phase,
     validate_segment_response,
 )
+from production.summarize_api_benchmarks import aggregate_summaries
 
 
 class BenchmarkApiTest(unittest.TestCase):
@@ -85,6 +86,58 @@ class BenchmarkApiTest(unittest.TestCase):
             portable_path(path, Path("/workspace/repo")),
             "huggingface://openai/clip-vit-large-patch14@abc123",
         )
+
+    def test_aggregate_summaries_keeps_worst_shared_gpu_metrics(self):
+        def make_summary(p95, peak, remaining, passed):
+            return {
+                "created_at": "2026-07-20T00:00:00+00:00",
+                "repo_git_commit": "deadbeef",
+                "model_version": "test-v1",
+                "model_path": "artifacts/test/merged_hf",
+                "shared_gpu": True,
+                "ready_time_ms": 1000.0,
+                "existing_compute_processes_before": [
+                    {
+                        "pid": 1,
+                        "process_name": "VLLM::EngineCore",
+                        "used_memory_mib": 2000,
+                    }
+                ],
+                "gpu_memory_mib": {
+                    "baseline": 2000,
+                    "peak": peak,
+                    "remaining_at_peak": remaining,
+                    "peak_increment_over_baseline": peak - 2000,
+                    "post_warmup_drift": 10,
+                },
+                "phases": {
+                    "measured": {
+                        "client_latency_p50_ms": p95 - 100,
+                        "client_latency_p95_ms": p95,
+                        "client_latency_p99_ms": p95 + 100,
+                        "throughput_requests_per_second": 1.0,
+                    }
+                },
+                "total_requests": 136,
+                "total_failed": 0,
+                "acceptance": {"passed": passed},
+            }
+
+        aggregate = aggregate_summaries(
+            [
+                make_summary(900.0, 32000, 8960, True),
+                make_summary(1100.0, 34000, 6960, True),
+                make_summary(1000.0, 33000, 7960, True),
+            ]
+        )
+        self.assertTrue(aggregate["acceptance"]["passed"])
+        self.assertEqual(aggregate["measured_client_p95_ms"]["max"], 1100.0)
+        self.assertEqual(aggregate["gpu_memory_mib"]["max_peak"], 34000)
+        self.assertEqual(
+            aggregate["gpu_memory_mib"]["min_remaining_at_peak"],
+            6960,
+        )
+        self.assertEqual(aggregate["total_requests"], 408)
 
 
 if __name__ == "__main__":
