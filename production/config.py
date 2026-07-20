@@ -27,6 +27,13 @@ def _get_float(name: str, default: float) -> float:
     return float(os.getenv(name, str(default)))
 
 
+def _get_positive_float(name: str, default: float) -> float:
+    value = _get_float(name, default)
+    if value <= 0:
+        raise ValueError(f"{name} must be > 0, got {value}")
+    return value
+
+
 @dataclass(frozen=True)
 class Settings:
     model_version: str
@@ -44,6 +51,8 @@ class Settings:
     max_image_pixels: int
     max_prompt_chars: int
     max_concurrency: int
+    max_queue_size: int
+    queue_timeout_seconds: float
     request_timeout_seconds: float
     eager_load: bool
     api_key: str | None
@@ -88,10 +97,13 @@ class Settings:
             max_image_pixels=_get_int("LISA_MAX_IMAGE_PIXELS", 25_000_000),
             max_prompt_chars=_get_int("LISA_MAX_PROMPT_CHARS", 1000),
             max_concurrency=_get_int("LISA_MAX_CONCURRENCY", 1),
-            request_timeout_seconds=_get_float(
+            max_queue_size=_get_int("LISA_MAX_QUEUE_SIZE", 8),
+            queue_timeout_seconds=_get_positive_float(
+                "LISA_QUEUE_TIMEOUT_SECONDS", 30.0
+            ),
+            request_timeout_seconds=_get_positive_float(
                 "LISA_REQUEST_TIMEOUT_SECONDS", 120.0
             ),
             eager_load=_get_bool("LISA_EAGER_LOAD", True),
             api_key=api_key,
         )
-

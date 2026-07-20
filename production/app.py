@@ -27,7 +27,11 @@ def create_app(
     async def lifespan(_: FastAPI):
         if settings.eager_load:
             runtime.load()
-        yield
+        await runtime.start()
+        try:
+            yield
+        finally:
+            await runtime.shutdown()
 
     app = FastAPI(
         title="LISA Safety Segmentation API",

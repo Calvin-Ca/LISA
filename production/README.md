@@ -9,10 +9,12 @@
 - Prompt 和图片大小校验
 - PNG Base64 mask 输出
 - 多 mask 和空 mask 协议
-- 有界 GPU 并发
-- 推理超时
+- 有界 GPU 任务队列和固定数量的 GPU worker
+- 排队超时、推理超时和队列满保护
+- HTTP 推理超时后继续占用原 GPU worker，直到底层同步推理真正结束
 - 可选 API Key
 - `/health`、`/ready`、`/metrics`
+- 当前队列长度、GPU 在途任务数及其历史最大值
 - request ID 和模型版本响应头
 - Dockerfile 和环境变量配置
 - 不加载模型的纯逻辑单元测试
@@ -71,6 +73,20 @@ set -a \
 ```
 
 生产服务必须保持单 worker。增加进程数会重复加载13B模型并占用多份显存。多GPU部署采用一GPU一容器或一GPU一进程。
+
+当前生产配置使用一个 GPU worker 和最多八个等待任务：
+
+```text
+LISA_MAX_CONCURRENCY=1
+LISA_MAX_QUEUE_SIZE=8
+LISA_QUEUE_TIMEOUT_SECONDS=30
+LISA_REQUEST_TIMEOUT_SECONDS=120
+```
+
+`LISA_QUEUE_TIMEOUT_SECONDS` 限制任务等待 GPU worker 的时间；尚未开始的
+任务超时后会被取消。`LISA_REQUEST_TIMEOUT_SECONDS` 从任务实际开始执行时
+计时；如果 HTTP 等待超时，底层同步 GPU 推理会继续完成，但该 worker 在
+任务真正结束前不会处理下一个任务。
 
 ## 健康检查
 
@@ -151,6 +167,7 @@ python3 -m unittest discover \
 
 - 当前 `/metrics` 返回 JSON 快照，后续接入 Prometheus 时可替换为标准文本格式。
 - 当前请求只接受 Base64 图片，不允许服务端访问任意 URL，从而避免 SSRF。
-- 请求超时只控制HTTP等待时间，已经提交到GPU的同步推理不会被强制中断。
+- 请求超时只控制HTTP等待时间，已经提交到GPU的同步推理不会被强制中断；
+  专用GPU worker会等它真正结束后才处理下一个任务，避免产生隐性并发。
 - 13B模型没有在本地执行；必须在远程GPU环境进行冒烟、benchmark和压测。
 - 正式上线前仍必须完成 `todo.md` 中的 golden test、制品冻结、精度复评、监控、灰度和回滚。
