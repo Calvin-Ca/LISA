@@ -2,8 +2,8 @@
 
 ## 状态
 
-初次远程执行发现 chunked 超限异常被 FastAPI 转换为 HTTP 400；代码已修复，
-等待使用独立输出目录重新执行。
+已完成。初次远程执行发现 chunked 超限异常被 FastAPI 转换为 HTTP 400；
+修复后复验全部准入项通过，最终结果为 `PASS`。
 
 ## 背景与目的
 
@@ -118,6 +118,32 @@ HTTP 400 响应 `There was an error parsing the body`，因此原中间件没有
 修复后的运行使用新镜像标签、容器名和 `outputs-after-fix/`，保留初次失败的
 `outputs/` 作为回归证据。
 
+## 修复后复验结果
+
+- 复验时间：2026-07-21
+- Git commit：`552828417f8c5f129180668f9e5b6828e1e2403b`
+- 镜像：`lisa-safety-seg:lisa13b-request-limit-v1-fix1`
+- 容器测试：65/65 通过
+- 容器状态：healthy
+- `Content-Length` 超限：HTTP 413 / `request_too_large`，1.893 ms
+- chunked 累计超限：HTTP 413 / `request_too_large`，1.771 ms
+- 小请求校验：HTTP 422 / `validation_error`，2.070 ms
+- HTTP 请求 / 4xx / 5xx：3 / 3 / 0
+- `request_body_too_large_total=2`
+- `request_validation_failed_total=1`
+- `requests_received_total=0`
+- `model_loads_total=0`
+- GPU 显存漂移：0 MiB
+- 日志敏感信息、CUDA OOM、Traceback 和 ERROR：均未发现
+- 共享 GPU 原有进程：保持存活
+- 容器停止退出码：0
+- 最终准入：`PASS`
+
+结论：声明长度和 chunked 两条超限路径现在都在 JSON、Base64、模型和 GPU
+处理前返回稳定的 HTTP 413；小请求仍能正常进入 FastAPI 校验。修复没有触发
+模型加载或 GPU 推理，也没有影响共享服务。应用层 30 MiB 请求体限制通过真实
+Uvicorn 容器验证；正式入口仍需在反向代理配置相同或更小的上限，形成双层保护。
+
 ## 预期产物
 
 ```text
@@ -133,5 +159,5 @@ exp/runs/lisa13b-request-limit-v1/outputs-after-fix/
 └── summary.md
 ```
 
-服务器执行后，将 `outputs-after-fix/summary.md` 返回用于补充本页的实测结果
-和结论。
+修复后的完整结构化结果保存在服务器 `outputs-after-fix/`；初次失败结果保留
+在 `outputs/`，两者共同形成问题发现、修复和回归验证证据链。
