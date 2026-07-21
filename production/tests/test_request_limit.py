@@ -73,11 +73,35 @@ class RequestBodyLimitTest(unittest.TestCase):
     def test_rejects_chunked_body_after_cumulative_limit(self):
         rejected = 0
 
-        async def app(_scope, receive, _send):
-            while True:
-                message = await receive()
-                if not message.get("more_body", False):
-                    break
+        async def app(_scope, receive, send):
+            try:
+                while True:
+                    message = await receive()
+                    if not message.get("more_body", False):
+                        break
+            except Exception:
+                # FastAPI converts request-body parsing failures to this
+                # generic response before the exception can leave the app.
+                body = b'{"detail":"There was an error parsing the body"}'
+                await send(
+                    {
+                        "type": "http.response.start",
+                        "status": 400,
+                        "headers": [
+                            (
+                                b"content-length",
+                                str(len(body)).encode("ascii"),
+                            )
+                        ],
+                    }
+                )
+                await send(
+                    {
+                        "type": "http.response.body",
+                        "body": body,
+                        "more_body": False,
+                    }
+                )
 
         def on_rejected():
             nonlocal rejected
@@ -106,7 +130,10 @@ class RequestBodyLimitTest(unittest.TestCase):
         )
 
         self.assertEqual(rejected, 1)
+        self.assertEqual(len(sent), 2)
         self.assertEqual(sent[0]["status"], 413)
+        payload = json.loads(sent[1]["body"])
+        self.assertEqual(payload["code"], "request_too_large")
 
     def test_allows_body_equal_to_limit(self):
         received = b""

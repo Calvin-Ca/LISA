@@ -2,7 +2,8 @@
 
 ## 状态
 
-等待远程 Linux 服务器执行。
+初次远程执行发现 chunked 超限异常被 FastAPI 转换为 HTTP 400；代码已修复，
+等待使用独立输出目录重新执行。
 
 ## 背景与目的
 
@@ -20,8 +21,8 @@ CLIP 或 SAM 权重，不给容器挂载 GPU，因此不会占用额外模型显
 
 - 实验目录：`exp/runs/lisa13b-request-limit-v1`
 - Dockerfile：`production/Dockerfile`
-- 镜像：`lisa-safety-seg:lisa13b-request-limit-v1`
-- 容器：`lisa-request-limit-v1`
+- 修复后镜像：`lisa-safety-seg:lisa13b-request-limit-v1-fix1`
+- 修复后容器：`lisa-request-limit-v1-fix1`
 - 服务地址：`127.0.0.1:8006`
 - 模型版本标识：`lisa13b-request-limit-v1`
 - `LISA_EAGER_LOAD=false`
@@ -97,10 +98,30 @@ bash exp/runs/lisa13b-request-limit-v1/command.sh
 脚本自包含镜像、容器、端口、阈值和准入参数，不依赖用户预先 `export`
 环境变量，不读取或修改 `production/.env`，不加载模型，不停止已有服务。
 
+## 初次执行记录与修复
+
+- 初次执行时间：2026-07-20
+- 容器测试：65/65 通过
+- `Content-Length` 超限：HTTP 413，符合预期
+- chunked 累计超限：HTTP 400，不符合预期
+- 小请求校验：HTTP 422，符合预期
+- 失败指标：`request_body_too_large_total=1`，预期为 2
+- GPU 显存漂移：0 MiB
+- 日志、权限、健康检查和共享进程：全部通过
+
+chunked 报文是合法 HTTP 请求。累计正文超过上限时，接收包装器抛出的内部
+异常发生在 FastAPI 请求体解析阶段，被 FastAPI 转换成了 48 字节的通用
+HTTP 400 响应 `There was an error parsing the body`，因此原中间件没有机会
+输出约定的 413。修复后，中间件会标记已经确认的超限状态，抑制该内部 400，
+再统一返回 HTTP 413 / `request_too_large` 并增加超限指标。
+
+修复后的运行使用新镜像标签、容器名和 `outputs-after-fix/`，保留初次失败的
+`outputs/` 作为回归证据。
+
 ## 预期产物
 
 ```text
-exp/runs/lisa13b-request-limit-v1/outputs/
+exp/runs/lisa13b-request-limit-v1/outputs-after-fix/
 ├── runtime_config.json
 ├── build.log
 ├── unit_tests.log
@@ -112,4 +133,5 @@ exp/runs/lisa13b-request-limit-v1/outputs/
 └── summary.md
 ```
 
-服务器执行后，将 `outputs/summary.md` 返回用于补充本页的实测结果和结论。
+服务器执行后，将 `outputs-after-fix/summary.md` 返回用于补充本页的实测结果
+和结论。

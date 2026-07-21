@@ -5,9 +5,9 @@ set -euo pipefail
 
 MODEL_VERSION="lisa13b-request-limit-v1"
 DOCKERFILE="./production/Dockerfile"
-IMAGE_TAG="lisa-safety-seg:lisa13b-request-limit-v1"
-CONTAINER_NAME="lisa-request-limit-v1"
-OUTPUT_DIR="./exp/runs/lisa13b-request-limit-v1/outputs"
+IMAGE_TAG="lisa-safety-seg:lisa13b-request-limit-v1-fix1"
+CONTAINER_NAME="lisa-request-limit-v1-fix1"
+OUTPUT_DIR="./exp/runs/lisa13b-request-limit-v1/outputs-after-fix"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 GPU_INDEX="0"
 HOST="127.0.0.1"

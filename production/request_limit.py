@@ -107,19 +107,27 @@ class RequestBodyLimitMiddleware:
             return
 
         received_bytes = 0
+        body_too_large = False
         response_started = False
 
         async def limited_receive() -> AsgiMessage:
-            nonlocal received_bytes
+            nonlocal body_too_large, received_bytes
             message = await receive()
             if message.get("type") == "http.request":
                 received_bytes += len(message.get("body", b""))
                 if received_bytes > self.max_bytes:
+                    body_too_large = True
                     raise _RequestBodyTooLarge
             return message
 
         async def tracked_send(message: AsgiMessage) -> None:
             nonlocal response_started
+            # FastAPI converts exceptions raised while parsing the request
+            # body into a generic HTTP 400 response. Once the receive wrapper
+            # has observed an oversized body, suppress that internal response
+            # so this middleware can return the stable 413 error contract.
+            if body_too_large:
+                return
             if message.get("type") == "http.response.start":
                 response_started = True
             await send(message)
@@ -129,4 +137,11 @@ class RequestBodyLimitMiddleware:
         except _RequestBodyTooLarge:
             if response_started:
                 raise
+            await self._reject(scope, send)
+            return
+        if body_too_large:
+            if response_started:
+                raise RuntimeError(
+                    "request body exceeded the limit after response start"
+                )
             await self._reject(scope, send)
