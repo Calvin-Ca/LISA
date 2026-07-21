@@ -13,9 +13,48 @@
 - 当前生产候选指标：gIoU `0.4494`、cIoU `0.3858`、Dice `0.5156`
 
 Clean030 LoRA 当前总体指标优于 Relabel303 LoRA。冻结制品 SHA-256、生产
-精度复评、API 稳定性、并发压测、真实容器和应用内监控验收均已通过。独立
-golden test、外部模型/镜像发布、灰度和回滚当前暂缓；后续优先完成生产入口
-安全、常驻运行配置和外部监控接入。
+精度复评、API 稳定性、并发压测、真实容器和监控验收均已通过。
+
+### 2026-07-21 单机可信内网部署闭环
+
+- 阶段状态：`PASS`，当前阶段已闭环，可供可信内网试用。
+- 阶段范围：单台 A100 40GB、bf16、单 GPU worker、固定生产镜像、内网 HTTP
+  API、API Key、Prometheus、Grafana、DCGM Exporter 和容器日志轮转。
+- 运行验收：LISA healthy/ready、API Key 真实推理和有效 mask 通过；Prometheus
+  三个 target 均为 `up=1`；Grafana 数据库、6 个 Dashboard 和 Prometheus
+  数据源均正常；DCGM GPU 指标正常。
+- 数据保持：Prometheus 与 Grafana 继续使用原命名卷，重建后历史指标、用户、
+  Dashboard 和数据源均保留。
+- 安全边界：服务仅绑定内网接口，通过明文 HTTP 和 API Key 调用，不向公网
+  开放；密钥不进入 Git、镜像或监控配置正文。
+- 后续阶段：TLS/反向代理、Alertmanager/Grafana Contact point、独立 golden
+  test、外部制品备份、主机重启恢复演练、持久化审计、灰度和回滚均暂缓，
+  不作为本次闭环阻塞项。
+- 已知非阻塞项：Grafana 尝试后台更新内置插件时存在权限提示，不影响当前
+  Dashboard、数据源、登录或查询；后续再决定禁用自动更新或调整插件策略。
+
+### 当前单机常驻部署记录
+
+- 日期：2026-07-21
+- 常驻容器：`lisa-api`，`restart=unless-stopped`
+- 固定镜像：`sha256:10e9a397aaf9e15e58ac3884cf4beabbbb49e7ee6d0eddc6ded1f4f37f80d928`
+- 模型版本：`lisa13b-clean030-v1`，bf16、单 GPU worker
+- 服务入口：绑定宿主机内网接口 `172.19.2.2:8200`，容器内监听 `8000`
+- 网络：加入 `lisa-monitoring`，供 Prometheus 通过 `lisa-api:8000` 抓取指标
+- 模型和 CLIP：冻结制品与完整 Hugging Face cache 均为只读挂载
+- 启动状态：Docker `healthy`，`/health=ok`，`/ready=ready`
+- 固定 smoke：启用 API Key 后 HTTP 200，返回 1 个 512×512 有效 PNG mask，
+  模型版本正确
+- 最新 smoke 延迟：服务端 `1309.803 ms`，客户端 `1338.388 ms`
+- 运行状态：整卡显存约 `29,952 MiB / 40,960 MiB`，温度 `56°C`；
+  原有 `vllm-bge-embed` 保持 healthy
+- 访问控制：已设置 `LISA_API_KEY`；匿名访问受保护指标返回 HTTP 401，
+  Prometheus 通过只读 Bearer secret 抓取
+- 容器日志：`lisa-api`、Prometheus、Grafana 和 DCGM Exporter 均使用
+  `json-file`，单文件最多 `20m`，最多保留 `5` 个文件
+- 应用指标：Prometheus `up{job="lisa-safety-seg"}=1`、`lisa_ready=1`
+- 当前边界：尚未配置 TLS/反向代理，仅允许可信内网通过 HTTP 和 API Key
+  调用，不向公网开放
 
 ## P0：模型版本与制品冻结
 
@@ -495,7 +534,7 @@ exp/runs/lisa13b-clean030-int4-v1/
 - [x] 将鉴权失败、请求校验失败、Prompt 校验失败和图片解码失败纳入完整 HTTP 请求/失败指标。
 - [x] 提供 `/v1/segment` HTTP 延迟、队列等待和 GPU 推理时间的滚动 P50、P95、P99。
 - [x] 监控队列长度、容量、利用率和排队时间。
-- [ ] 监控 GPU 利用率、显存和温度。
+- [x] 通过 NVIDIA DCGM Exporter 监控 GPU 利用率、显存、温度和功耗。
 - [x] 进程内指标记录 CUDA OOM、恢复成功、恢复失败和 unavailable 拒绝次数。
 - [ ] 将 CUDA OOM、恢复失败和进程/模型重启次数接入外部监控告警。
 - [x] 记录空 mask 响应、多 mask 响应和总 mask 数；比率由 Prometheus 计算。
@@ -504,8 +543,10 @@ exp/runs/lisa13b-clean030-int4-v1/
 - [x] 建立 4xx/5xx、P95、队列利用率、CUDA OOM、unexpected error、模型 ready、GPU 显存和温度的初始告警阈值与 Prometheus 规则。
 - [ ] 建立人工抽检和线上 bad case 回流机制。
 
-当前应用内监控实现完成；外部 Prometheus、Alertmanager、Grafana 与 NVIDIA
-DCGM Exporter 尚未部署，因此“健康检查、监控和告警已接入”仍保持未完成。
+当前应用内监控、外部 Prometheus、Grafana 与 NVIDIA DCGM Exporter 已部署，
+Prometheus 已通过 Bearer secret 同时抓取 LISA 和 GPU 指标。
+Alertmanager/Grafana Contact point、告警通知渠道和触发—通知—恢复演练尚未
+完成，因此“健康检查、监控和告警已接入”仍保持未完成。
 
 - [x] 准备 `lisa13b-clean030-monitoring-v1` 自包含容器验收实验，覆盖
   JSON/Prometheus 一致性、Bearer 鉴权、4xx 告警触发与恢复、GPU 串行化、
@@ -627,7 +668,9 @@ mask、多 mask 和人工业务抽检。任一准入项失败时立即将 candid
 - [ ] 定期扫描镜像和依赖漏洞。
 - [ ] 明确模型输出只作为辅助判断，不能替代人工安全验收。
 
-## 上线验收清单
+## 完整生产上线验收清单（后续阶段）
+
+以下清单面向未来对外或多机正式生产，不作为本次单机可信内网闭环条件。
 
 - [x] 生产模型版本 `lisa13b-clean030-v1` 已冻结为独立制品。
 - [x] 冻结制品的 `SHA256SUMS` 已实际执行并全部校验通过。
@@ -642,7 +685,7 @@ mask、多 mask 和人工业务抽检。任一准入项失败时立即将 candid
 - [ ] 回滚流程已演练。
 - [ ] 运维文档和故障处理手册已完成。
 
-## 当前下一步
+## 当前阶段执行记录
 
 - [x] 确认生产首发模型为 Clean030 LoRA。
 - [x] 确认首轮环境为 A100 40GB、单GPU、并发1。
@@ -672,11 +715,21 @@ mask、多 mask 和人工业务抽检。任一准入项失败时立即将 candid
 - [x] 根据bf16实测显存决定当前不启动8bit；4bit仅在未来8bit仍不满足容量目标时评估。
 - [x] 完成容器实测。
 - [x] 在远程环境完成新增监控接口验收。
-- [ ] 接入外部 Prometheus/DCGM/Alertmanager。
+- [x] 接入外部 Prometheus、Grafana 和 NVIDIA DCGM Exporter；LISA 与 DCGM
+  target 均为 `up=1`。
+- [x] 启动 `lisa-api` 单机常驻容器，绑定内网接口 `172.19.2.2:8200`；本机
+  直连健康检查、API Key 推理、真实 mask、显存和 shared-GPU 共存检查通过。
+- [x] 配置 `lisa-api`、Prometheus、Grafana 和 DCGM Exporter 的 Docker 日志
+  轮转：`max-size=20m`、`max-file=5`。
+- [ ] （后续阶段，当前暂缓）配置 Alertmanager 或 Grafana Contact point，并
+  完成告警通知触发与恢复演练。
+- [x] 设置 `LISA_API_KEY`，同步配置 Prometheus Bearer secret，并完成匿名 401、
+  授权推理和授权指标抓取验证。
 - [x] 已记录灰度发布与回滚的目的、单 GPU 约束、未来步骤和准入条件。
 - [ ] （暂缓）完成灰度和回滚演练。
 - [x] 在 ASGI 层实现 30 MiB 完整 HTTP 请求体限制及 413 错误协议。
 - [x] 准备请求体限制的真实 Uvicorn 容器验收脚本和准入报告生成工具。
 - [x] 完成初次远程验收和 chunked 400 根因修复；保留失败输出作为证据。
 - [x] 在远程服务器完成请求体限制验收并回填实验结论，最终 `PASS`。
-- [ ] 在正式反向代理配置相同或更小的请求体上限。
+- [ ] （后续阶段，当前暂缓）在正式反向代理配置相同或更小的请求体上限。
+- [x] 单机可信内网部署阶段验收完成并闭环；剩余事项统一转入后续阶段。

@@ -10,6 +10,8 @@
 - 队列长度、利用率、等待时间 P50/P95/P99。
 - GPU 推理时间 P50/P95/P99、GPU 在途数、超时和 CUDA OOM。
 - 空 mask、多 mask 和总 mask 数。
+- `lisa-api`、Prometheus、Grafana 和 DCGM Exporter 均启用 Docker `json-file`
+  日志轮转，单文件最多 `20m`，最多保留 `5` 个文件。
 
 滚动分位数只保留最近 `LISA_METRICS_WINDOW_SIZE` 个进程内样本，默认 1000。
 进程重启后计数和窗口会清零。长期趋势必须由外部 Prometheus 保存。
@@ -63,10 +65,21 @@ Token 通过只读 secret 文件提供给 Prometheus，不写入
 8. 在 Grafana 导入 Prometheus 数据源并建立 API、队列、GPU、mask 面板。
 9. 人工触发一个测试告警，确认告警产生、通知、恢复和静默流程。
 
-## 仍未完成
+## 后续阶段（当前暂缓）
 
-- Prometheus、Alertmanager、Grafana 和 DCGM Exporter 尚未在服务器部署。
+当前 Prometheus、Grafana、DCGM Exporter、API Key 鉴权和日志轮转已完成，
+单机可信内网监控阶段于 2026-07-21 闭环。以下事项留待未来对外或多机生产：
+
+- Prometheus、Grafana 和 DCGM Exporter 已于 2026-07-21 在单机 GPU 服务器
+  部署；Prometheus 已抓取 `lisa-api:8000` 和 `dcgm-exporter:9400`，两个
+  target 均为 `up=1`。
+- Alertmanager 尚未部署，Grafana Contact point 也尚未配置。
 - 告警接收渠道尚未选择。
-- 生产网络地址、TLS、反向代理和 secret 挂载尚未配置。
+- LISA API Key 与 Prometheus Bearer secret 已配置并验证；匿名访问受保护指标
+  返回 HTTP 401，授权抓取保持 `up=1`。
+- LISA 当前绑定宿主机内网接口 `172.19.2.2:8200`；TLS 和反向代理尚未配置，
+  仅允许可信内网通过 HTTP 和 API Key 调用。
 - 输入图片尺寸与 Prompt 长度分布尚未采集，避免默认产生不必要的业务数据。
 - 当前没有持久化审计日志和线上 bad case 自动回流。
+- Grafana 后台更新内置插件时存在非致命权限提示；现有 Dashboard、数据源和
+  查询不受影响，插件更新策略留待后续统一处理。

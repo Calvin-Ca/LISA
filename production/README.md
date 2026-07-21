@@ -222,6 +222,9 @@ Demo 依赖的根目录 `requirements.txt`。
 docker run --rm \
   --gpus '"device=0"' \
   --shm-size 8g \
+  --log-driver json-file \
+  --log-opt max-size=20m \
+  --log-opt max-file=5 \
   --env-file production/.env \
   -p 8000:8000 \
   -v /models/lisa13b-clean030-v1:/models/lisa13b-clean030-v1:ro \
@@ -230,6 +233,8 @@ docker run --rm \
 ```
 
 模型目录和 CLIP vision tower 不进入镜像，也不提交 Git。
+上述日志配置将单个容器日志文件限制为 20 MiB，最多保留 5 个文件，避免
+stdout/stderr 日志无限增长。
 
 ## 正式发布模型与镜像
 
@@ -301,12 +306,22 @@ python3 -m unittest discover \
 
 ## 生产限制
 
-- 当前同时提供 JSON 和 Prometheus 指标，但外部 Prometheus、Alertmanager、
-  Grafana 与 NVIDIA DCGM Exporter 尚未在目标服务器部署。
+2026-07-21，单机可信内网部署阶段已完成并闭环：固定 LISA 容器、API Key、
+Prometheus、Grafana、DCGM Exporter、数据卷保持和 Docker 日志轮转均已验收。
+以下限制和未完成项属于未来对外或多机生产阶段。
+
+- 当前同时提供 JSON 和 Prometheus 指标；外部 Prometheus、Grafana 与 NVIDIA
+  DCGM Exporter 已在目标服务器部署，Alertmanager/Contact point 和告警通知
+  演练尚未完成。
+- 生产容器已启用 `LISA_API_KEY`，Prometheus 使用只读 Bearer secret 抓取受保护
+  指标；匿名指标请求返回 HTTP 401。
+- `lisa-api`、Prometheus、Grafana 和 DCGM Exporter 均已配置 Docker 日志轮转：
+  `max-size=20m`、`max-file=5`。
 - 当前请求只接受 Base64 图片，不允许服务端访问任意 URL，从而避免 SSRF。
 - 请求超时只控制HTTP等待时间，已经提交到GPU的同步推理不会被强制中断；
   专用GPU worker会等它真正结束后才处理下一个任务，避免产生隐性并发。
 - 应用不记录请求体、API Key、完整图片或 Prompt；返回客户端的推理错误
   使用固定脱敏文本，不包含底层异常和服务器路径。
 - 13B模型没有在本地执行；必须在远程GPU环境进行冒烟、benchmark和压测。
-- 正式上线前仍必须完成 `todo.md` 中的 golden test、制品冻结、精度复评、监控、灰度和回滚。
+- 正式对外上线前仍必须完成 `todo.md` 中的 golden test、TLS/反向代理、告警
+  通知、灰度和回滚。
