@@ -7,6 +7,7 @@ from production.errors import InvalidRequestError
 from production.image_io import (
     PNG_SIGNATURE,
     decode_image_base64,
+    decode_image_base64_with_metadata,
     detect_image_format,
     encoded_image_dimensions,
 )
@@ -105,6 +106,23 @@ class ImageIOTest(unittest.TestCase):
                 max_image_pixels=100,
             )
         self.assertEqual(image.shape, (2, 3, 3))
+
+    def test_decoded_image_metadata_preserves_original_bytes(self):
+        raw = png_header(3, 2)
+        encoded = base64.b64encode(raw).decode("ascii")
+        with patch.dict(
+            sys.modules,
+            {"cv2": FakeCv2(), "numpy": FakeNumpy()},
+        ):
+            decoded = decode_image_base64_with_metadata(
+                encoded,
+                max_image_bytes=1024,
+                max_image_pixels=100,
+            )
+        self.assertIs(decoded.image.__class__, FakeImage)
+        self.assertEqual(decoded.raw, raw)
+        self.assertEqual(decoded.image_format, "png")
+        self.assertEqual((decoded.width, decoded.height), (3, 2))
 
     def test_invalid_base64_and_corrupt_headers_are_rejected(self):
         with self.assertRaises(InvalidRequestError):

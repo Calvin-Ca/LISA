@@ -40,3 +40,23 @@ class CudaOutOfMemoryError(ServiceError):
 class InferenceError(ServiceError):
     code = "inference_failed"
     status_code = 500
+
+
+class RecordNotFoundError(ServiceError):
+    code = "record_not_found"
+    status_code = 404
+
+
+class RecordConflictError(ServiceError):
+    code = "record_conflict"
+    status_code = 409
+
+
+class RecordStorageError(ServiceError):
+    code = "record_storage_error"
+    status_code = 500
+
+
+class RecordsUnavailableError(ServiceError):
+    code = "records_unavailable"
+    status_code = 503

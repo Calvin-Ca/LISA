@@ -70,6 +70,9 @@ class Settings:
     alert_max_queue_utilization: float
     eager_load: bool
     api_key: str | None
+    records_enabled: bool = False
+    records_root: str = "/data/lisa-records"
+    feedback_comment_max_chars: int = 500
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -87,6 +90,14 @@ class Settings:
         api_key = os.getenv("LISA_API_KEY")
         if api_key is not None:
             api_key = api_key.strip() or None
+        records_root = os.getenv(
+            "LISA_RECORDS_ROOT", "/data/lisa-records"
+        ).strip()
+        records_enabled = _get_bool("LISA_RECORDS_ENABLED", False)
+        if records_enabled and not records_root:
+            raise ValueError(
+                "LISA_RECORDS_ROOT must not be empty when records are enabled"
+            )
 
         return cls(
             model_version=os.getenv(
@@ -142,4 +153,9 @@ class Settings:
             ),
             eager_load=_get_bool("LISA_EAGER_LOAD", True),
             api_key=api_key,
+            records_enabled=records_enabled,
+            records_root=records_root,
+            feedback_comment_max_chars=_get_int(
+                "LISA_FEEDBACK_COMMENT_MAX_CHARS", 500
+            ),
         )

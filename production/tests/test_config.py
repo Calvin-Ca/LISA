@@ -20,6 +20,33 @@ class SettingsTest(unittest.TestCase):
         self.assertEqual(settings.alert_max_5xx_rate, 0.01)
         self.assertEqual(settings.alert_max_p95_latency_ms, 2000.0)
         self.assertTrue(settings.eager_load)
+        self.assertFalse(settings.records_enabled)
+        self.assertEqual(settings.records_root, "/data/lisa-records")
+        self.assertEqual(settings.feedback_comment_max_chars, 500)
+
+    def test_record_settings_from_environment(self):
+        env = {
+            "LISA_RECORDS_ENABLED": "true",
+            "LISA_RECORDS_ROOT": "/records",
+            "LISA_FEEDBACK_COMMENT_MAX_CHARS": "200",
+        }
+        with patch.dict(os.environ, env, clear=True):
+            settings = Settings.from_env()
+        self.assertTrue(settings.records_enabled)
+        self.assertEqual(settings.records_root, "/records")
+        self.assertEqual(settings.feedback_comment_max_chars, 200)
+
+    def test_enabled_record_storage_requires_a_root(self):
+        with patch.dict(
+            os.environ,
+            {
+                "LISA_RECORDS_ENABLED": "true",
+                "LISA_RECORDS_ROOT": "   ",
+            },
+            clear=True,
+        ):
+            with self.assertRaises(ValueError):
+                Settings.from_env()
 
     def test_quantization_requires_fp16(self):
         env = {

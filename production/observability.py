@@ -145,6 +145,10 @@ def evaluate_alerts(
     )
     if unavailable > 0:
         add("model_unavailable_rejection", "critical", unavailable, 0)
+    if bool(metrics.get("records_enabled")) and not bool(
+        metrics.get("records_healthy", True)
+    ):
+        add("record_storage_unavailable", "critical", False, True)
 
     queue_utilization = float(metrics.get("queue_utilization", 0.0))
     if queue_utilization >= max_queue_utilization:

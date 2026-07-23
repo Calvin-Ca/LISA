@@ -15,13 +15,15 @@
 - CUDA OOM 专用错误、一次缓存清理和恢复失败后的 unavailable 状态
 - JPEG/PNG 文件签名、编码长度和头部像素尺寸预检
 - 根据 Content-Length 和实际接收字节数限制完整 HTTP 请求体
-- 不记录 API Key、完整 Base64 图片、Prompt 或底层推理异常详情
+- 不在应用日志中记录 API Key、完整 Base64 图片、Prompt 或底层推理异常详情
 - 可选 API Key
 - `/health`、`/ready`、`/metrics`、`/metrics/prometheus`、`/alerts`
 - 完整 HTTP 状态、滚动延迟分位数、队列等待和 GPU 推理时间
 - 当前队列长度、GPU 在途任务数及其历史最大值
 - 空 mask、多 mask、CUDA OOM、鉴权和输入校验失败指标
 - request ID 和模型版本响应头
+- 可选的 SQLite 分割记录、原图和 PNG mask 持久化
+- 分割记录查询、文件读取和最终点赞/点踩反馈接口
 - Dockerfile 和环境变量配置
 - 不加载模型的纯逻辑单元测试
 
@@ -194,6 +196,69 @@ curl -s \
 
 响应中的 `masks[].data` 是 PNG Base64。
 
+## 分割记录与最终反馈
+
+记录功能由环境变量显式控制。`production/.env.example` 已按当前需求启用：
+
+```text
+LISA_RECORDS_ENABLED=true
+LISA_RECORDS_ROOT=/data/lisa-records
+LISA_FEEDBACK_COMMENT_MAX_CHARS=500
+```
+
+启用后，每个通过 Prompt 和图片校验并进入推理流程的请求都会生成独立
+`record_id`。服务使用 SQLite 保存元数据，按日期目录保存原始 JPEG/PNG 和
+预测 mask；数据库不保存 Base64，也不保存宿主机绝对路径。推理失败会保留
+`failed` 记录，非法 JSON、鉴权失败和请求体超限仍只进入监控指标。
+
+记录根目录结构：
+
+```text
+/data/lisa-records/
+├── records.db
+├── images/YYYY/MM/DD/<record_id>.jpg
+├── masks/YYYY/MM/DD/<record_id>-<index>.png
+└── tmp/
+```
+
+查询记录：
+
+```bash
+curl -s \
+  -H "X-API-Key: ${LISA_API_KEY}" \
+  "http://127.0.0.1:8000/v1/records?status=success&limit=50&offset=0"
+```
+
+支持 `status`、`feedback`、`model_version`、`date_from` 和 `date_to` 过滤；
+`feedback` 可取 `like`、`dislike` 或 `unrated`。单条详情、原图和 mask：
+
+```text
+GET /v1/records/{record_id}
+GET /v1/records/{record_id}/image
+GET /v1/records/{record_id}/masks/{mask_index}
+```
+
+更新最终反馈：
+
+```bash
+curl -s \
+  -X PUT \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: ${LISA_API_KEY}" \
+  -d '{"feedback":"dislike","reason":"boundary_bad"}' \
+  http://127.0.0.1:8000/v1/records/RECORD_ID/feedback
+```
+
+评价、点赞、点踩和点踩原因都不是必填项。允许的最终状态为未评价、`like`
+和 `dislike`；点踩原因可取 `wrong_object`、`missing_target`、
+`boundary_bad`、`extra_area`、`empty_mask`、`instance_wrong`、
+`prompt_mismatch`、`other`。提交 `{"feedback":null}` 可取消评价。每条记录只
+保存最终状态，后一次评价覆盖前一次；点赞或取消评价时会清空点踩原因。
+
+记录接口与推理接口使用同一个 API Key。启用后，Prompt 和图片会写入受控
+持久化存储，但仍不会进入应用日志。当前不自动删除历史记录，上线前需要按
+业务要求补充容量告警、备份和保留周期。
+
 ## Docker
 
 在仓库根目录远程构建：
@@ -216,6 +281,12 @@ Demo 依赖的根目录 `requirements.txt`。
 白名单并在白名单之后排除 `.env`，避免将大模型、数据集、实验输出或本地
 运行凭据发送给 Docker daemon。
 
+远程运行前，准备持久化目录并确保容器用户 UID/GID `10001:10001` 可写：
+
+```bash
+sudo install -d -o 10001 -g 10001 -m 0700 /srv/lisa-records
+```
+
 远程运行：
 
 ```bash
@@ -229,12 +300,17 @@ docker run --rm \
   -p 8000:8000 \
   -v /models/lisa13b-clean030-v1:/models/lisa13b-clean030-v1:ro \
   -v /models/clip-vit-large-patch14:/models/clip-vit-large-patch14:ro \
+  -v /srv/lisa-records:/data/lisa-records \
   lisa-safety-seg:lisa13b-clean030-v1
 ```
 
 模型目录和 CLIP vision tower 不进入镜像，也不提交 Git。
 上述日志配置将单个容器日志文件限制为 20 MiB，最多保留 5 个文件，避免
 stdout/stderr 日志无限增长。
+
+`/data/lisa-records` 必须使用独立持久化挂载，不能写入容器可写层，否则容器
+删除或重建后记录会丢失。该功能不新增 Python 第三方依赖，SQLite 使用
+Python 标准库。
 
 ## 正式发布模型与镜像
 

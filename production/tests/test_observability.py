@@ -46,6 +46,8 @@ class ObservabilityTest(unittest.TestCase):
                 "ready": False,
                 "cuda_oom_total": 1,
                 "queue_utilization": 0.9,
+                "records_enabled": True,
+                "records_healthy": False,
                 "http_responses_2xx_total": 8,
                 "http_responses_4xx_total": 3,
                 "http_responses_5xx_total": 1,
@@ -65,6 +67,7 @@ class ObservabilityTest(unittest.TestCase):
         self.assertIn("http_4xx_rate_high", codes)
         self.assertIn("http_5xx_rate_high", codes)
         self.assertIn("http_p95_latency_high", codes)
+        self.assertIn("record_storage_unavailable", codes)
 
     def test_rate_alerts_wait_for_minimum_sample_count(self):
         result = evaluate_alerts(

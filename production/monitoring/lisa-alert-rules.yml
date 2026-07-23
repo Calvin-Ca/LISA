@@ -17,6 +17,17 @@ groups:
         annotations:
           summary: LISA model is not ready
 
+      - alert: LISARecordStorageUnavailable
+        expr: |
+          lisa_records_enabled{job="lisa-safety-seg"} == 1
+          and
+          lisa_records_healthy{job="lisa-safety-seg"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: LISA segmentation record storage is unavailable
+
       - alert: LISACudaOOM
         expr: increase(lisa_cuda_oom_total{job="lisa-safety-seg"}[5m]) > 0
         for: 0m

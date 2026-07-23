@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import base64
 import binascii
+from dataclasses import dataclass
+from typing import Any
 
 from .errors import InvalidRequestError
 
@@ -29,6 +31,15 @@ JPEG_STANDALONE_MARKERS = {
     0xD9,
     *range(0xD0, 0xD8),
 }
+
+
+@dataclass(frozen=True)
+class DecodedImage:
+    image: Any
+    raw: bytes
+    image_format: str
+    width: int
+    height: int
 
 
 def detect_image_format(raw: bytes) -> str:
@@ -108,6 +119,19 @@ def decode_image_base64(
     max_image_bytes: int,
     max_image_pixels: int,
 ):
+    return decode_image_base64_with_metadata(
+        encoded,
+        max_image_bytes=max_image_bytes,
+        max_image_pixels=max_image_pixels,
+    ).image
+
+
+def decode_image_base64_with_metadata(
+    encoded: str,
+    *,
+    max_image_bytes: int,
+    max_image_pixels: int,
+) -> DecodedImage:
     max_encoded_chars = 4 * ((max_image_bytes + 2) // 3)
     if len(encoded) > max_encoded_chars:
         raise InvalidRequestError(
@@ -148,7 +172,13 @@ def decode_image_base64(
         height,
         max_image_pixels=max_image_pixels,
     )
-    return image
+    return DecodedImage(
+        image=image,
+        raw=raw,
+        image_format=image_format,
+        width=width,
+        height=height,
+    )
 
 
 def encode_png_base64(mask) -> str:

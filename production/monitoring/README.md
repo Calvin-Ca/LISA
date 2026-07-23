@@ -12,6 +12,8 @@
 - 空 mask、多 mask 和总 mask 数。
 - `lisa-api`、Prometheus、Grafana 和 DCGM Exporter 均启用 Docker `json-file`
   日志轮转，单文件最多 `20m`，最多保留 `5` 个文件。
+- 启用分割记录后，提供记录成功/失败、存储错误、图片与 mask 字节数，以及
+  当前点赞、点踩和未评价记录数；这些指标不包含 Prompt、图片或 mask 内容。
 
 滚动分位数只保留最近 `LISA_METRICS_WINDOW_SIZE` 个进程内样本，默认 1000。
 进程重启后计数和窗口会清零。长期趋势必须由外部 Prometheus 保存。
@@ -27,6 +29,7 @@ HTTP P95：2000 ms
 CUDA OOM：任何一次立即告警
 unexpected error：任何一次立即告警
 模型 unavailable：立即告警
+记录存储 unavailable：启用记录时立即告警
 ```
 
 这些阈值可通过 `production/.env.example` 中的环境变量调整。首轮阈值基于
@@ -79,7 +82,9 @@ Token 通过只读 secret 文件提供给 Prometheus，不写入
   返回 HTTP 401，授权抓取保持 `up=1`。
 - LISA 当前绑定宿主机内网接口 `172.19.2.2:8200`；TLS 和反向代理尚未配置，
   仅允许可信内网通过 HTTP 和 API Key 调用。
-- 输入图片尺寸与 Prompt 长度分布尚未采集，避免默认产生不必要的业务数据。
-- 当前没有持久化审计日志和线上 bad case 自动回流。
+- 输入图片尺寸与 Prompt 长度分布尚未作为指标采集。记录功能启用后会将原图、
+  Prompt 和 mask 保存到受控持久化目录，但不会写入 Prometheus 或应用日志。
+- 分割记录和最终反馈代码已完成；当前没有完整操作审计日志，也不会把点踩
+  记录自动加入训练集。点踩仅作为后续人工 bad case 复核入口。
 - Grafana 后台更新内置插件时存在非致命权限提示；现有 Dashboard、数据源和
   查询不受影响，插件更新策略留待后续统一处理。
