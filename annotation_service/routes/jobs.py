@@ -1,0 +1,209 @@
+from __future__ import annotations
+
+import asyncio
+import json
+from typing import Any
+
+from fastapi import APIRouter, Depends, Header, Query
+
+from ..auth import AuthDependency
+from ..config import Settings
+from ..errors import StorageUnavailableError
+from ..schemas import (
+    CreateJobRequest,
+    BuildReviewTasksResponse,
+    ErrorPayload,
+    Job,
+    JobDetectionsResponse,
+    JobHazardCandidatesResponse,
+)
+from ..review_task_builder import build_review_tasks
+from ..storage import AnnotationStore
+
+
+COMMON_RESPONSES = {
+    401: {"model": ErrorPayload, "description": "Authentication failed."},
+    503: {"model": ErrorPayload, "description": "Storage is unavailable."},
+}
+CREATE_JOB_RESPONSES = {
+    **COMMON_RESPONSES,
+    404: {"model": ErrorPayload, "description": "Asset was not found."},
+    409: {"model": ErrorPayload, "description": "Idempotency conflict."},
+    422: {"model": ErrorPayload, "description": "Job request is invalid."},
+    429: {"model": ErrorPayload, "description": "Job queue is full."},
+}
+GET_JOB_RESPONSES = {
+    **COMMON_RESPONSES,
+    404: {"model": ErrorPayload, "description": "Job was not found."},
+}
+PUBLIC_JOB_FIELDS = {
+    "job_id",
+    "status",
+    "stage",
+    "pipeline_version",
+    "progress",
+    "stages",
+    "task_ids",
+    "errors",
+    "created_at",
+    "started_at",
+    "completed_at",
+}
+
+
+def _model_json(model: Any) -> dict[str, Any]:
+    model_dump = getattr(model, "model_dump", None)
+    if callable(model_dump):
+        return model_dump(mode="json")
+    return json.loads(model.json())
+
+
+def _public_job(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        field: payload[field]
+        for field in PUBLIC_JOB_FIELDS
+    }
+
+
+def build_jobs_router(
+    *,
+    settings: Settings,
+    storage: AnnotationStore | None,
+    authenticate: AuthDependency,
+) -> APIRouter:
+    router = APIRouter(
+        prefix="/v1/annotation/jobs",
+        tags=["Jobs"],
+    )
+
+    def require_storage() -> AnnotationStore:
+        if storage is None:
+            raise StorageUnavailableError(
+                "annotation storage is disabled"
+            )
+        return storage
+
+    @router.post(
+        "",
+        operation_id="createAnnotationJob",
+        response_model=Job,
+        status_code=202,
+        dependencies=[Depends(authenticate)],
+        responses=CREATE_JOB_RESPONSES,
+    )
+    async def create_annotation_job(
+        request: CreateJobRequest,
+        idempotency_key: str | None = Header(
+            default=None,
+            alias="Idempotency-Key",
+            min_length=8,
+            max_length=128,
+        ),
+    ) -> dict[str, Any]:
+        store = require_storage()
+        request_payload = _model_json(request)
+        job = await asyncio.to_thread(
+            store.create_job,
+            asset_ids=request_payload["asset_ids"],
+            requested_categories=request_payload[
+                "requested_categories"
+            ],
+            pipeline_version=request_payload["pipeline_version"],
+            options=request_payload["options"],
+            max_queued_jobs=settings.max_queued_jobs,
+            idempotency_key=idempotency_key,
+            idempotency_request=(
+                request_payload if idempotency_key is not None else None
+            ),
+        )
+        return _public_job(job)
+
+    @router.get(
+        "/{job_id}",
+        operation_id="getAnnotationJob",
+        response_model=Job,
+        dependencies=[Depends(authenticate)],
+        responses=GET_JOB_RESPONSES,
+    )
+    async def get_annotation_job(job_id: str) -> dict[str, Any]:
+        store = require_storage()
+        job = await asyncio.to_thread(store.get_job, job_id)
+        return _public_job(job)
+
+    @router.get(
+        "/{job_id}/detections",
+        operation_id="listAnnotationJobDetections",
+        response_model=JobDetectionsResponse,
+        dependencies=[Depends(authenticate)],
+        responses=GET_JOB_RESPONSES,
+    )
+    async def list_annotation_job_detections(
+        job_id: str,
+        asset_id: str | None = Query(
+            default=None,
+            min_length=1,
+            max_length=128,
+        ),
+    ) -> dict[str, Any]:
+        store = require_storage()
+        items = await asyncio.to_thread(
+            store.list_job_detections,
+            job_id=job_id,
+            asset_id=asset_id,
+        )
+        return {
+            "job_id": job_id,
+            "items": items,
+            "total": len(items),
+        }
+
+    @router.get(
+        "/{job_id}/hazard-candidates",
+        operation_id="listAnnotationJobHazardCandidates",
+        response_model=JobHazardCandidatesResponse,
+        dependencies=[Depends(authenticate)],
+        responses=GET_JOB_RESPONSES,
+    )
+    async def list_annotation_job_hazard_candidates(
+        job_id: str,
+        asset_id: str | None = Query(
+            default=None,
+            min_length=1,
+            max_length=128,
+        ),
+    ) -> dict[str, Any]:
+        store = require_storage()
+        items = await asyncio.to_thread(
+            store.list_job_hazard_candidates,
+            job_id=job_id,
+            asset_id=asset_id,
+        )
+        return {
+            "job_id": job_id,
+            "items": items,
+            "total": len(items),
+        }
+
+    @router.post(
+        "/{job_id}/review-tasks",
+        operation_id="buildAnnotationReviewTasks",
+        response_model=BuildReviewTasksResponse,
+        dependencies=[Depends(authenticate)],
+        responses={
+            **GET_JOB_RESPONSES,
+            409: {
+                "model": ErrorPayload,
+                "description": "Hazard job is not ready.",
+            },
+        },
+    )
+    async def build_annotation_review_tasks(
+        job_id: str,
+    ) -> dict[str, Any]:
+        return await asyncio.to_thread(
+            build_review_tasks,
+            require_storage(),
+            job_id=job_id,
+        )
+
+    return router
