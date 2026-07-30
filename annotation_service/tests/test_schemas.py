@@ -31,6 +31,25 @@ class SchemaTest(unittest.TestCase):
             request.grounding_prompt,
             "任意中文 Prompt：设备旁的人员！",
         )
+        self.assertEqual(
+            request.grounding_prompt_normalization_mode,
+            "terminal_period",
+        )
+        self.assertEqual(
+            request.grounding_prompt_normalization_profile,
+            "construction_safety_v1",
+        )
+
+        custom = CreateJobRequest(
+            asset_ids=["a"],
+            grounding_prompt="person near excavator",
+            grounding_prompt_normalization_mode="off",
+            grounding_prompt_normalization_profile="construction_safety_v1",
+        )
+        self.assertEqual(
+            custom.grounding_prompt_normalization_mode,
+            "off",
+        )
 
         with self.assertRaises(ValidationError):
             CreateJobRequest(

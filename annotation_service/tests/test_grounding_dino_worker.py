@@ -8,6 +8,9 @@ from unittest.mock import patch
 from PIL import Image
 
 from annotation_service.storage import AnnotationStore
+from annotation_service.prompt_normalization import (
+    normalize_grounding_prompt as normalize_grounding_prompt_result,
+)
 from annotation_service.worker.grounding_dino import (
     GroundingDINODetection,
     normalize_grounding_prompt,
@@ -31,7 +34,7 @@ class FakePredictor:
 
     def __init__(self, *, fail_on_call: int | None = None):
         self.fail_on_call = fail_on_call
-        self.calls: list[str] = []
+        self.calls: list[dict[str, str | None]] = []
 
     def predict(
         self,
@@ -41,8 +44,16 @@ class FakePredictor:
         height: int,
         prompt: str | None = None,
         categories=None,
+        prompt_normalization_mode=None,
+        prompt_normalization_profile=None,
     ):
-        self.calls.append(prompt or "")
+        self.calls.append(
+            {
+                "prompt": prompt,
+                "prompt_normalization_mode": prompt_normalization_mode,
+                "prompt_normalization_profile": prompt_normalization_profile,
+            }
+        )
         if (
             self.fail_on_call is not None
             and self.fail_on_call == len(self.calls)
@@ -80,6 +91,24 @@ class GroundingDINOHelpersTest(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             normalize_grounding_prompt("   ")
+
+    def test_canonical_terms_mode_maps_safety_aliases(self):
+        result = normalize_grounding_prompt_result(
+            "安全帽 near the excavator",
+            mode="canonical_terms",
+        )
+        self.assertEqual(
+            result.normalized_prompt,
+            "helmet near the excavator .",
+        )
+        self.assertEqual(
+            result.applied_aliases,
+            (("安全帽", "helmet"),),
+        )
+        self.assertEqual(
+            result.original_prompt,
+            "安全帽 near the excavator",
+        )
 
     def test_normalized_box_conversion_clamps_to_image(self):
         self.assertEqual(
@@ -176,6 +205,10 @@ class GroundingDINOJobWorkerTest(unittest.TestCase):
                 "generate_masks": False,
                 "enrich_prompts": False,
                 "stop_after": "grounding_dino",
+                "grounding_prompt_normalization_mode": "off",
+                "grounding_prompt_normalization_profile": (
+                    "construction_safety_v1"
+                ),
             },
         )
 
@@ -200,7 +233,18 @@ class GroundingDINOJobWorkerTest(unittest.TestCase):
         completed = self.store.get_job(job["job_id"])
         self.assertEqual(completed["status"], "succeeded")
         self.assertEqual(completed["grounding_prompt"], prompt)
-        self.assertEqual(predictor.calls, [prompt])
+        self.assertEqual(
+            predictor.calls,
+            [
+                {
+                    "prompt": prompt,
+                    "prompt_normalization_mode": "off",
+                    "prompt_normalization_profile": (
+                        "construction_safety_v1"
+                    ),
+                }
+            ],
+        )
         self.assertEqual(
             completed["stages"]["grounding_dino"]["status"],
             "succeeded",

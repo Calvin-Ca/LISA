@@ -254,12 +254,19 @@ class FullAnnotationPipelineWorker:
         )
         asset = self.store.get_asset(asset_id)
         image_path, _ = self.store.asset_file(asset_id)
+        options = job.get("options", {})
         try:
             detections = self.detection_predictor.predict(
                 image_path=image_path,
                 width=asset["width"],
                 height=asset["height"],
                 categories=job["requested_categories"],
+                prompt_normalization_mode=options.get(
+                    "grounding_prompt_normalization_mode"
+                ),
+                prompt_normalization_profile=options.get(
+                    "grounding_prompt_normalization_profile"
+                ),
             )
             saved = self.store.replace_detections(
                 job_id=job["job_id"],
@@ -481,6 +488,12 @@ def main() -> int:
                 device=dino.device,
                 model_version=dino.model_version,
                 prompt_version=dino.prompt_version,
+                prompt_normalization_mode=(
+                    dino.prompt_normalization_mode
+                ),
+                prompt_normalization_profile=(
+                    dino.prompt_normalization_profile
+                ),
                 box_threshold=dino.box_threshold,
                 text_threshold=dino.text_threshold,
             )

@@ -96,6 +96,19 @@ chmod 600 annotation_service/.env
 - SAM：`ANNOTATION_SAM_CHECKPOINT`、model type、Python package 和 device
 - Qwen：`ANNOTATION_QWEN_BASE_URL`、`ANNOTATION_QWEN_MODEL`
 
+GroundingDINO 支持可插拔的 prompt 规范化，用于对比不同提示词处理策略：
+
+- `ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_MODE=off`
+- `ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_MODE=terminal_period`
+- `ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_MODE=canonical_terms`
+
+其中 `canonical_terms` 会把常见安全术语收敛到标准英文别名，例如
+`安全帽`/`头盔`/`hard hat` -> `helmet`。对应别名组由
+`ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_PROFILE` 控制，当前默认值是
+`construction_safety_v1`。
+
+API 请求显式提供规范化模式/profile 时以请求为准；省略时使用上述服务端配置。
+
 GroundingDINO、BERT 和 SAM 权重使用 MODEL_STORE 中的绝对路径，不复制到源码
 仓库。Qwen 服务可以晚于 API 启动；在 Qwen 服务未就绪时，Prompt Operation
 会失败，但上传、检测和 SAM 不受影响。

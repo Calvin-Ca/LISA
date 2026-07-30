@@ -7,6 +7,11 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, root_validator, validator
 
+from .prompt_normalization import (
+    PromptNormalizationMode,
+    PromptNormalizationProfile,
+)
+
 
 class StrictModel(BaseModel):
     class Config:
@@ -183,6 +188,12 @@ class JobOptions(StrictModel):
     enrich_prompts: bool = True
     prompt_count: Literal[6] = 6
     stop_after: Optional[PipelineStage] = None
+    grounding_prompt_normalization_mode: PromptNormalizationMode = (
+        "terminal_period"
+    )
+    grounding_prompt_normalization_profile: PromptNormalizationProfile = (
+        "construction_safety_v1"
+    )
 
     @root_validator(skip_on_failure=True)
     def staged_execution_must_match_requested_outputs(cls, values):
@@ -214,6 +225,12 @@ class CreateJobRequest(StrictModel):
         min_length=1,
         max_length=2000,
     )
+    grounding_prompt_normalization_mode: PromptNormalizationMode = (
+        "terminal_period"
+    )
+    grounding_prompt_normalization_profile: PromptNormalizationProfile = (
+        "construction_safety_v1"
+    )
     pipeline_version: str = Field(
         default="groundingdino-free-form-v1",
         min_length=1,
@@ -226,12 +243,25 @@ class CreateJobRequest(StrictModel):
             raise ValueError("items must be unique")
         return value
 
-    @validator("grounding_prompt", "pipeline_version")
+    @validator(
+        "grounding_prompt",
+        "pipeline_version",
+        "grounding_prompt_normalization_profile",
+    )
     def text_must_not_be_blank(cls, value: str) -> str:
         normalized = value.strip()
         if not normalized:
             raise ValueError("value must not be blank")
         return normalized
+
+    @validator("grounding_prompt_normalization_mode")
+    def mode_must_be_supported(cls, value: str) -> str:
+        if value not in {"off", "terminal_period", "canonical_terms"}:
+            raise ValueError(
+                "grounding_prompt_normalization_mode must be one of: "
+                "off, terminal_period, canonical_terms"
+            )
+        return value
 
 
 class JobProgress(StrictModel):
@@ -281,6 +311,12 @@ class Job(StrictModel):
     stage: Optional[Literal["grounding_dino"]] = None
     pipeline_version: str
     grounding_prompt: str
+    grounding_prompt_normalization_mode: PromptNormalizationMode = (
+        "terminal_period"
+    )
+    grounding_prompt_normalization_profile: PromptNormalizationProfile = (
+        "construction_safety_v1"
+    )
     progress: DetectionJobProgress
     stages: Dict[Literal["grounding_dino"], StageResult]
     errors: List[JobError] = Field(default_factory=list)

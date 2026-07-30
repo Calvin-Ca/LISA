@@ -219,12 +219,30 @@ Idempotency-Key: dino-<业务请求ID>
 {
   "asset_ids": ["ast_xxx"],
   "grounding_prompt": "找出画面右侧蓝色设备旁边的人员",
+  "grounding_prompt_normalization_mode": "canonical_terms",
+  "grounding_prompt_normalization_profile": "construction_safety_v1",
   "pipeline_version": "groundingdino-free-form-v1"
 }
 ```
 
 Prompt 不做类别、语言或关键词白名单限制。只要求去除首尾空白后非空，且不超过
 2000 字符。
+
+`grounding_prompt_normalization_mode` 可选值：
+
+- `off`：不做任何归一化。
+- `terminal_period`：仅补齐末尾句号，默认值。
+- `canonical_terms`：按配置的 profile 做术语归一化，再补齐末尾句号。
+
+`grounding_prompt_normalization_profile` 当前可用值：
+
+- `construction_safety_v1`：把常见中文/英文工地术语归一到统一英文词表。
+
+请求显式提供模式/profile 时以请求为准；省略时使用 Annotation 服务端配置，
+标准部署的默认模式是 `terminal_period`。
+
+服务会把实际生效的归一化模式和 profile 回写到 Job 响应里，方便前端对比不同
+策略的效果。
 
 HTTP 202 返回 `job_id`，初始状态为 `queued`。
 
@@ -273,6 +291,8 @@ GET /v1/annotation/jobs/{job_id}/detections?asset_id={asset_id}
       "phrase_score": 0.91,
       "metadata": {
         "grounding_prompt": "找出画面右侧蓝色设备旁边的人员",
+        "grounding_prompt_normalization_mode": "canonical_terms",
+        "grounding_prompt_normalization_profile": "construction_safety_v1",
         "model_version": "groundingdino-swint-ogc",
         "prompt_version": "free-form-v1",
         "box_threshold": 0.35,

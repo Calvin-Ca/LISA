@@ -38,6 +38,17 @@ groundingdino_swint_ogc.pth
 text_encoder/bert-base-uncased/
 ```
 
+如果需要对比 GroundingDINO 对中文/英文提示词的敏感性，可以在
+`annotation_service/docker/.env` 中切换：
+
+- `ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_MODE=off`
+- `ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_MODE=terminal_period`
+- `ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_MODE=canonical_terms`
+
+其中 `canonical_terms` 会启用别名收敛，当前默认 profile 为
+`construction_safety_v1`。API 请求显式提供模式/profile 时以请求为准，省略
+时使用这里的服务端配置。
+
 真实路径、密钥和权重不得提交。
 
 ## 启动

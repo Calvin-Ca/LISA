@@ -3,7 +3,7 @@
   "info": {
     "title": "Construction Safety Annotation API",
     "description": "Free-form GroundingDINO detection, SAM box-prompt segmentation, Qwen prompt enrichment, manual annotation review, and dataset release API. The API process does not load model weights.",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "paths": {
     "/health": {
@@ -3329,6 +3329,23 @@
             "minLength": 1,
             "title": "Grounding Prompt"
           },
+          "grounding_prompt_normalization_mode": {
+            "type": "string",
+            "enum": [
+              "off",
+              "terminal_period",
+              "canonical_terms"
+            ],
+            "title": "Grounding Prompt Normalization Mode",
+            "default": "terminal_period"
+          },
+          "grounding_prompt_normalization_profile": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Grounding Prompt Normalization Profile",
+            "default": "construction_safety_v1"
+          },
           "pipeline_version": {
             "type": "string",
             "maxLength": 128,
@@ -3713,6 +3730,21 @@
           "grounding_prompt": {
             "type": "string",
             "title": "Grounding Prompt"
+          },
+          "grounding_prompt_normalization_mode": {
+            "type": "string",
+            "enum": [
+              "off",
+              "terminal_period",
+              "canonical_terms"
+            ],
+            "title": "Grounding Prompt Normalization Mode",
+            "default": "terminal_period"
+          },
+          "grounding_prompt_normalization_profile": {
+            "type": "string",
+            "title": "Grounding Prompt Normalization Profile",
+            "default": "construction_safety_v1"
           },
           "progress": {
             "$ref": "#/components/schemas/DetectionJobProgress"

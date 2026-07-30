@@ -9,6 +9,11 @@ from typing import Any, Protocol, Sequence
 
 from PIL import Image
 
+from ..prompt_normalization import (
+    PromptNormalizationMode,
+    PromptNormalizationProfile,
+    normalize_grounding_prompt as normalize_prompt_result,
+)
 from ..schemas import AnnotationCategory
 
 
@@ -85,6 +90,10 @@ class GroundingDINOModelConfig:
     device: str = "cuda"
     model_version: str = "groundingdino-swint-ogc"
     prompt_version: str = "free-form-v1"
+    prompt_normalization_mode: PromptNormalizationMode = "terminal_period"
+    prompt_normalization_profile: PromptNormalizationProfile = (
+        "construction_safety_v1"
+    )
     box_threshold: float = 0.35
     text_threshold: float = 0.25
 
@@ -119,6 +128,8 @@ class DetectionPredictor(Protocol):
         height: int,
         prompt: str | None = None,
         categories: Sequence[str | AnnotationCategory] | None = None,
+        prompt_normalization_mode: PromptNormalizationMode | None = None,
+        prompt_normalization_profile: PromptNormalizationProfile | None = None,
     ) -> list[GroundingDINODetection]:
         ...
 
@@ -155,10 +166,10 @@ def build_caption(entities: Sequence[str]) -> str:
 def normalize_grounding_prompt(prompt: str) -> str:
     """Apply only GroundingDINO's terminal-period convention."""
 
-    normalized = prompt.strip()
-    if not normalized:
-        raise ValueError("GroundingDINO prompt must not be blank")
-    return normalized if normalized.endswith(".") else normalized + " ."
+    return normalize_prompt_result(
+        prompt,
+        mode="terminal_period",
+    ).normalized_prompt
 
 
 def normalized_cxcywh_to_xyxy(
@@ -278,18 +289,47 @@ class GroundingDINOAdapter:
         height: int,
         prompt: str | None = None,
         categories: Sequence[str | AnnotationCategory] | None = None,
+        prompt_normalization_mode: PromptNormalizationMode | None = None,
+        prompt_normalization_profile: PromptNormalizationProfile | None = None,
     ) -> list[GroundingDINODetection]:
         self.load()
+        effective_mode = (
+            prompt_normalization_mode
+            if prompt_normalization_mode is not None
+            else self.config.prompt_normalization_mode
+        )
+        effective_profile = (
+            prompt_normalization_profile
+            if prompt_normalization_profile is not None
+            else self.config.prompt_normalization_profile
+        )
         if prompt is not None:
-            caption = normalize_grounding_prompt(prompt)
+            prompt_result = normalize_prompt_result(
+                prompt,
+                mode=effective_mode,
+                profile=effective_profile,
+            )
+            caption = prompt_result.normalized_prompt
             requested_entities: list[str] = []
-            requested_prompt = prompt.strip()
+            requested_prompt = prompt_result.original_prompt
+            prompt_metadata = prompt_result.as_metadata()
         else:
             requested_entities = list(
                 entities_for_categories(categories or ())
             )
             caption = build_caption(requested_entities)
             requested_prompt = caption
+            prompt_metadata = {
+                "grounding_prompt_raw": caption,
+                "grounding_prompt_normalized": caption,
+                "grounding_prompt_normalization_mode": "categories",
+                "grounding_prompt_normalization_profile": (
+                    effective_profile
+                    if effective_mode == "canonical_terms"
+                    else None
+                ),
+                "grounding_prompt_applied_aliases": [],
+            }
         with Image.open(image_path) as source:
             image_source = source.convert("RGB")
         image, _ = self._image_transform(image_source, None)
@@ -346,6 +386,7 @@ class GroundingDINOAdapter:
                         "raw_phrase": str(phrase),
                         "caption": caption,
                         "grounding_prompt": requested_prompt,
+                        **prompt_metadata,
                         "requested_entities": requested_entities,
                         "model_version": self.model_version,
                         "prompt_version": self.prompt_version,

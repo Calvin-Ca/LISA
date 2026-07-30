@@ -5,6 +5,12 @@ import socket
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..prompt_normalization import (
+    PromptNormalizationMode,
+    PromptNormalizationProfile,
+    PROMPT_NORMALIZATION_PROFILES,
+)
+
 
 def _required(name: str) -> str:
     value = os.getenv(name, "").strip()
@@ -61,6 +67,8 @@ class GroundingDINOWorkerSettings:
     device: str
     model_version: str
     prompt_version: str
+    prompt_normalization_mode: PromptNormalizationMode
+    prompt_normalization_profile: PromptNormalizationProfile
     box_threshold: float
     text_threshold: float
     worker_id: str
@@ -126,6 +134,37 @@ class GroundingDINOWorkerSettings:
             raise ValueError(
                 "GroundingDINO model and prompt versions must not be empty"
             )
+        prompt_normalization_mode = os.getenv(
+            "ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_MODE",
+            "terminal_period",
+        ).strip()
+        if prompt_normalization_mode not in {
+            "off",
+            "terminal_period",
+            "canonical_terms",
+        }:
+            raise ValueError(
+                "ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_MODE must "
+                "be one of: off, terminal_period, canonical_terms"
+            )
+        prompt_normalization_profile = os.getenv(
+            "ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_PROFILE",
+            "construction_safety_v1",
+        ).strip()
+        if not prompt_normalization_profile:
+            raise ValueError(
+                "ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_PROFILE "
+                "must not be empty"
+            )
+        if (
+            prompt_normalization_mode == "canonical_terms"
+            and prompt_normalization_profile
+            not in PROMPT_NORMALIZATION_PROFILES
+        ):
+            raise ValueError(
+                "ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_PROFILE "
+                f"must be one of: {', '.join(PROMPT_NORMALIZATION_PROFILES)}"
+            )
         return cls(
             storage_root=Path(
                 _required("ANNOTATION_STORAGE_ROOT")
@@ -146,6 +185,8 @@ class GroundingDINOWorkerSettings:
             device=device,
             model_version=model_version,
             prompt_version=prompt_version,
+            prompt_normalization_mode=prompt_normalization_mode,  # type: ignore[arg-type]
+            prompt_normalization_profile=prompt_normalization_profile,  # type: ignore[arg-type]
             box_threshold=_floating(
                 "ANNOTATION_GROUNDING_DINO_BOX_THRESHOLD",
                 0.35,

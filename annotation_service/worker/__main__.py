@@ -40,6 +40,10 @@ def main() -> int:
             device=settings.device,
             model_version=settings.model_version,
             prompt_version=settings.prompt_version,
+            prompt_normalization_mode=settings.prompt_normalization_mode,
+            prompt_normalization_profile=(
+                settings.prompt_normalization_profile
+            ),
             box_threshold=settings.box_threshold,
             text_threshold=settings.text_threshold,
         )

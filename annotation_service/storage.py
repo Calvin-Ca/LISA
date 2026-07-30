@@ -811,6 +811,16 @@ class AnnotationStore:
                         "stage": None,
                         "pipeline_version": normalized_pipeline_version,
                         "grounding_prompt": normalized_prompt,
+                        "grounding_prompt_normalization_mode": (
+                            option_payload[
+                                "grounding_prompt_normalization_mode"
+                            ]
+                        ),
+                        "grounding_prompt_normalization_profile": (
+                            option_payload[
+                                "grounding_prompt_normalization_profile"
+                            ]
+                        ),
                         "requested_categories": categories,
                         "options": option_payload,
                         "progress": progress,
@@ -887,16 +897,23 @@ class AnnotationStore:
         asset_ids: list[str],
         task_ids: list[str],
     ) -> dict[str, Any]:
+        options = JobOptions(**_json_loads(row["options_json"], {}))
         return {
             "job_id": row["job_id"],
             "status": row["status"],
             "stage": row["stage"],
             "pipeline_version": row["pipeline_version"],
             "grounding_prompt": row["grounding_prompt"],
+            "grounding_prompt_normalization_mode": (
+                options.grounding_prompt_normalization_mode
+            ),
+            "grounding_prompt_normalization_profile": (
+                options.grounding_prompt_normalization_profile
+            ),
             "requested_categories": _json_loads(
                 row["requested_categories_json"], []
             ),
-            "options": _json_loads(row["options_json"], {}),
+            "options": _model_dict(options),
             "progress": _json_loads(row["progress_json"], {}),
             "stages": _json_loads(row["stages_json"], {}),
             "task_ids": task_ids,

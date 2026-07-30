@@ -202,11 +202,18 @@ class GroundingDINOJobWorker:
         try:
             asset = self.store.get_asset(asset_id)
             image_path, _ = self.store.asset_file(asset_id)
+            options = job.get("options", {})
             detections = self.predictor.predict(
                 image_path=Path(image_path),
                 width=int(asset["width"]),
                 height=int(asset["height"]),
                 prompt=job["grounding_prompt"],
+                prompt_normalization_mode=options.get(
+                    "grounding_prompt_normalization_mode"
+                ),
+                prompt_normalization_profile=options.get(
+                    "grounding_prompt_normalization_profile"
+                ),
             )
             saved_detections = self.store.replace_detections(
                 job_id=job_id,
@@ -230,6 +237,12 @@ class GroundingDINOJobWorker:
                 worker_id=self.worker_id,
                 metadata={
                     "grounding_prompt": job["grounding_prompt"],
+                    "grounding_prompt_normalization_mode": options.get(
+                        "grounding_prompt_normalization_mode"
+                    ),
+                    "grounding_prompt_normalization_profile": options.get(
+                        "grounding_prompt_normalization_profile"
+                    ),
                     "detection_count": len(saved_detections),
                     "model_version": self.predictor.model_version,
                     "prompt_version": self.predictor.prompt_version,

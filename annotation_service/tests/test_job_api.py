@@ -76,6 +76,10 @@ class JobApiTest(unittest.TestCase):
             "grounding_prompt": (
                 "worker without a helmet near the excavator"
             ),
+            "grounding_prompt_normalization_mode": "canonical_terms",
+            "grounding_prompt_normalization_profile": (
+                "construction_safety_v1"
+            ),
             "pipeline_version": "groundingdino-free-form-v1",
         }
         payload.update(overrides)
@@ -103,6 +107,14 @@ class JobApiTest(unittest.TestCase):
             "worker without a helmet near the excavator",
         )
         self.assertEqual(
+            job["grounding_prompt_normalization_mode"],
+            "canonical_terms",
+        )
+        self.assertEqual(
+            job["grounding_prompt_normalization_profile"],
+            "construction_safety_v1",
+        )
+        self.assertEqual(
             set(job["stages"]),
             {"grounding_dino"},
         )
@@ -121,6 +133,34 @@ class JobApiTest(unittest.TestCase):
         self.assertEqual(detail.status_code, 200, detail.text)
         self.assertEqual(detail.json(), job)
 
+    def test_omitted_normalization_fields_use_service_settings(self):
+        self.client_context.__exit__(None, None, None)
+        self.client_context = TestClient(
+            create_app(
+                make_settings(
+                    prompt_normalization_mode="canonical_terms",
+                    prompt_normalization_profile="construction_safety_v1",
+                ),
+                storage=self.store,
+            )
+        )
+        self.client = self.client_context.__enter__()
+        payload = self.request_payload()
+        payload.pop("grounding_prompt_normalization_mode")
+        payload.pop("grounding_prompt_normalization_profile")
+
+        response = self.create_job(payload=payload)
+
+        self.assertEqual(response.status_code, 202, response.text)
+        self.assertEqual(
+            response.json()["grounding_prompt_normalization_mode"],
+            "canonical_terms",
+        )
+        self.assertEqual(
+            response.json()["grounding_prompt_normalization_profile"],
+            "construction_safety_v1",
+        )
+
     def test_prompt_content_is_not_restricted_by_category(self):
         prompt = "任意中文描述：找出蓝色设备旁边的人！@#$%^&*()"
         response = self.create_job(
@@ -130,6 +170,10 @@ class JobApiTest(unittest.TestCase):
         self.assertEqual(
             response.json()["grounding_prompt"],
             prompt,
+        )
+        self.assertEqual(
+            response.json()["grounding_prompt_normalization_mode"],
+            "canonical_terms",
         )
 
         old_contract = self.request_payload()

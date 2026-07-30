@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from .prompt_normalization import PROMPT_NORMALIZATION_PROFILES
+
 
 def _get_bool(name: str, default: bool) -> bool:
     value = os.getenv(name)
@@ -49,7 +51,7 @@ def _get_optional_secret(name: str) -> str | None:
 
 @dataclass(frozen=True)
 class Settings:
-    service_version: str = "1.0.0"
+    service_version: str = "1.1.0"
     api_key: str | None = None
     cors_origins: tuple[str, ...] = ()
     cors_allow_credentials: bool = False
@@ -61,12 +63,14 @@ class Settings:
     docs_enabled: bool = True
     storage_enabled: bool = False
     storage_root: str = "./annotation-data"
+    prompt_normalization_mode: str = "terminal_period"
+    prompt_normalization_profile: str = "construction_safety_v1"
 
     @classmethod
     def from_env(cls) -> "Settings":
         settings = cls(
             service_version=os.getenv(
-                "ANNOTATION_SERVICE_VERSION", "1.0.0"
+                "ANNOTATION_SERVICE_VERSION", "1.1.0"
             ).strip(),
             api_key=_get_optional_secret("ANNOTATION_API_KEY"),
             cors_origins=_get_origins("ANNOTATION_CORS_ORIGINS"),
@@ -98,6 +102,14 @@ class Settings:
             storage_root=os.getenv(
                 "ANNOTATION_STORAGE_ROOT", "./annotation-data"
             ).strip(),
+            prompt_normalization_mode=os.getenv(
+                "ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_MODE",
+                "terminal_period",
+            ).strip(),
+            prompt_normalization_profile=os.getenv(
+                "ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_PROFILE",
+                "construction_safety_v1",
+            ).strip(),
         )
         settings.validate()
         return settings
@@ -117,4 +129,27 @@ class Settings:
         if self.storage_enabled and not self.storage_root:
             raise ValueError(
                 "ANNOTATION_STORAGE_ROOT must not be empty when storage is enabled"
+            )
+        if self.prompt_normalization_mode not in {
+            "off",
+            "terminal_period",
+            "canonical_terms",
+        }:
+            raise ValueError(
+                "ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_MODE must be "
+                "one of: off, terminal_period, canonical_terms"
+            )
+        if not self.prompt_normalization_profile:
+            raise ValueError(
+                "ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_PROFILE must "
+                "not be empty"
+            )
+        if (
+            self.prompt_normalization_mode == "canonical_terms"
+            and self.prompt_normalization_profile
+            not in PROMPT_NORMALIZATION_PROFILES
+        ):
+            raise ValueError(
+                "ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_PROFILE must "
+                f"be one of: {', '.join(PROMPT_NORMALIZATION_PROFILES)}"
             )
