@@ -823,7 +823,21 @@ Qwen Worker 的一次联合输入包含：
       "visual_anchor": ["人员位于设备左侧", "两者距离较近"],
       "mask_granularity": "人员和设备的联合mask",
       "visible_facts": ["人员位于设备左侧", "人员与设备相邻"],
-      "risk_semantics": "人员与施工设备距离较近"
+      "risk_semantics": "人员与施工设备距离较近",
+      "task_targets": [
+        {
+          "task_id": "tsk_1",
+          "target_object": "一名作业人员",
+          "instance_count": 1,
+          "visual_anchor": ["位于设备左侧"]
+        },
+        {
+          "task_id": "tsk_2",
+          "target_object": "一台施工设备",
+          "instance_count": 1,
+          "visual_anchor": ["位于人员右侧"]
+        }
+      ]
     },
     "prompts": [
       {
@@ -858,12 +872,23 @@ Qwen Worker 的一次联合输入包含：
       }
     ],
     "provenance": {
-      "qwen_facts_prompt_version": "construction-joint-visible-facts-v1",
-      "qwen_enrichment_prompt_version": "construction-joint-prompts-3-2-1-v1"
+      "qwen_facts_prompt_version": "construction-joint-visible-facts-v2",
+      "qwen_enrichment_prompt_version": "construction-joint-prompts-3-2-1-v2"
     }
   }
 }
 ```
+
+联合事实中的 `task_targets` 必须按请求顺序逐项覆盖全部 Task ID；缺少、增加或
+打乱 Task 时 Operation 会失败，不会保存一个看似成功但遗漏目标的结果。这里的
+总 `instance_count` 表示联合集合中的目标实体数，具体对象数量以每个
+`task_targets[].instance_count` 为准。例如“人员 + 该人员穿着的反光背心”
+是两个 Task 目标，但不能解释成“两个人”。
+
+联合 Prompt 生成还会校验模型声明的 `covered_task_ids` 与 Task Group 完全一致，
+并要求六条 Prompt 均不反转已提取的视觉事实。来源 `category` 只用于限制风险
+措辞，不作为“未佩戴”“未穿着”等违规事实的证据。上述校验字段是 Qwen 内部
+输出契约，不在最终 `prompts` 数组中重复返回。
 
 实际 `prompts` 仍固定返回完整 3+2+1 六条。也可以直接查询持久化的 Group：
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from collections import Counter
-from typing import Any, List, Optional
+from typing import Any, List, Literal, Optional
 
 from pydantic import Field, root_validator, validator
 
@@ -18,9 +18,9 @@ from .schemas import (
 
 QWEN_FACTS_PROMPT_VERSION = "construction-visible-facts-v1"
 QWEN_ENRICHMENT_PROMPT_VERSION = "construction-prompts-3-2-1-v1"
-QWEN_JOINT_FACTS_PROMPT_VERSION = "construction-joint-visible-facts-v1"
+QWEN_JOINT_FACTS_PROMPT_VERSION = "construction-joint-visible-facts-v2"
 QWEN_JOINT_ENRICHMENT_PROMPT_VERSION = (
-    "construction-joint-prompts-3-2-1-v1"
+    "construction-joint-prompts-3-2-1-v2"
 )
 
 RISK_SEMANTIC_BOUNDARIES = {
@@ -212,6 +212,50 @@ class QwenVisualFacts(StrictModel):
         return normalized
 
 
+class QwenJointFactTarget(StrictModel):
+    task_id: str
+    target_object: str = Field(..., min_length=1, max_length=300)
+    instance_count: int = Field(..., ge=1)
+    visual_anchor: List[str] = Field(..., min_items=1, max_items=10)
+
+    @validator("task_id", "target_object", pre=True)
+    def text_is_not_blank(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("joint fact target text must not be blank")
+        return normalized
+
+    @validator("visual_anchor")
+    def anchors_are_non_empty_and_unique(
+        cls,
+        value: List[str],
+    ) -> List[str]:
+        normalized = [item.strip() for item in value]
+        if any(not item for item in normalized):
+            raise ValueError("joint target anchors must not be blank")
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("joint target anchors must be unique")
+        return normalized
+
+
+class QwenJointVisualFacts(QwenVisualFacts):
+    task_targets: List[QwenJointFactTarget] = Field(
+        ...,
+        min_items=2,
+        max_items=16,
+    )
+
+    @validator("task_targets")
+    def task_target_ids_are_unique(
+        cls,
+        value: List[QwenJointFactTarget],
+    ) -> List[QwenJointFactTarget]:
+        task_ids = [item.task_id for item in value]
+        if len(task_ids) != len(set(task_ids)):
+            raise ValueError("joint fact Task IDs must be unique")
+        return value
+
+
 class QwenPromptSet(StrictModel):
     prompts: List[AnnotationPrompt] = Field(
         ...,
@@ -242,6 +286,28 @@ class QwenPromptSet(StrictModel):
         if len(prompt_ids) != len(set(prompt_ids)):
             raise ValueError("prompt IDs must be unique")
         return values
+
+
+class QwenJointPromptEnvelope(StrictModel):
+    covered_task_ids: List[str] = Field(..., min_items=2, max_items=16)
+    fact_consistent: Literal[True]
+    prompts: List[AnnotationPrompt] = Field(
+        ...,
+        min_items=6,
+        max_items=6,
+    )
+
+    @validator("covered_task_ids")
+    def covered_task_ids_are_non_empty_and_unique(
+        cls,
+        value: List[str],
+    ) -> List[str]:
+        normalized = [item.strip() for item in value]
+        if any(not item for item in normalized):
+            raise ValueError("covered Task IDs must not be blank")
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("covered Task IDs must be unique")
+        return normalized
 
 
 def _model_json(model: Any) -> dict[str, Any]:
@@ -280,6 +346,27 @@ def parse_visual_facts(raw: str) -> QwenVisualFacts:
         ) from exc
 
 
+def parse_joint_visual_facts(
+    raw: str,
+    *,
+    expected_task_ids: List[str],
+) -> QwenJointVisualFacts:
+    try:
+        facts = QwenJointVisualFacts(**_decode_json_object(raw))
+    except QwenContractError:
+        raise
+    except Exception as exc:
+        raise QwenContractError(
+            "Qwen joint visual facts do not match the required schema"
+        ) from exc
+    actual_task_ids = [item.task_id for item in facts.task_targets]
+    if actual_task_ids != expected_task_ids:
+        raise QwenContractError(
+            "Qwen joint visual facts did not cover every Task in order"
+        )
+    return facts
+
+
 def parse_prompt_set(raw: str) -> QwenPromptSet:
     try:
         return QwenPromptSet(**_decode_json_object(raw))
@@ -289,6 +376,29 @@ def parse_prompt_set(raw: str) -> QwenPromptSet:
         raise QwenContractError(
             "Qwen prompts do not satisfy the 3+2+1 contract"
         ) from exc
+
+
+def parse_joint_prompt_set(
+    raw: str,
+    *,
+    expected_task_ids: List[str],
+) -> QwenPromptSet:
+    try:
+        envelope = QwenJointPromptEnvelope(
+            **_decode_json_object(raw)
+        )
+        prompt_set = QwenPromptSet(prompts=envelope.prompts)
+    except QwenContractError:
+        raise
+    except Exception as exc:
+        raise QwenContractError(
+            "Qwen joint prompts do not satisfy the coverage contract"
+        ) from exc
+    if envelope.covered_task_ids != expected_task_ids:
+        raise QwenContractError(
+            "Qwen joint prompts did not cover every Task in order"
+        )
+    return prompt_set
 
 
 def build_visual_facts_messages(
@@ -400,20 +510,32 @@ def build_joint_visual_facts_messages(
     *,
     images: list[QwenImageInput] | None = None,
 ) -> list[dict[str, Any]]:
+    task_examples = [
+        {
+            "task_id": target.task_id,
+            "target_object": target.candidate_target_object,
+            "instance_count": 1,
+            "visual_anchor": ["按该Task的mask确认目标位置和外观"],
+        }
+        for target in context.targets
+    ]
     schema_example = {
-        "target_object": "画面中的一名作业人员及其旁边的施工设备",
+        "target_object": "画面中的一名作业人员及其穿着的反光背心",
         "instance_count": 2,
-        "visual_anchor": ["人员位于设备左侧", "两者距离较近"],
-        "mask_granularity": "所选人员和设备的整体联合mask",
-        "visible_facts": ["人员位于设备左侧", "人员与设备相邻"],
-        "risk_semantics": "人员与施工设备距离较近",
+        "visual_anchor": ["反光背心位于人员躯干处", "两者属于穿戴关系"],
+        "mask_granularity": "所选人员和反光背心的整体联合mask",
+        "visible_facts": ["人员穿着反光背心"],
+        "risk_semantics": "人员可见性防护状态以画面事实为准",
+        "task_targets": task_examples,
     }
     user_text = (
         "请查看同一张原图、每个所选目标的mask以及对应裁剪图，提取这些"
         "目标作为一个整体时的视觉事实和相互关系。每个Task代表一个独立"
         "目标，即使一个目标是另一个目标的组成部分，也必须分别识别并共同"
         "描述。候选对象名和检测实体仅用于定位，最终事实仍以图像和mask为准。"
-        "instance_count不得小于Task数量，最终事实必须共同覆盖全部Task。\n"
+        "task_targets必须按输入顺序逐项返回全部Task ID；每项分别描述该mask"
+        "覆盖的对象和实例数。总instance_count表示联合集合中的目标实体总数，"
+        "不能理解成某一种对象（例如人员）的数量。\n"
         f"Task Group上下文："
         f"{json.dumps(_model_json(context), ensure_ascii=False)}\n"
         "输出字段必须与此示例完全一致："
@@ -451,8 +573,10 @@ def build_joint_visual_facts_messages(
                 "关系；无法确认的动作、因果、违规状态或风险不得猜测。"
                 "如果一个mask是人员、另一个mask是该人员穿戴的安全帽或"
                 "反光背心，应明确写出人员与防护用品的穿戴/从属关系，不得"
-                "只写人员。所有mask像素的集合决定最终联合分割范围。只输出"
-                "一个JSON对象，不输出Markdown。"
+                "只写人员，也不得把两个Task误写成两个人。每个task_targets"
+                "元素只能解释对应Task的mask；Task ID必须原样抄写且顺序不变。"
+                "所有mask像素的集合决定最终联合分割范围。只输出一个JSON"
+                "对象，不输出Markdown。"
             ),
         },
         {
@@ -465,9 +589,12 @@ def build_joint_visual_facts_messages(
 def build_joint_prompt_enrichment_messages(
     *,
     categories: List[AnnotationCategory],
-    facts: QwenVisualFacts,
+    facts: QwenJointVisualFacts,
 ) -> list[dict[str, str]]:
+    task_ids = [item.task_id for item in facts.task_targets]
     output_example = {
+        "covered_task_ids": task_ids,
+        "fact_consistent": True,
         "prompts": [
             {"prompt_id": "visual-1", "type": "visual", "text": "示例一"},
             {"prompt_id": "visual-2", "type": "visual", "text": "示例二"},
@@ -491,8 +618,13 @@ def build_joint_prompt_enrichment_messages(
                 "mask的联合像素。不得只描述其中一个目标，也不得新增输入"
                 "事实中不存在的对象、数量、位置、动作、原因或后果。六条"
                 "Prompt必须保持完全相同的目标集合、实例数量、关系和mask"
-                "粒度，只能改变句式与业务表达。只输出JSON对象，不输出"
-                "Markdown。"
+                "粒度，只能改变句式与业务表达。必须逐项使用task_targets"
+                "中的对象与实例数；总instance_count不是某一对象类别的数量。"
+                "来源类别只是路由元数据，不是视觉事实；类别语义边界只限制"
+                "可用措辞，不能证明违规状态。如果事实显示已佩戴、已穿着或"
+                "符合要求，任何Prompt都不得反写成未佩戴、未穿着或违规。"
+                "risk Prompt在没有可见风险时应描述已确认的防护状态或中性"
+                "安全意义，不能虚构隐患。只输出JSON对象，不输出Markdown。"
             ),
         },
         {
@@ -506,7 +638,10 @@ def build_joint_prompt_enrichment_messages(
                 f"{json.dumps(boundaries, ensure_ascii=False)}\n"
                 "生成恰好3条visual、2条risk、1条agent Prompt，文本互不"
                 "重复。每一条都必须明确包含全部所选对象和它们之间由事实"
-                "支持的关系；不得退化成若干互不相关的单目标描述。输出格式："
+                "支持的关系；不得退化成若干互不相关的单目标描述。"
+                "covered_task_ids必须原样按顺序返回全部Task ID；只有逐条"
+                "检查六条Prompt均未遗漏目标且未反转事实后，fact_consistent"
+                "才能输出true。输出格式："
                 f"{json.dumps(output_example, ensure_ascii=False)}"
             ),
         },

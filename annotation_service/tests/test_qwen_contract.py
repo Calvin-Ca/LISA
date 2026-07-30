@@ -5,6 +5,7 @@ import unittest
 from annotation_service.qwen_contract import (
     QwenContractError,
     QwenImageInput,
+    QwenJointVisualFacts,
     QwenJointTarget,
     QwenJointVisualContext,
     QwenVisualContext,
@@ -13,6 +14,8 @@ from annotation_service.qwen_contract import (
     build_joint_visual_facts_messages,
     build_prompt_enrichment_messages,
     build_visual_facts_messages,
+    parse_joint_prompt_set,
+    parse_joint_visual_facts,
     parse_prompt_set,
     parse_visual_facts,
 )
@@ -39,6 +42,28 @@ def prompt_payload() -> dict:
             {"prompt_id": "r2", "type": "risk", "text": "标出头部防护缺失人员。"},
             {"prompt_id": "a1", "type": "agent", "text": "找出并分割违规人员。"},
         ]
+    }
+
+
+def joint_facts_payload() -> dict:
+    return {
+        **facts_payload(),
+        "target_object": "一名人员及其旁边的挖掘机",
+        "instance_count": 2,
+        "task_targets": [
+            {
+                "task_id": "tsk-1",
+                "target_object": "一名人员",
+                "instance_count": 1,
+                "visual_anchor": ["位于画面左侧"],
+            },
+            {
+                "task_id": "tsk-2",
+                "target_object": "一台挖掘机",
+                "instance_count": 1,
+                "visual_anchor": ["位于人员右侧"],
+            },
+        ],
     }
 
 
@@ -79,6 +104,30 @@ class QwenContractTest(unittest.TestCase):
         duplicate["prompts"][1]["text"] = duplicate["prompts"][0]["text"]
         with self.assertRaises(QwenContractError):
             parse_prompt_set(json.dumps(duplicate, ensure_ascii=False))
+
+    def test_joint_contract_requires_exact_task_coverage(self):
+        facts = parse_joint_visual_facts(
+            json.dumps(joint_facts_payload(), ensure_ascii=False),
+            expected_task_ids=["tsk-1", "tsk-2"],
+        )
+        envelope = {
+            **prompt_payload(),
+            "covered_task_ids": ["tsk-1", "tsk-2"],
+            "fact_consistent": True,
+        }
+        prompts = parse_joint_prompt_set(
+            json.dumps(envelope, ensure_ascii=False),
+            expected_task_ids=["tsk-1", "tsk-2"],
+        )
+        self.assertEqual(len(facts.task_targets), 2)
+        self.assertEqual(len(prompts.prompts), 6)
+
+        envelope["covered_task_ids"] = ["tsk-2", "tsk-1"]
+        with self.assertRaises(QwenContractError):
+            parse_joint_prompt_set(
+                json.dumps(envelope, ensure_ascii=False),
+                expected_task_ids=["tsk-1", "tsk-2"],
+            )
 
     def test_messages_separate_candidate_context_from_visible_facts(self):
         context = QwenVisualContext(
@@ -150,11 +199,12 @@ class QwenContractTest(unittest.TestCase):
             categories=[
                 item.category for item in context.targets
             ],
-            facts=QwenVisualFacts(**facts_payload()),
+            facts=QwenJointVisualFacts(**joint_facts_payload()),
         )
 
         self.assertIn("全部所选目标", facts_messages[0]["content"])
         self.assertIn("所有成员mask", prompt_messages[0]["content"])
+        self.assertIn("fact_consistent", prompt_messages[1]["content"])
         self.assertIn(
             "equipment_proximity",
             prompt_messages[1]["content"],

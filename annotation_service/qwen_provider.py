@@ -15,8 +15,8 @@ from .qwen_contract import (
     QWEN_FACTS_PROMPT_VERSION,
     QWEN_JOINT_ENRICHMENT_PROMPT_VERSION,
     QWEN_JOINT_FACTS_PROMPT_VERSION,
-    QwenContractError,
     QwenImageInput,
+    QwenJointVisualFacts,
     QwenJointVisualContext,
     QwenPromptSet,
     QwenVisualContext,
@@ -25,6 +25,8 @@ from .qwen_contract import (
     build_joint_prompt_enrichment_messages,
     build_joint_visual_facts_messages,
     build_visual_facts_messages,
+    parse_joint_prompt_set,
+    parse_joint_visual_facts,
     parse_prompt_set,
     parse_visual_facts,
 )
@@ -78,7 +80,7 @@ class QwenProviderConfig:
 
 @dataclass(frozen=True)
 class QwenGenerationResult:
-    facts: QwenVisualFacts
+    facts: QwenVisualFacts | QwenJointVisualFacts
     prompt_set: QwenPromptSet
     provider: str
     model: str
@@ -262,11 +264,13 @@ class Qwen25VLProvider:
             ),
             temperature=self.config.facts_temperature,
         )
-        facts = parse_visual_facts(raw_facts)
-        if facts.instance_count < len(context.targets):
-            raise QwenContractError(
-                "joint visual facts omitted at least one Task target"
-            )
+        expected_task_ids = [
+            target.task_id for target in context.targets
+        ]
+        facts = parse_joint_visual_facts(
+            raw_facts,
+            expected_task_ids=expected_task_ids,
+        )
         raw_prompts = self._complete(
             messages=build_joint_prompt_enrichment_messages(
                 categories=[
@@ -276,7 +280,10 @@ class Qwen25VLProvider:
             ),
             temperature=self.config.prompts_temperature,
         )
-        prompt_set = parse_prompt_set(raw_prompts)
+        prompt_set = parse_joint_prompt_set(
+            raw_prompts,
+            expected_task_ids=expected_task_ids,
+        )
         return QwenGenerationResult(
             facts=facts,
             prompt_set=prompt_set,

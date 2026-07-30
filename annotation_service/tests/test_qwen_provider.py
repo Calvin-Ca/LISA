@@ -36,14 +36,15 @@ PROMPTS = {
 
 
 class FakeTransport:
-    def __init__(self, facts=None):
+    def __init__(self, facts=None, prompts=None):
         self.calls = []
-        self.facts = facts or FACTS
+        self.facts = FACTS if facts is None else facts
+        self.prompts = PROMPTS if prompts is None else prompts
 
     def __call__(self, url, headers, body, timeout):
         payload = json.loads(body)
         self.calls.append((url, headers, payload, timeout))
-        content = self.facts if len(self.calls) == 1 else PROMPTS
+        content = self.facts if len(self.calls) == 1 else self.prompts
         return {
             "choices": [
                 {
@@ -132,12 +133,32 @@ class QwenProviderTest(unittest.TestCase):
             )
 
     def test_joint_generation_uses_joint_prompt_versions(self):
+        task_ids = ["tsk-1", "tsk-2"]
         transport = FakeTransport(
             facts={
                 **FACTS,
                 "target_object": "一名人员和相邻设备",
                 "instance_count": 2,
-            }
+                "task_targets": [
+                    {
+                        "task_id": task_ids[0],
+                        "target_object": "一名人员",
+                        "instance_count": 1,
+                        "visual_anchor": ["位于画面左侧"],
+                    },
+                    {
+                        "task_id": task_ids[1],
+                        "target_object": "一台挖掘机",
+                        "instance_count": 1,
+                        "visual_anchor": ["位于人员右侧"],
+                    },
+                ],
+            },
+            prompts={
+                **PROMPTS,
+                "covered_task_ids": task_ids,
+                "fact_consistent": True,
+            },
         )
         provider = Qwen25VLProvider(
             QwenProviderConfig(base_url="http://qwen25vl:8000/v1"),
@@ -181,17 +202,35 @@ class QwenProviderTest(unittest.TestCase):
         provenance = result.as_dict()["provenance"]
         self.assertEqual(
             provenance["qwen_facts_prompt_version"],
-            "construction-joint-visible-facts-v1",
+            "construction-joint-visible-facts-v2",
         )
         self.assertEqual(
             provenance["qwen_enrichment_prompt_version"],
-            "construction-joint-prompts-3-2-1-v1",
+            "construction-joint-prompts-3-2-1-v2",
         )
 
     def test_joint_generation_rejects_omitted_task_target(self):
+        incomplete_facts = {
+            **FACTS,
+            "instance_count": 2,
+            "task_targets": [
+                {
+                    "task_id": "tsk-1",
+                    "target_object": "一名人员",
+                    "instance_count": 1,
+                    "visual_anchor": ["位于画面左侧"],
+                },
+                {
+                    "task_id": "tsk-other",
+                    "target_object": "未知目标",
+                    "instance_count": 1,
+                    "visual_anchor": ["位于画面右侧"],
+                },
+            ],
+        }
         provider = Qwen25VLProvider(
             QwenProviderConfig(base_url="http://qwen25vl:8000/v1"),
-            transport=FakeTransport(),
+            transport=FakeTransport(facts=incomplete_facts),
         )
         context = QwenJointVisualContext(
             asset_id="asset-1",
