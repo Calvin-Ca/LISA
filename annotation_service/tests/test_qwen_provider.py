@@ -206,7 +206,7 @@ class QwenProviderTest(unittest.TestCase):
         )
         self.assertEqual(
             provenance["qwen_enrichment_prompt_version"],
-            "construction-joint-prompts-3-2-1-reviewed-v3",
+            "construction-joint-prompts-3-2-1-reviewed-v4",
         )
 
     def test_joint_generation_rejects_omitted_task_target(self):

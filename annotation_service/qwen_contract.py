@@ -20,7 +20,7 @@ QWEN_FACTS_PROMPT_VERSION = "construction-visible-facts-v1"
 QWEN_ENRICHMENT_PROMPT_VERSION = "construction-prompts-3-2-1-v1"
 QWEN_JOINT_FACTS_PROMPT_VERSION = "construction-joint-visible-facts-v2"
 QWEN_JOINT_ENRICHMENT_PROMPT_VERSION = (
-    "construction-joint-prompts-3-2-1-reviewed-v3"
+    "construction-joint-prompts-3-2-1-reviewed-v4"
 )
 
 RISK_SEMANTIC_BOUNDARIES = {
@@ -626,7 +626,9 @@ def build_joint_prompt_enrichment_messages(
                 "可用措辞，不能证明违规状态。如果事实显示已佩戴、已穿着或"
                 "符合要求，任何Prompt都不得反写成未佩戴、未穿着或违规。"
                 "risk Prompt在没有可见风险时应描述已确认的防护状态或中性"
-                "安全意义，不能虚构隐患。只输出JSON对象，不输出Markdown。"
+                "安全意义，不能虚构隐患，也不能添加光照、环境、事故概率、"
+                "降低风险等联合视觉事实中未明确出现的条件或后果。"
+                "只输出JSON对象，不输出Markdown。"
             ),
         },
         {
@@ -682,7 +684,11 @@ def build_joint_prompt_review_messages(
                 "instance_count，不得把Task数量相加后套到某一对象类别。"
                 "六条Prompt都必须同时描述全部Task目标及已确认关系。事实显示"
                 "已穿戴或合规时，禁止改写成未穿戴、违规或存在隐患。完成逐条"
-                "修订后才可输出fact_consistent=true。只输出JSON对象。"
+                "修订后才可输出fact_consistent=true。risk和agent文本仍是"
+                "分割目标描述，不是安全科普；必须删除事实中未出现的光线不足、"
+                "工作环境推断、事故概率、提升安全性、降低或减少风险等通用"
+                "条件和后果。只能使用task_targets、visible_facts、"
+                "visual_anchor和risk_semantics明确提供的事实。只输出JSON对象。"
             ),
         },
         {
