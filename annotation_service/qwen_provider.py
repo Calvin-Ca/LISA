@@ -13,11 +13,16 @@ from urllib.request import Request, urlopen
 from .qwen_contract import (
     QWEN_ENRICHMENT_PROMPT_VERSION,
     QWEN_FACTS_PROMPT_VERSION,
+    QWEN_JOINT_ENRICHMENT_PROMPT_VERSION,
+    QWEN_JOINT_FACTS_PROMPT_VERSION,
     QwenImageInput,
+    QwenJointVisualContext,
     QwenPromptSet,
     QwenVisualContext,
     QwenVisualFacts,
     build_prompt_enrichment_messages,
+    build_joint_prompt_enrichment_messages,
+    build_joint_visual_facts_messages,
     build_visual_facts_messages,
     parse_prompt_set,
     parse_visual_facts,
@@ -237,4 +242,43 @@ class Qwen25VLProvider:
             model=self.config.model,
             facts_prompt_version=QWEN_FACTS_PROMPT_VERSION,
             enrichment_prompt_version=QWEN_ENRICHMENT_PROMPT_VERSION,
+        )
+
+    def generate_joint(
+        self,
+        *,
+        context: QwenJointVisualContext,
+        images: list[QwenImageInput],
+    ) -> QwenGenerationResult:
+        if not images:
+            raise ValueError(
+                "joint Qwen2.5-VL generation requires images"
+            )
+        raw_facts = self._complete(
+            messages=build_joint_visual_facts_messages(
+                context,
+                images=images,
+            ),
+            temperature=self.config.facts_temperature,
+        )
+        facts = parse_visual_facts(raw_facts)
+        raw_prompts = self._complete(
+            messages=build_joint_prompt_enrichment_messages(
+                categories=[
+                    target.category for target in context.targets
+                ],
+                facts=facts,
+            ),
+            temperature=self.config.prompts_temperature,
+        )
+        prompt_set = parse_prompt_set(raw_prompts)
+        return QwenGenerationResult(
+            facts=facts,
+            prompt_set=prompt_set,
+            provider="vllm-openai-compatible",
+            model=self.config.model,
+            facts_prompt_version=QWEN_JOINT_FACTS_PROMPT_VERSION,
+            enrichment_prompt_version=(
+                QWEN_JOINT_ENRICHMENT_PROMPT_VERSION
+            ),
         )

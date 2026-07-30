@@ -1,17 +1,17 @@
 # 自动标注完整流程 API（Spring 后端对接）
 
-文档版本：`1.4.0`
+文档版本：`1.5.0`
 
 更新时间：`2026-07-31`
 
 开放语义字段要求服务版本不低于 `1.2.0`，多检测框批处理要求不低于
-`1.3.0`，Prompt 处理轨迹要求不低于 `1.4.0`。联调前先调用
-`GET /health` 核对 `version`。
+`1.3.0`，Prompt 处理轨迹要求不低于 `1.4.0`，联合多目标 Prompt 要求
+不低于 `1.5.0`。联调前先调用 `GET /health` 核对 `version`。
 
 ```json
 {
   "status": "ok",
-  "version": "1.4.0"
+  "version": "1.5.0"
 }
 ```
 
@@ -57,8 +57,8 @@ Authorization: Bearer <TEST_API_KEY>
 5. 选择一个或多个 detection，每个 detection 创建一个人工标注 Task
 6. 单个或批量请求 SAM mask，轮询各 Operation
 7. 下载二值 mask、mask overlay、crop，读取 polygon
-8. 请求 Qwen2.5-VL 批量生成 Prompt，轮询 Operation
-9. Spring/前端选择 Prompt、批量换词或自定义 Prompt
+8. 根据业务选择单目标 Prompt，或将多个 Task 作为 Task Group 联合生成 Prompt
+9. 轮询 Operation，Spring/前端选择 Prompt、批量换词或自定义 Prompt
 10. 将 mask polygon 和 Prompt 合并到最新 Task 并保存草稿
 11. 提交 Task，或将不应继续的 Task 作废
 12. 可选：审核通过后构建 ReasonSeg Release
@@ -92,6 +92,8 @@ Task，合并用户选择后的结果，再保存 draft。
 | POST | `/v1/annotation/task-batches/mask-candidates` | 为多个 Task 批量请求 SAM |
 | POST | `/v1/annotation/tasks/{task_id}/prompt-enrichments` | 请求批量 Prompt |
 | POST | `/v1/annotation/task-batches/prompt-enrichments` | 为多个 Task 批量请求 Prompt |
+| POST | `/v1/annotation/task-groups/prompt-enrichments` | 为同图多个目标联合生成 Prompt |
+| GET | `/v1/annotation/task-groups/{task_group_id}` | 查询联合 Prompt Task Group |
 | POST | `/v1/annotation/tasks/{task_id}/submit` | 提交标注样本 |
 | POST | `/v1/annotation/tasks/{task_id}/invalidate` | 作废标注样本 |
 | POST | `/v1/annotation/tasks/{task_id}/review` | 审核样本 |
@@ -677,6 +679,8 @@ GET /v1/annotation/tasks/{task_id}/artifacts/crop
 
 ## 10. Qwen 批量生成 Prompt
 
+### 10.1 单目标 Prompt
+
 SAM 成功后创建 Prompt Operation：
 
 ```http
@@ -747,6 +751,130 @@ Task 不存在或版本冲突的项返回 `rejected`，不影响其他 Task。
 服务固定生成 6 条候选：3 条 `visual`、2 条 `risk`、1 条 `agent`。前端可以
 选择、批量替换词语或完全自定义，但最终提交仍必须满足 3+2+1，并且所有 Prompt
 不得重复。
+
+### 10.2 多目标联合 Prompt
+
+如果 Prompt 需要同时描述多个检测目标及其整体关系，不能调用
+`task-batches/prompt-enrichments`。该批量接口仍会为每个 Task 独立生成结果。
+联合生成使用：
+
+```http
+POST /v1/annotation/task-groups/prompt-enrichments
+Content-Type: application/json
+```
+
+```json
+{
+  "items": [
+    {"task_id": "tsk_1", "expected_version": 1},
+    {"task_id": "tsk_2", "expected_version": 1}
+  ],
+  "mode": "joint"
+}
+```
+
+约束：
+
+- 必须包含 2～16 个不同 Task。
+- 所有 Task 必须属于同一个 `asset_id`。
+- 每个 Task 必须已有 SAM `mask` 或 `mask-overlay`，并且已有 `crop`。
+- `expected_version` 必须等于当前 Task 版本。
+- 成员 Task、版本和顺序会固化到 Task Group；生成期间任一 Task 版本发生变化，
+  Operation 会失败，不会使用新旧混合的输入。
+
+HTTP 202：
+
+```json
+{
+  "task_group_id": "tgp_xxx",
+  "operation_id": "op_xxx",
+  "status": "queued",
+  "created_at": "2026-07-31T01:00:00+00:00"
+}
+```
+
+Qwen Worker 的一次联合输入包含：
+
+```text
+共同原图
++ Task 1 的 mask/overlay 和 crop
++ Task 2 的 mask/overlay 和 crop
++ 其余成员的 mask/overlay 和 crop
+```
+
+轮询普通 Operation 接口。联合 Operation 的
+`operation_type=joint_prompt_enrichment`，`task_id` 和 `task_version` 为
+`null`，`task_group_id` 非空。成功结果示例：
+
+```json
+{
+  "operation_id": "op_xxx",
+  "operation_type": "joint_prompt_enrichment",
+  "task_id": null,
+  "task_version": null,
+  "task_group_id": "tgp_xxx",
+  "status": "succeeded",
+  "result": {
+    "task_group_id": "tgp_xxx",
+    "source_task_ids": ["tsk_1", "tsk_2"],
+    "facts": {
+      "target_object": "画面中的一名作业人员及其旁边的施工设备",
+      "instance_count": 2,
+      "visual_anchor": ["人员位于设备左侧", "两者距离较近"],
+      "mask_granularity": "人员和设备的联合mask",
+      "visible_facts": ["人员位于设备左侧", "人员与设备相邻"],
+      "risk_semantics": "人员与施工设备距离较近"
+    },
+    "prompts": [
+      {
+        "prompt_id": "visual-1",
+        "type": "visual",
+        "text": "分割画面中相邻的作业人员和施工设备。"
+      },
+      {
+        "prompt_id": "visual-2",
+        "type": "visual",
+        "text": "标出设备左侧的人员以及与其相邻的施工设备。"
+      },
+      {
+        "prompt_id": "visual-3",
+        "type": "visual",
+        "text": "提取画面中的目标人员和旁边的目标设备。"
+      },
+      {
+        "prompt_id": "risk-1",
+        "type": "risk",
+        "text": "分割距离较近的作业人员与施工设备。"
+      },
+      {
+        "prompt_id": "risk-2",
+        "type": "risk",
+        "text": "标出存在接近风险的人员及其相邻设备。"
+      },
+      {
+        "prompt_id": "agent-1",
+        "type": "agent",
+        "text": "请定位并分割相邻的作业人员和施工设备。"
+      }
+    ],
+    "provenance": {
+      "qwen_facts_prompt_version": "construction-joint-visible-facts-v1",
+      "qwen_enrichment_prompt_version": "construction-joint-prompts-3-2-1-v1"
+    }
+  }
+}
+```
+
+实际 `prompts` 仍固定返回完整 3+2+1 六条。也可以直接查询持久化的 Group：
+
+```http
+GET /v1/annotation/task-groups/{task_group_id}
+```
+
+该响应包含成员版本快照、Operation 状态、`facts`、`prompts`、`provenance`
+和错误信息。联合结果只属于 Task Group，不会写回任意单目标 Task，单目标
+Task 的 Mask 和 Prompt 保持不变。当前 ReasonSeg Release 仍只导出审核通过的
+单目标 Task；联合 Prompt 不会被自动导出或与任一单目标 Mask 错配。
 
 ## 11. 保存、提交和作废标注样本
 
@@ -921,6 +1049,8 @@ reject
 - 前端返回上一步时，先取消仍在执行的 Job/Operation，再决定是否作废 Task。
 - 多选后按 `review-tasks.items` 建立 Task 列表，并提供上一个/下一个目标切换。
 - 分别轮询批量响应中的每个 `operation_id`；不能把多个 mask 当作一个 Task。
+- 独立生成多个 Prompt 使用 `task-batches`；描述多个目标整体关系必须使用
+  `task-groups`，并将结果绑定 `task_group_id`，不能写入任一成员 Task。
 - `overlap_warnings` 只提示可能重复，不应在前端静默删除检测框。
 
 推荐 WebClient：

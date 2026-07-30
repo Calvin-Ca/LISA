@@ -115,6 +115,7 @@ class OperationStatus(str, Enum):
 class OperationType(str, Enum):
     MASK_CANDIDATE = "mask_candidate"
     PROMPT_ENRICHMENT = "prompt_enrichment"
+    JOINT_PROMPT_ENRICHMENT = "joint_prompt_enrichment"
 
 
 class ReleaseStatus(str, Enum):
@@ -752,6 +753,22 @@ class BatchPromptEnrichmentsRequest(StrictModel):
         return value
 
 
+class JointPromptEnrichmentRequest(StrictModel):
+    items: List[BatchPromptEnrichmentItem] = Field(
+        ...,
+        min_items=2,
+        max_items=16,
+    )
+    mode: Literal["joint"] = "joint"
+
+    @validator("items")
+    def task_ids_must_be_unique(cls, value):
+        task_ids = [item.task_id for item in value]
+        if len(task_ids) != len(set(task_ids)):
+            raise ValueError("joint task_id values must be unique")
+        return value
+
+
 class CancelOperationRequest(StrictModel):
     actor_id: str = Field(..., min_length=1, max_length=128)
     reason: str = Field(..., min_length=1, max_length=2000)
@@ -787,17 +804,68 @@ class BatchOperationsAccepted(StrictModel):
     rejected_count: int = Field(..., ge=0)
 
 
+class TaskGroupOperationAccepted(StrictModel):
+    task_group_id: str
+    operation_id: str
+    status: Literal["queued", "running"] = "queued"
+    created_at: datetime
+
+
+class TaskGroupMember(StrictModel):
+    task_id: str
+    task_version: int = Field(..., ge=1)
+
+
+class TaskGroup(StrictModel):
+    task_group_id: str
+    asset_id: str
+    mode: Literal["joint"] = "joint"
+    source_task_ids: List[str] = Field(..., min_items=2, max_items=16)
+    items: List[TaskGroupMember] = Field(..., min_items=2, max_items=16)
+    operation_id: str
+    status: OperationStatus
+    facts: Optional[Dict[str, Any]] = None
+    prompts: List[AnnotationPrompt] = Field(default_factory=list)
+    provenance: Optional[Dict[str, Any]] = None
+    error: Optional[ErrorPayload] = None
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+
 class AnnotationOperation(StrictModel):
     operation_id: str
     operation_type: OperationType
-    task_id: str
-    task_version: int = Field(..., ge=1)
+    task_id: Optional[str] = None
+    task_version: Optional[int] = Field(default=None, ge=1)
+    task_group_id: Optional[str] = None
     status: OperationStatus
     result: Optional[Dict[str, Any]] = None
     error: Optional[ErrorPayload] = None
     created_at: datetime
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+
+    @root_validator(skip_on_failure=True)
+    def operation_has_one_owner(cls, values):
+        operation_type = values.get("operation_type")
+        task_id = values.get("task_id")
+        task_version = values.get("task_version")
+        task_group_id = values.get("task_group_id")
+        if operation_type == OperationType.JOINT_PROMPT_ENRICHMENT:
+            if not task_group_id or task_id is not None or task_version is not None:
+                raise ValueError(
+                    "joint prompt operation must belong only to a Task Group"
+                )
+        elif (
+            not task_id
+            or task_version is None
+            or task_group_id is not None
+        ):
+            raise ValueError(
+                "single-task operation must belong only to one Task"
+            )
+        return values
 
 
 class SplitPolicy(StrictModel):

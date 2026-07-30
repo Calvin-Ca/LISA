@@ -8,7 +8,7 @@
   -> GroundingDINO bbox
   -> 选择检测框并创建 Task
   -> SAM 按框生成 mask、polygon 和 overlay
-  -> Qwen2.5-VL 生成 3+2+1 Prompt 候选
+  -> Qwen2.5-VL 生成单目标或多目标联合 3+2+1 Prompt 候选
   -> 人工选择、修改并保存草稿
   -> 提交审核或作废
   -> 可选构建 ReasonSeg Release
@@ -43,10 +43,15 @@ GET  /v1/annotation/tasks/{task_id}
 PUT  /v1/annotation/tasks/{task_id}/draft
 POST /v1/annotation/tasks/{task_id}/mask-candidates
 POST /v1/annotation/tasks/{task_id}/prompt-enrichments
+POST /v1/annotation/task-batches/mask-candidates
+POST /v1/annotation/task-batches/prompt-enrichments
 POST /v1/annotation/tasks/{task_id}/submit
 POST /v1/annotation/tasks/{task_id}/invalidate
 POST /v1/annotation/tasks/{task_id}/review
 GET  /v1/annotation/tasks/{task_id}/artifacts/{artifact_type}
+
+POST /v1/annotation/task-groups/prompt-enrichments
+GET  /v1/annotation/task-groups/{task_group_id}
 
 GET  /v1/annotation/operations/{operation_id}
 POST /v1/annotation/operations/{operation_id}/cancel
@@ -75,8 +80,8 @@ annotation-data/
 └── tmp/
 ```
 
-数据库使用 WAL、外键约束和乐观版本控制。schema v8 增加检测框到 Task 的
-幂等关联，并为异步 Operation 增加 `cancelled` 状态。旧数据库启动时原地升级。
+数据库使用 WAL、外键约束和乐观版本控制。schema v10 增加 Task Group、成员
+版本快照和 `joint_prompt_enrichment` Operation。旧数据库启动时原地升级。
 升级前应备份整个存储目录，不能只备份 SQLite 文件。
 
 ## 环境配置
@@ -214,7 +219,9 @@ POST /task-batches/mask-candidates
 轮询 GET /operations/{operation_id}
 POST /tasks/{task_id}/prompt-enrichments
 POST /task-batches/prompt-enrichments
+POST /task-groups/prompt-enrichments
 轮询 GET /operations/{operation_id}
+GET /task-groups/{task_group_id}
 PUT /tasks/{task_id}/draft
 POST /tasks/{task_id}/submit
 ```
@@ -227,6 +234,8 @@ draft。这样可以避免异步模型结果覆盖用户正在编辑的内容。
 批量 SAM 接口一次接收多个 Task，同一图片只执行一次 `set_image()`，每个 box
 仍独立选择最高 predicted IoU 的 SAM 候选并保存到自己的 Task。批量 Prompt
 接口同样按 Task 返回 Operation，单项失败不会阻止同批其他任务入队。
+需要描述多个目标整体关系时使用 Task Group 接口；它会把同图各成员的 mask
+和 crop 一次交给 Qwen，联合结果只归属 Group，不会覆盖任一单目标 Task。
 
 同类别检测框 IoU 不低于 `0.8` 时，`review-tasks.overlap_warnings` 会提示可能
 重复实例，但服务不会自动删除检测框或合并 mask，最终去重由人工确认。

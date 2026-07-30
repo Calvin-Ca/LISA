@@ -3,6 +3,8 @@ import unittest
 
 from annotation_service.qwen_contract import (
     QwenImageInput,
+    QwenJointTarget,
+    QwenJointVisualContext,
     QwenVisualContext,
 )
 from annotation_service.qwen_provider import (
@@ -126,6 +128,55 @@ class QwenProviderTest(unittest.TestCase):
                     )
                 ],
             )
+
+    def test_joint_generation_uses_joint_prompt_versions(self):
+        transport = FakeTransport()
+        provider = Qwen25VLProvider(
+            QwenProviderConfig(base_url="http://qwen25vl:8000/v1"),
+            transport=transport,
+        )
+
+        result = provider.generate_joint(
+            context=QwenJointVisualContext(
+                asset_id="asset-1",
+                targets=[
+                    QwenJointTarget(
+                        task_id="tsk-1",
+                        task_version=1,
+                        category="unsafe",
+                        target_box_xyxy=[1, 1, 4, 8],
+                    ),
+                    QwenJointTarget(
+                        task_id="tsk-2",
+                        task_version=1,
+                        category="equipment_proximity",
+                        target_box_xyxy=[5, 1, 9, 8],
+                    ),
+                ],
+            ),
+            images=[
+                QwenImageInput(
+                    label="共同原图",
+                    media_type="image/png",
+                    data_url="data:image/png;base64,aW1hZ2U=",
+                )
+            ],
+        )
+
+        self.assertEqual(len(transport.calls), 2)
+        self.assertIn(
+            "多目标联合视觉事实提取器",
+            transport.calls[0][2]["messages"][0]["content"],
+        )
+        provenance = result.as_dict()["provenance"]
+        self.assertEqual(
+            provenance["qwen_facts_prompt_version"],
+            "construction-joint-visible-facts-v1",
+        )
+        self.assertEqual(
+            provenance["qwen_enrichment_prompt_version"],
+            "construction-joint-prompts-3-2-1-v1",
+        )
 
 
 if __name__ == "__main__":

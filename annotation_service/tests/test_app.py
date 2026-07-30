@@ -173,6 +173,14 @@ class AnnotationAppTest(unittest.TestCase):
                 "post",
             ): "createBatchPromptEnrichments",
             (
+                "/v1/annotation/task-groups/prompt-enrichments",
+                "post",
+            ): "createJointPromptEnrichment",
+            (
+                "/v1/annotation/task-groups/{task_group_id}",
+                "get",
+            ): "getAnnotationTaskGroup",
+            (
                 "/v1/annotation/tasks/{task_id}/submit",
                 "post",
             ): "submitAnnotationTask",
@@ -205,6 +213,10 @@ class AnnotationAppTest(unittest.TestCase):
             [{"apiKeyAuth": []}, {"bearerAuth": []}],
         )
         self.assertIn("/v1/annotation/tasks", document["paths"])
+        self.assertIn(
+            "/v1/annotation/task-groups/prompt-enrichments",
+            document["paths"],
+        )
         self.assertIn("/v1/annotation/releases", document["paths"])
 
     def test_storage_lifecycle_is_reflected_in_readiness(self):

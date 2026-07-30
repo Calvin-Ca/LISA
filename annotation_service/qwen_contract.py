@@ -18,6 +18,10 @@ from .schemas import (
 
 QWEN_FACTS_PROMPT_VERSION = "construction-visible-facts-v1"
 QWEN_ENRICHMENT_PROMPT_VERSION = "construction-prompts-3-2-1-v1"
+QWEN_JOINT_FACTS_PROMPT_VERSION = "construction-joint-visible-facts-v1"
+QWEN_JOINT_ENRICHMENT_PROMPT_VERSION = (
+    "construction-joint-prompts-3-2-1-v1"
+)
 
 RISK_SEMANTIC_BOUNDARIES = {
     AnnotationCategory.OPENING_UNPROTECTED: (
@@ -104,6 +108,60 @@ class QwenVisualContext(StrictModel):
         if len(normalized) != len(set(normalized)):
             raise ValueError("list values must be unique")
         return normalized
+
+
+class QwenJointTarget(StrictModel):
+    task_id: str
+    task_version: int = Field(..., ge=1)
+    category: AnnotationCategory
+    target_box_xyxy: List[float]
+    target_detection_ids: List[str] = Field(default_factory=list)
+
+    @validator("task_id")
+    def task_id_is_not_blank(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("task_id must not be blank")
+        return normalized
+
+    @validator("target_box_xyxy")
+    def target_box_is_valid(cls, value: List[float]) -> List[float]:
+        if len(value) != 4:
+            raise ValueError("target_box_xyxy must contain four coordinates")
+        x1, y1, x2, y2 = value
+        if min(value) < 0 or x2 <= x1 or y2 <= y1:
+            raise ValueError(
+                "target_box_xyxy must have non-negative positive area"
+            )
+        return value
+
+    @validator("target_detection_ids")
+    def detection_ids_are_unique(cls, value: List[str]) -> List[str]:
+        normalized = [item.strip() for item in value]
+        if any(not item for item in normalized):
+            raise ValueError("target_detection_ids must not be blank")
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("target_detection_ids must be unique")
+        return normalized
+
+
+class QwenJointVisualContext(StrictModel):
+    asset_id: str
+    targets: List[QwenJointTarget] = Field(
+        ...,
+        min_items=2,
+        max_items=16,
+    )
+    requires_visual_verification: bool = True
+    all_masks_available: bool = True
+    all_crops_available: bool = True
+
+    @validator("targets")
+    def task_ids_are_unique(cls, value: List[QwenJointTarget]):
+        task_ids = [item.task_id for item in value]
+        if len(task_ids) != len(set(task_ids)):
+            raise ValueError("joint target task IDs must be unique")
+        return value
 
 
 class QwenVisualFacts(StrictModel):
@@ -314,6 +372,120 @@ def build_prompt_enrichment_messages(
                 "重复。risk Prompt去掉风险描述后仍必须保留具体可分割对象。"
                 "不得用危险区域、不安全目标、违规位置等抽象词代替具体对象。"
                 "输出格式："
+                f"{json.dumps(output_example, ensure_ascii=False)}"
+            ),
+        },
+    ]
+
+
+def build_joint_visual_facts_messages(
+    context: QwenJointVisualContext,
+    *,
+    images: list[QwenImageInput] | None = None,
+) -> list[dict[str, Any]]:
+    schema_example = {
+        "target_object": "画面中的一名作业人员及其旁边的施工设备",
+        "instance_count": 2,
+        "visual_anchor": ["人员位于设备左侧", "两者距离较近"],
+        "mask_granularity": "所选人员和设备的整体联合mask",
+        "visible_facts": ["人员位于设备左侧", "人员与设备相邻"],
+        "risk_semantics": "人员与施工设备距离较近",
+    }
+    user_text = (
+        "请查看同一张原图、每个所选目标的mask以及对应裁剪图，提取这些"
+        "目标作为一个整体时的视觉事实和相互关系。每个Task代表一个独立"
+        "目标，但最终事实必须共同覆盖全部Task。\n"
+        f"Task Group上下文："
+        f"{json.dumps(_model_json(context), ensure_ascii=False)}\n"
+        "输出字段必须与此示例完全一致："
+        f"{json.dumps(schema_example, ensure_ascii=False)}"
+    )
+    user_content: str | list[dict[str, Any]]
+    if images:
+        user_content = [{"type": "text", "text": user_text}]
+        for image in images:
+            user_content.extend(
+                [
+                    {
+                        "type": "text",
+                        "text": (
+                            f"{image.label}。各Task的mask决定对应目标像素，"
+                            "原图用于判断目标之间可见的方位、距离和关系。"
+                        ),
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": image.data_url},
+                    },
+                ]
+            )
+    else:
+        user_content = user_text
+    return [
+        {
+            "role": "system",
+            "content": (
+                "你是施工安全图片的多目标联合视觉事实提取器。只能记录"
+                "原图、各目标mask和裁剪图可以直接确认的事实。必须识别并"
+                "共同描述全部所选目标，不得遗漏任一Task，也不得把多个"
+                "目标误写成单一目标。重点提取目标之间可见的空间或业务"
+                "关系；无法确认的动作、因果、违规状态或风险不得猜测。"
+                "所有mask像素的集合决定最终联合分割范围。只输出一个JSON"
+                "对象，不输出Markdown。"
+            ),
+        },
+        {
+            "role": "user",
+            "content": user_content,
+        },
+    ]
+
+
+def build_joint_prompt_enrichment_messages(
+    *,
+    categories: List[AnnotationCategory],
+    facts: QwenVisualFacts,
+) -> list[dict[str, str]]:
+    output_example = {
+        "prompts": [
+            {"prompt_id": "visual-1", "type": "visual", "text": "示例一"},
+            {"prompt_id": "visual-2", "type": "visual", "text": "示例二"},
+            {"prompt_id": "visual-3", "type": "visual", "text": "示例三"},
+            {"prompt_id": "risk-1", "type": "risk", "text": "示例四"},
+            {"prompt_id": "risk-2", "type": "risk", "text": "示例五"},
+            {"prompt_id": "agent-1", "type": "agent", "text": "示例六"},
+        ]
+    }
+    unique_categories = list(dict.fromkeys(categories))
+    boundaries = {
+        category.value: RISK_SEMANTIC_BOUNDARIES[category]
+        for category in unique_categories
+    }
+    return [
+        {
+            "role": "system",
+            "content": (
+                "你是ReasonSeg多目标联合Prompt生成器。每条Prompt都必须"
+                "同时指向输入事实中的全部目标及其可见关系，对应所有成员"
+                "mask的联合像素。不得只描述其中一个目标，也不得新增输入"
+                "事实中不存在的对象、数量、位置、动作、原因或后果。六条"
+                "Prompt必须保持完全相同的目标集合、实例数量、关系和mask"
+                "粒度，只能改变句式与业务表达。只输出JSON对象，不输出"
+                "Markdown。"
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                "来源类别："
+                f"{json.dumps([item.value for item in unique_categories], ensure_ascii=False)}\n"
+                f"联合视觉事实："
+                f"{json.dumps(_model_json(facts), ensure_ascii=False)}\n"
+                "类别语义边界："
+                f"{json.dumps(boundaries, ensure_ascii=False)}\n"
+                "生成恰好3条visual、2条risk、1条agent Prompt，文本互不"
+                "重复。每一条都必须明确包含全部所选对象和它们之间由事实"
+                "支持的关系；不得退化成若干互不相关的单目标描述。输出格式："
                 f"{json.dumps(output_example, ensure_ascii=False)}"
             ),
         },

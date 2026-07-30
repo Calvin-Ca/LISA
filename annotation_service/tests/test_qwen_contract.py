@@ -5,8 +5,12 @@ import unittest
 from annotation_service.qwen_contract import (
     QwenContractError,
     QwenImageInput,
+    QwenJointTarget,
+    QwenJointVisualContext,
     QwenVisualContext,
     QwenVisualFacts,
+    build_joint_prompt_enrichment_messages,
+    build_joint_visual_facts_messages,
     build_prompt_enrichment_messages,
     build_visual_facts_messages,
     parse_prompt_set,
@@ -118,6 +122,40 @@ class QwenContractTest(unittest.TestCase):
             content[-1]["image_url"]["url"].startswith(
                 "data:image/png;base64,"
             )
+        )
+
+    def test_joint_messages_require_all_targets_and_relationship(self):
+        context = QwenJointVisualContext(
+            asset_id="asset-1",
+            targets=[
+                QwenJointTarget(
+                    task_id="tsk-1",
+                    task_version=1,
+                    category="unsafe",
+                    target_box_xyxy=[1, 1, 4, 8],
+                ),
+                QwenJointTarget(
+                    task_id="tsk-2",
+                    task_version=2,
+                    category="equipment_proximity",
+                    target_box_xyxy=[5, 1, 9, 8],
+                ),
+            ],
+        )
+
+        facts_messages = build_joint_visual_facts_messages(context)
+        prompt_messages = build_joint_prompt_enrichment_messages(
+            categories=[
+                item.category for item in context.targets
+            ],
+            facts=QwenVisualFacts(**facts_payload()),
+        )
+
+        self.assertIn("全部所选目标", facts_messages[0]["content"])
+        self.assertIn("所有成员mask", prompt_messages[0]["content"])
+        self.assertIn(
+            "equipment_proximity",
+            prompt_messages[1]["content"],
         )
 
 

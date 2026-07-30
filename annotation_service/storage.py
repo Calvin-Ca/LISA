@@ -56,6 +56,7 @@ from .storage_schema import (
     SCHEMA_V7,
     SCHEMA_V8,
     SCHEMA_V9,
+    SCHEMA_V10,
     SCHEMA_VERSION,
 )
 from .validation import validate_annotation_for_submission
@@ -341,6 +342,24 @@ class AnnotationStore:
                                 ) VALUES (?, ?)
                                 """,
                                 (9, utc_now()),
+                            )
+                            connection.execute("COMMIT")
+                        except Exception:
+                            connection.execute("ROLLBACK")
+                            raise
+                        current = 9
+                    if current < 10:
+                        connection.execute("BEGIN IMMEDIATE")
+                        try:
+                            for statement in SCHEMA_V10:
+                                connection.execute(statement)
+                            connection.execute(
+                                """
+                                INSERT INTO schema_migrations(
+                                    version, applied_at
+                                ) VALUES (?, ?)
+                                """,
+                                (10, utc_now()),
                             )
                             connection.execute("COMMIT")
                         except Exception:
@@ -2892,6 +2911,233 @@ class AnnotationStore:
         return [dict(row) for row in rows]
 
     # -------------------------------------------------------------- operations
+    def create_joint_prompt_enrichment_operation(
+        self,
+        *,
+        items: list[dict[str, Any]],
+        mode: str = "joint",
+    ) -> dict[str, Any]:
+        self._ensure_initialized()
+        if mode != "joint":
+            raise ValueError("joint prompt mode must be 'joint'")
+        if not 2 <= len(items) <= 16:
+            raise ValueError("joint prompt requires 2 to 16 Tasks")
+        normalized_items: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for item in items:
+            task_id = str(item.get("task_id", "")).strip()
+            expected_version = int(item.get("expected_version", 0))
+            if not task_id:
+                raise ValueError("task_id must not be blank")
+            if task_id in seen:
+                raise ValueError("joint task_id values must be unique")
+            if expected_version < 1:
+                raise ValueError("expected_version must be positive")
+            seen.add(task_id)
+            normalized_items.append(
+                {
+                    "task_id": task_id,
+                    "expected_version": expected_version,
+                }
+            )
+        request_payload = {
+            "mode": mode,
+            "items": normalized_items,
+        }
+        request_json = canonical_json(request_payload)
+        task_group_id = _new_id("tgp")
+        operation_id = _new_id("op")
+        created_at = utc_now()
+        with self._lock, self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            asset_id: str | None = None
+            for index, item in enumerate(normalized_items):
+                task = self._row_or_not_found(
+                    connection,
+                    """
+                    SELECT task_id, version, asset_id
+                    FROM annotation_tasks
+                    WHERE task_id = ?
+                    """,
+                    (item["task_id"],),
+                    "annotation task",
+                )
+                if task["version"] != item["expected_version"]:
+                    connection.execute("ROLLBACK")
+                    raise VersionConflictError(
+                        "annotation task version has changed",
+                        details=[
+                            {
+                                "field": f"items.{index}.expected_version",
+                                "reason": (
+                                    f"expected {item['expected_version']} but "
+                                    f"current version is {task['version']}"
+                                ),
+                            }
+                        ],
+                    )
+                if asset_id is None:
+                    asset_id = task["asset_id"]
+                elif task["asset_id"] != asset_id:
+                    connection.execute("ROLLBACK")
+                    raise ValidationServiceError(
+                        "joint prompt Tasks must use the same image",
+                        details=[
+                            {
+                                "field": f"items.{index}.task_id",
+                                "reason": (
+                                    "all joint Tasks must have the same "
+                                    "asset_id"
+                                ),
+                            }
+                        ],
+                    )
+                artifact_types = {
+                    row["artifact_type"]
+                    for row in connection.execute(
+                        """
+                        SELECT DISTINCT artifact_type
+                        FROM artifacts
+                        WHERE task_id = ?
+                          AND artifact_type IN (
+                              'mask', 'mask-overlay', 'crop'
+                          )
+                        """,
+                        (item["task_id"],),
+                    ).fetchall()
+                }
+                if not artifact_types.intersection(
+                    {"mask", "mask-overlay"}
+                ) or "crop" not in artifact_types:
+                    connection.execute("ROLLBACK")
+                    raise ValidationServiceError(
+                        "joint prompt generation requires mask and crop "
+                        "artifacts for every Task",
+                        details=[
+                            {
+                                "field": f"items.{index}.task_id",
+                                "reason": (
+                                    "store mask or mask-overlay and crop "
+                                    "before requesting joint Qwen generation"
+                                ),
+                            }
+                        ],
+                    )
+            existing = connection.execute(
+                """
+                SELECT operation_id
+                FROM annotation_operations
+                WHERE operation_type = 'joint_prompt_enrichment'
+                  AND request_json = ?
+                  AND status IN ('queued', 'running')
+                ORDER BY created_at, operation_id
+                LIMIT 1
+                """,
+                (request_json,),
+            ).fetchone()
+            if existing is not None:
+                connection.execute("COMMIT")
+                return self.get_operation(existing["operation_id"])
+            assert asset_id is not None
+            connection.execute(
+                """
+                INSERT INTO annotation_task_groups(
+                    task_group_id, asset_id, mode, created_at
+                ) VALUES (?, ?, 'joint', ?)
+                """,
+                (task_group_id, asset_id, created_at),
+            )
+            for ordinal, item in enumerate(normalized_items):
+                connection.execute(
+                    """
+                    INSERT INTO annotation_task_group_members(
+                        task_group_id, task_id, task_version, ordinal
+                    ) VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        task_group_id,
+                        item["task_id"],
+                        item["expected_version"],
+                        ordinal,
+                    ),
+                )
+            connection.execute(
+                """
+                INSERT INTO annotation_operations(
+                    operation_id, operation_type, task_id, task_version,
+                    task_group_id, status, request_json, created_at
+                ) VALUES (
+                    ?, 'joint_prompt_enrichment', NULL, NULL,
+                    ?, 'queued', ?, ?
+                )
+                """,
+                (
+                    operation_id,
+                    task_group_id,
+                    request_json,
+                    created_at,
+                ),
+            )
+            connection.execute("COMMIT")
+        return self.get_operation(operation_id)
+
+    def get_task_group(self, task_group_id: str) -> dict[str, Any]:
+        self._ensure_initialized()
+        with self._connect() as connection:
+            group = self._row_or_not_found(
+                connection,
+                """
+                SELECT * FROM annotation_task_groups
+                WHERE task_group_id = ?
+                """,
+                (task_group_id,),
+                "annotation task group",
+            )
+            members = connection.execute(
+                """
+                SELECT task_id, task_version
+                FROM annotation_task_group_members
+                WHERE task_group_id = ?
+                ORDER BY ordinal
+                """,
+                (task_group_id,),
+            ).fetchall()
+            operation = self._row_or_not_found(
+                connection,
+                """
+                SELECT * FROM annotation_operations
+                WHERE task_group_id = ?
+                """,
+                (task_group_id,),
+                "annotation task group operation",
+            )
+        result = _json_loads(operation["result_json"], None) or {}
+        member_payload = [
+            {
+                "task_id": row["task_id"],
+                "task_version": row["task_version"],
+            }
+            for row in members
+        ]
+        return {
+            "task_group_id": group["task_group_id"],
+            "asset_id": group["asset_id"],
+            "mode": group["mode"],
+            "source_task_ids": [
+                item["task_id"] for item in member_payload
+            ],
+            "items": member_payload,
+            "operation_id": operation["operation_id"],
+            "status": operation["status"],
+            "facts": result.get("facts"),
+            "prompts": result.get("prompts", []),
+            "provenance": result.get("provenance"),
+            "error": _json_loads(operation["error_json"], None),
+            "created_at": group["created_at"],
+            "started_at": operation["started_at"],
+            "completed_at": operation["completed_at"],
+        }
+
     def create_prompt_enrichment_operation(
         self,
         *,
@@ -3159,6 +3405,7 @@ class AnnotationStore:
             "operation_type": row["operation_type"],
             "task_id": row["task_id"],
             "task_version": row["task_version"],
+            "task_group_id": row["task_group_id"],
             "status": row["status"],
             "request": _json_loads(row["request_json"], {}),
             "result": _json_loads(row["result_json"], None),
@@ -3246,7 +3493,11 @@ class AnnotationStore:
     ) -> dict[str, Any] | None:
         self._ensure_initialized()
         normalized_worker_id = self._validate_worker_id(worker_id)
-        if operation_type not in {"mask_candidate", "prompt_enrichment"}:
+        if operation_type not in {
+            "mask_candidate",
+            "prompt_enrichment",
+            "joint_prompt_enrichment",
+        }:
             raise ValueError("unsupported operation_type")
         if lease_seconds < 1 or lease_seconds > 86_400:
             raise ValueError(

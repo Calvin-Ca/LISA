@@ -58,6 +58,8 @@ class StaticOpenAPIContractTest(unittest.TestCase):
                 "createBatchMaskCandidates",
                 "createPromptEnrichment",
                 "createBatchPromptEnrichments",
+                "createJointPromptEnrichment",
+                "getAnnotationTaskGroup",
                 "getTaskArtifact",
                 "getAnnotationOperation",
                 "cancelAnnotationOperation",
@@ -106,7 +108,12 @@ class StaticOpenAPIContractTest(unittest.TestCase):
             "BatchPromptEnrichmentsRequest",
             "BuildReviewTasksResponse",
             "DetectionOverlapWarning",
+            "JointPromptEnrichmentRequest",
             "ReviewTaskBuildItem",
+            "TaskGroup",
+            "TaskGroupMember",
+            "TaskGroupOperationAccepted",
+            "AnnotationOperation",
         ):
             static_schema = static["components"]["schemas"][schema_name]
             runtime_schema = runtime["components"]["schemas"][schema_name]
