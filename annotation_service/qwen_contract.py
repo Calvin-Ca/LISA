@@ -20,7 +20,7 @@ QWEN_FACTS_PROMPT_VERSION = "construction-visible-facts-v1"
 QWEN_ENRICHMENT_PROMPT_VERSION = "construction-prompts-3-2-1-v1"
 QWEN_JOINT_FACTS_PROMPT_VERSION = "construction-joint-visible-facts-v2"
 QWEN_JOINT_ENRICHMENT_PROMPT_VERSION = (
-    "construction-joint-prompts-3-2-1-v2"
+    "construction-joint-prompts-3-2-1-reviewed-v3"
 )
 
 RISK_SEMANTIC_BOUNDARIES = {
@@ -592,6 +592,8 @@ def build_joint_prompt_enrichment_messages(
     facts: QwenJointVisualFacts,
 ) -> list[dict[str, str]]:
     task_ids = [item.task_id for item in facts.task_targets]
+    prompt_facts = _model_json(facts)
+    prompt_facts.pop("instance_count", None)
     output_example = {
         "covered_task_ids": task_ids,
         "fact_consistent": True,
@@ -633,7 +635,7 @@ def build_joint_prompt_enrichment_messages(
                 "来源类别："
                 f"{json.dumps([item.value for item in unique_categories], ensure_ascii=False)}\n"
                 f"联合视觉事实："
-                f"{json.dumps(_model_json(facts), ensure_ascii=False)}\n"
+                f"{json.dumps(prompt_facts, ensure_ascii=False)}\n"
                 "类别语义边界："
                 f"{json.dumps(boundaries, ensure_ascii=False)}\n"
                 "生成恰好3条visual、2条risk、1条agent Prompt，文本互不"
@@ -642,6 +644,56 @@ def build_joint_prompt_enrichment_messages(
                 "covered_task_ids必须原样按顺序返回全部Task ID；只有逐条"
                 "检查六条Prompt均未遗漏目标且未反转事实后，fact_consistent"
                 "才能输出true。输出格式："
+                f"{json.dumps(output_example, ensure_ascii=False)}"
+            ),
+        },
+    ]
+
+
+def build_joint_prompt_review_messages(
+    *,
+    facts: QwenJointVisualFacts,
+    candidate_prompts: QwenPromptSet,
+) -> list[dict[str, str]]:
+    task_ids = [item.task_id for item in facts.task_targets]
+    review_facts = _model_json(facts)
+    review_facts.pop("instance_count", None)
+    output_example = {
+        "covered_task_ids": task_ids,
+        "fact_consistent": True,
+        "prompts": [
+            {"prompt_id": "visual-1", "type": "visual", "text": "示例一"},
+            {"prompt_id": "visual-2", "type": "visual", "text": "示例二"},
+            {"prompt_id": "visual-3", "type": "visual", "text": "示例三"},
+            {"prompt_id": "risk-1", "type": "risk", "text": "示例四"},
+            {"prompt_id": "risk-2", "type": "risk", "text": "示例五"},
+            {"prompt_id": "agent-1", "type": "agent", "text": "示例六"},
+        ],
+    }
+    return [
+        {
+            "role": "system",
+            "content": (
+                "你是多目标联合Prompt的事实一致性审核和修订器。必须逐条"
+                "核对候选Prompt与task_targets，不是只做评价。发现对象遗漏、"
+                "对象新增、实例数量错误、关系错误或安全状态反转时，必须直接"
+                "改写对应Prompt。不同Task可以是人员及其穿戴物；两个Task不"
+                "等于两个人。每个对象的数量只允许来自对应task_targets中的"
+                "instance_count，不得把Task数量相加后套到某一对象类别。"
+                "六条Prompt都必须同时描述全部Task目标及已确认关系。事实显示"
+                "已穿戴或合规时，禁止改写成未穿戴、违规或存在隐患。完成逐条"
+                "修订后才可输出fact_consistent=true。只输出JSON对象。"
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                "逐Task视觉事实："
+                f"{json.dumps(review_facts, ensure_ascii=False)}\n"
+                "待审核候选Prompt："
+                f"{json.dumps(_model_json(candidate_prompts), ensure_ascii=False)}\n"
+                "保持3条visual、2条risk、1条agent且文本互不重复。"
+                "covered_task_ids必须原样按顺序返回全部Task ID。输出格式："
                 f"{json.dumps(output_example, ensure_ascii=False)}"
             ),
         },

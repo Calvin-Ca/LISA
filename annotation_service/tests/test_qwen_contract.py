@@ -6,11 +6,13 @@ from annotation_service.qwen_contract import (
     QwenContractError,
     QwenImageInput,
     QwenJointVisualFacts,
+    QwenPromptSet,
     QwenJointTarget,
     QwenJointVisualContext,
     QwenVisualContext,
     QwenVisualFacts,
     build_joint_prompt_enrichment_messages,
+    build_joint_prompt_review_messages,
     build_joint_visual_facts_messages,
     build_prompt_enrichment_messages,
     build_visual_facts_messages,
@@ -201,10 +203,15 @@ class QwenContractTest(unittest.TestCase):
             ],
             facts=QwenJointVisualFacts(**joint_facts_payload()),
         )
+        review_messages = build_joint_prompt_review_messages(
+            facts=QwenJointVisualFacts(**joint_facts_payload()),
+            candidate_prompts=QwenPromptSet(**prompt_payload()),
+        )
 
         self.assertIn("全部所选目标", facts_messages[0]["content"])
         self.assertIn("所有成员mask", prompt_messages[0]["content"])
         self.assertIn("fact_consistent", prompt_messages[1]["content"])
+        self.assertIn("两个Task不", review_messages[0]["content"])
         self.assertIn(
             "equipment_proximity",
             prompt_messages[1]["content"],
