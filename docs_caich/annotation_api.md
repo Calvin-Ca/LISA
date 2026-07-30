@@ -873,7 +873,7 @@ Qwen Worker 的一次联合输入包含：
     ],
     "provenance": {
       "qwen_facts_prompt_version": "construction-joint-visible-facts-v2",
-      "qwen_enrichment_prompt_version": "construction-joint-prompts-3-2-1-reviewed-v4"
+      "qwen_enrichment_prompt_version": "construction-joint-prompts-3-2-1-grounded-v5"
     }
   }
 }
@@ -889,6 +889,9 @@ Qwen Worker 的一次联合输入包含：
 并通过独立复核阶段逐条修订对象遗漏、对象数量错误和安全状态反转。来源
 `category` 只用于限制风险措辞，不作为“未佩戴”“未穿着”等违规事实的证据。
 复核阶段还会移除视觉事实中未出现的光照条件、环境推断和通用风险后果。
+最终 3 条 `visual` 保留模型复核后的开放表达；2 条 `risk` 和 1 条 `agent`
+由已验证的 `target_object`、`visible_facts`、`visual_anchor` 和
+`mask_granularity` 确定性生成，避免模型重新引入未证实条件。
 上述校验字段是 Qwen 内部输出契约，不在最终 `prompts` 数组中重复返回。
 
 实际 `prompts` 仍固定返回完整 3+2+1 六条。也可以直接查询持久化的 Group：

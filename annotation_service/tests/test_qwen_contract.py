@@ -16,6 +16,7 @@ from annotation_service.qwen_contract import (
     build_joint_visual_facts_messages,
     build_prompt_enrichment_messages,
     build_visual_facts_messages,
+    ground_joint_prompt_set,
     parse_joint_prompt_set,
     parse_joint_visual_facts,
     parse_prompt_set,
@@ -130,6 +131,21 @@ class QwenContractTest(unittest.TestCase):
                 json.dumps(envelope, ensure_ascii=False),
                 expected_task_ids=["tsk-1", "tsk-2"],
             )
+
+    def test_joint_risk_and_agent_prompts_are_fact_grounded(self):
+        facts = QwenJointVisualFacts(**joint_facts_payload())
+        grounded = ground_joint_prompt_set(
+            facts=facts,
+            candidate_prompts=QwenPromptSet(**prompt_payload()),
+        )
+        by_id = {
+            prompt.prompt_id: prompt.text
+            for prompt in grounded.prompts
+        }
+        self.assertIn(facts.visible_facts[0], by_id["risk-1"])
+        self.assertIn(facts.visual_anchor[0], by_id["risk-2"])
+        self.assertIn(facts.target_object, by_id["agent-1"])
+        self.assertNotIn("降低风险", by_id["risk-1"])
 
     def test_messages_separate_candidate_context_from_visible_facts(self):
         context = QwenVisualContext(

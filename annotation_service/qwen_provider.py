@@ -26,6 +26,7 @@ from .qwen_contract import (
     build_joint_prompt_review_messages,
     build_joint_visual_facts_messages,
     build_visual_facts_messages,
+    ground_joint_prompt_set,
     parse_joint_prompt_set,
     parse_joint_visual_facts,
     parse_prompt_set,
@@ -292,9 +293,13 @@ class Qwen25VLProvider:
             ),
             temperature=self.config.facts_temperature,
         )
-        prompt_set = parse_joint_prompt_set(
+        reviewed_prompt_set = parse_joint_prompt_set(
             reviewed_prompts,
             expected_task_ids=expected_task_ids,
+        )
+        prompt_set = ground_joint_prompt_set(
+            facts=facts,
+            candidate_prompts=reviewed_prompt_set,
         )
         return QwenGenerationResult(
             facts=facts,

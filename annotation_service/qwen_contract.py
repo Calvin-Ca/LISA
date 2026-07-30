@@ -20,7 +20,7 @@ QWEN_FACTS_PROMPT_VERSION = "construction-visible-facts-v1"
 QWEN_ENRICHMENT_PROMPT_VERSION = "construction-prompts-3-2-1-v1"
 QWEN_JOINT_FACTS_PROMPT_VERSION = "construction-joint-visible-facts-v2"
 QWEN_JOINT_ENRICHMENT_PROMPT_VERSION = (
-    "construction-joint-prompts-3-2-1-reviewed-v4"
+    "construction-joint-prompts-3-2-1-grounded-v5"
 )
 
 RISK_SEMANTIC_BOUNDARIES = {
@@ -399,6 +399,55 @@ def parse_joint_prompt_set(
             "Qwen joint prompts did not cover every Task in order"
         )
     return prompt_set
+
+
+def ground_joint_prompt_set(
+    *,
+    facts: QwenJointVisualFacts,
+    candidate_prompts: QwenPromptSet,
+) -> QwenPromptSet:
+    visual_prompts = [
+        prompt
+        for prompt in candidate_prompts.prompts
+        if prompt.type == PromptType.VISUAL
+    ]
+    target = facts.target_object
+    visible_fact = facts.visible_facts[0]
+    anchor = facts.visual_anchor[0]
+    mask_granularity = facts.mask_granularity
+    grounded = [
+        *visual_prompts,
+        AnnotationPrompt(
+            prompt_id="risk-1",
+            type=PromptType.RISK,
+            text=(
+                f"从安全标注角度分割{target}，"
+                f"可见事实为：{visible_fact}。"
+            ),
+        ),
+        AnnotationPrompt(
+            prompt_id="risk-2",
+            type=PromptType.RISK,
+            text=(
+                f"标出{target}，保持{mask_granularity}；"
+                f"关系锚点：{anchor}。"
+            ),
+        ),
+        AnnotationPrompt(
+            prompt_id="agent-1",
+            type=PromptType.AGENT,
+            text=(
+                f"请定位并联合分割{target}，"
+                "保留全部所选Task对应的mask目标。"
+            ),
+        ),
+    ]
+    try:
+        return QwenPromptSet(prompts=grounded)
+    except Exception as exc:
+        raise QwenContractError(
+            "grounded joint prompts exceed the annotation contract"
+        ) from exc
 
 
 def build_visual_facts_messages(
