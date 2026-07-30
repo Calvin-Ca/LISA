@@ -161,9 +161,17 @@ class AnnotationAppTest(unittest.TestCase):
                 "post",
             ): "createMaskCandidate",
             (
+                "/v1/annotation/task-batches/mask-candidates",
+                "post",
+            ): "createBatchMaskCandidates",
+            (
                 "/v1/annotation/tasks/{task_id}/prompt-enrichments",
                 "post",
             ): "createPromptEnrichment",
+            (
+                "/v1/annotation/task-batches/prompt-enrichments",
+                "post",
+            ): "createBatchPromptEnrichments",
             (
                 "/v1/annotation/tasks/{task_id}/submit",
                 "post",

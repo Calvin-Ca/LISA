@@ -210,8 +210,10 @@ POST /jobs
 GET /jobs/{job_id}/detections
 POST /jobs/{job_id}/review-tasks
 POST /tasks/{task_id}/mask-candidates
+POST /task-batches/mask-candidates
 轮询 GET /operations/{operation_id}
 POST /tasks/{task_id}/prompt-enrichments
+POST /task-batches/prompt-enrichments
 轮询 GET /operations/{operation_id}
 PUT /tasks/{task_id}/draft
 POST /tasks/{task_id}/submit
@@ -220,6 +222,14 @@ POST /tasks/{task_id}/submit
 SAM 和 Qwen 的 Operation 结果是候选，不会自动覆盖人工草稿。Spring 必须获取
 最新 Task，将选择的 `shapes`、事实和 Prompt 合并为完整 `annotation` 后调用
 draft。这样可以避免异步模型结果覆盖用户正在编辑的内容。
+
+检测框支持单选或多选。`review-tasks` 始终保持一个 detection 对应一个 Task；
+批量 SAM 接口一次接收多个 Task，同一图片只执行一次 `set_image()`，每个 box
+仍独立选择最高 predicted IoU 的 SAM 候选并保存到自己的 Task。批量 Prompt
+接口同样按 Task 返回 Operation，单项失败不会阻止同批其他任务入队。
+
+同类别检测框 IoU 不低于 `0.8` 时，`review-tasks.overlap_warnings` 会提示可能
+重复实例，但服务不会自动删除检测框或合并 mask，最终去重由人工确认。
 
 ## 本地纯逻辑测试
 

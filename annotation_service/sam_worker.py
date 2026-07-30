@@ -45,6 +45,7 @@ class SAMWorkerSettings:
     python_package: str
     model_version: str
     polygon_epsilon: float
+    max_batch_size: int
     worker_id: str
     lease_seconds: int
     heartbeat_seconds: int
@@ -98,6 +99,12 @@ class SAMWorkerSettings:
             ).strip(),
             polygon_epsilon=float(
                 os.getenv("ANNOTATION_SAM_POLYGON_EPSILON", "1.0")
+            ),
+            max_batch_size=_integer(
+                "ANNOTATION_SAM_MAX_BATCH_SIZE",
+                16,
+                1,
+                128,
             ),
             worker_id=os.getenv(
                 "ANNOTATION_SAM_WORKER_ID",
@@ -184,6 +191,7 @@ class SAMMaskWorker:
         lease_seconds: int = 300,
         heartbeat_seconds: int = 60,
         poll_seconds: float = 2.0,
+        max_batch_size: int = 16,
     ):
         if heartbeat_seconds >= lease_seconds:
             raise ValueError(
@@ -195,16 +203,21 @@ class SAMMaskWorker:
         self.lease_seconds = lease_seconds
         self.heartbeat_seconds = heartbeat_seconds
         self.poll_seconds = poll_seconds
+        if max_batch_size < 1 or max_batch_size > 128:
+            raise ValueError(
+                "max_batch_size must be between 1 and 128"
+            )
+        self.max_batch_size = max_batch_size
 
     def run_once(self) -> bool:
-        operation = self.store.claim_next_operation(
-            operation_type="mask_candidate",
+        operations = self.store.claim_mask_operation_batch(
             worker_id=self.worker_id,
             lease_seconds=self.lease_seconds,
+            max_batch_size=self.max_batch_size,
         )
-        if operation is None:
+        if not operations:
             return False
-        self._process(operation)
+        self._process_batch(operations)
         return True
 
     def run_forever(
@@ -221,63 +234,138 @@ class SAMMaskWorker:
             if not processed:
                 stop.wait(self.poll_seconds)
 
-    def _process(self, operation: dict) -> None:
+    def _fail_running_operation(
+        self,
+        operation: dict,
+        error: Exception,
+    ) -> None:
         operation_id = operation["operation_id"]
-        heartbeat = OperationHeartbeat(
-            store=self.store,
-            operation_id=operation_id,
-            worker_id=self.worker_id,
-            lease_seconds=self.lease_seconds,
-            interval_seconds=self.heartbeat_seconds,
-        )
-        heartbeat.start()
         try:
-            task = self.store.get_task(operation["task_id"])
-            if task["version"] != operation["task_version"]:
-                raise ValueError(
-                    "task version changed after mask operation was queued"
-                )
-            image_path, _ = self.store.asset_file(
-                task["asset"]["asset_id"]
-            )
-            candidate = self.predictor.predict(
-                image_path=image_path,
-                box_xyxy=operation["request"]["box_xyxy"],
-            )
-            heartbeat.ensure_healthy()
-            if self.store.get_operation(operation_id)["status"] != "running":
-                raise ValueError(
-                    "mask operation was cancelled before artifacts were saved"
-                )
-            result = persist_sam_candidate(
-                self.store,
-                task_id=task["task_id"],
-                operation_id=operation_id,
-                candidate=candidate,
-            )
-            self.store.complete_operation(
+            current = self.store.get_operation(operation_id)
+            if current["status"] != "running":
+                return
+            self.store.fail_operation(
                 operation_id,
                 worker_id=self.worker_id,
-                result=result,
+                code="model_unavailable",
+                message=str(error),
             )
-        except Exception as exc:
+        except Exception:
             LOGGER.exception(
-                "SAM mask generation failed",
+                "failed to persist SAM operation error",
                 extra={"operation_id": operation_id},
             )
+
+    def _predict_many(
+        self,
+        *,
+        image_path: Path,
+        boxes_xyxy: list[list[float]],
+    ) -> list[SAMMaskCandidate]:
+        batch_predict = getattr(self.predictor, "predict_many", None)
+        if callable(batch_predict):
+            return batch_predict(
+                image_path=image_path,
+                boxes_xyxy=boxes_xyxy,
+            )
+        return [
+            self.predictor.predict(
+                image_path=image_path,
+                box_xyxy=box_xyxy,
+            )
+            for box_xyxy in boxes_xyxy
+        ]
+
+    def _process_batch(self, operations: list[dict]) -> None:
+        heartbeats = [
+            OperationHeartbeat(
+                store=self.store,
+                operation_id=operation["operation_id"],
+                worker_id=self.worker_id,
+                lease_seconds=self.lease_seconds,
+                interval_seconds=self.heartbeat_seconds,
+            )
+            for operation in operations
+        ]
+        for heartbeat in heartbeats:
+            heartbeat.start()
+        try:
+            tasks = [
+                self.store.get_task(operation["task_id"])
+                for operation in operations
+            ]
+            for task, operation in zip(tasks, operations):
+                if task["version"] != operation["task_version"]:
+                    raise ValueError(
+                        "task version changed after mask operation was queued"
+                    )
+            asset_ids = {
+                task["asset"]["asset_id"] for task in tasks
+            }
+            if len(asset_ids) != 1:
+                raise ValueError(
+                    "SAM batch operations must reference one image"
+                )
+            image_path, _ = self.store.asset_file(asset_ids.pop())
+            candidates = self._predict_many(
+                image_path=image_path,
+                boxes_xyxy=[
+                    operation["request"]["box_xyxy"]
+                    for operation in operations
+                ],
+            )
+            if len(candidates) != len(operations):
+                raise ValueError(
+                    "SAM batch result count does not match box count"
+                )
+            for heartbeat in heartbeats:
+                heartbeat.ensure_healthy()
+        except Exception as exc:
+            LOGGER.exception(
+                "SAM batch mask generation failed",
+                extra={
+                    "operation_ids": [
+                        operation["operation_id"]
+                        for operation in operations
+                    ]
+                },
+            )
+            for operation in operations:
+                self._fail_running_operation(operation, exc)
+            for heartbeat in heartbeats:
+                heartbeat.stop()
+            return
+
+        for operation, task, candidate in zip(
+            operations,
+            tasks,
+            candidates,
+        ):
+            operation_id = operation["operation_id"]
             try:
-                self.store.fail_operation(
+                if (
+                    self.store.get_operation(operation_id)["status"]
+                    != "running"
+                ):
+                    continue
+                result = persist_sam_candidate(
+                    self.store,
+                    task_id=task["task_id"],
+                    operation_id=operation_id,
+                    candidate=candidate,
+                )
+                self.store.complete_operation(
                     operation_id,
                     worker_id=self.worker_id,
-                    code="model_unavailable",
-                    message=str(exc),
+                    result=result,
                 )
-            except Exception:
+            except Exception as exc:
                 LOGGER.exception(
-                    "failed to persist SAM operation error",
+                    "SAM mask candidate persistence failed",
                     extra={"operation_id": operation_id},
                 )
-        finally:
+                self._fail_running_operation(operation, exc)
+        for heartbeat in heartbeats:
             heartbeat.stop()
 
 
@@ -300,6 +388,7 @@ def main() -> int:
         lease_seconds=settings.lease_seconds,
         heartbeat_seconds=settings.heartbeat_seconds,
         poll_seconds=settings.poll_seconds,
+        max_batch_size=settings.max_batch_size,
     )
     try:
         if args.once:

@@ -3265,6 +3265,118 @@ class AnnotationStore:
             connection.execute("COMMIT")
         return self.get_operation(row["operation_id"])
 
+    def claim_mask_operation_batch(
+        self,
+        *,
+        worker_id: str,
+        lease_seconds: int = 300,
+        max_batch_size: int = 16,
+    ) -> list[dict[str, Any]]:
+        """Claim mask operations for one asset so SAM can reuse its embedding."""
+
+        self._ensure_initialized()
+        normalized_worker_id = self._validate_worker_id(worker_id)
+        if lease_seconds < 1 or lease_seconds > 86_400:
+            raise ValueError(
+                "lease_seconds must be between 1 and 86400"
+            )
+        if max_batch_size < 1 or max_batch_size > 128:
+            raise ValueError(
+                "max_batch_size must be between 1 and 128"
+            )
+        claimed_at = datetime.now(timezone.utc)
+        now = claimed_at.isoformat()
+        expires_at = (
+            claimed_at + timedelta(seconds=lease_seconds)
+        ).isoformat()
+        with self._lock, self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            first = connection.execute(
+                """
+                SELECT o.operation_id, t.asset_id
+                FROM annotation_operations o
+                JOIN annotation_tasks t ON t.task_id = o.task_id
+                WHERE o.operation_type = 'mask_candidate'
+                  AND (
+                    o.status = 'queued'
+                    OR (
+                      o.status = 'running'
+                      AND (
+                        o.claimed_by IS NULL
+                        OR o.lease_expires_at IS NULL
+                        OR o.lease_expires_at <= ?
+                      )
+                    )
+                  )
+                ORDER BY
+                  CASE o.status WHEN 'running' THEN 0 ELSE 1 END,
+                  o.created_at, o.operation_id
+                LIMIT 1
+                """,
+                (now,),
+            ).fetchone()
+            if first is None:
+                connection.execute("COMMIT")
+                return []
+            rows = connection.execute(
+                """
+                SELECT o.operation_id
+                FROM annotation_operations o
+                JOIN annotation_tasks t ON t.task_id = o.task_id
+                WHERE o.operation_type = 'mask_candidate'
+                  AND t.asset_id = ?
+                  AND (
+                    o.status = 'queued'
+                    OR (
+                      o.status = 'running'
+                      AND (
+                        o.claimed_by IS NULL
+                        OR o.lease_expires_at IS NULL
+                        OR o.lease_expires_at <= ?
+                      )
+                    )
+                  )
+                ORDER BY
+                  CASE o.status WHEN 'running' THEN 0 ELSE 1 END,
+                  o.created_at, o.operation_id
+                LIMIT ?
+                """,
+                (
+                    first["asset_id"],
+                    now,
+                    max_batch_size,
+                ),
+            ).fetchall()
+            operation_ids = [row["operation_id"] for row in rows]
+            for operation_id in operation_ids:
+                connection.execute(
+                    """
+                    UPDATE annotation_operations
+                    SET status = 'running',
+                        claimed_by = ?,
+                        lease_expires_at = ?,
+                        heartbeat_at = ?,
+                        started_at = COALESCE(started_at, ?),
+                        attempt_count = attempt_count + 1,
+                        result_json = NULL,
+                        error_json = NULL,
+                        completed_at = NULL
+                    WHERE operation_id = ?
+                    """,
+                    (
+                        normalized_worker_id,
+                        expires_at,
+                        now,
+                        now,
+                        operation_id,
+                    ),
+                )
+            connection.execute("COMMIT")
+        return [
+            self.get_operation(operation_id)
+            for operation_id in operation_ids
+        ]
+
     def heartbeat_operation(
         self,
         operation_id: str,

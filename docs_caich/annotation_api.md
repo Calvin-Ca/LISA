@@ -1,16 +1,16 @@
 # 自动标注完整流程 API（Spring 后端对接）
 
-文档版本：`1.2.0`
+文档版本：`1.3.0`
 
 更新时间：`2026-07-30`
 
-开放语义字段要求服务版本不低于 `1.2.0`。联调前先调用 `GET /health` 核对
-`version`；低版本服务不识别本页新增的 mode、profile 和 failure policy。
+开放语义字段要求服务版本不低于 `1.2.0`，多检测框批处理要求不低于
+`1.3.0`。联调前先调用 `GET /health` 核对 `version`。
 
 ```json
 {
   "status": "ok",
-  "version": "1.2.0"
+  "version": "1.3.0"
 }
 ```
 
@@ -53,8 +53,8 @@ Authorization: Bearer <TEST_API_KEY>
 2. 提交任意 GroundingDINO Prompt，取得 job_id
 3. 轮询 Job 到终态
 4. 获取 bbox JSON 和带框图片
-5. 选择 detection，创建人工标注 Task
-6. 按 bbox 请求 SAM mask，轮询 Operation
+5. 选择一个或多个 detection，每个 detection 创建一个人工标注 Task
+6. 单个或批量请求 SAM mask，轮询各 Operation
 7. 下载二值 mask、mask overlay、crop，读取 polygon
 8. 请求 Qwen2.5-VL 批量生成 Prompt，轮询 Operation
 9. Spring/前端选择 Prompt、批量换词或自定义 Prompt
@@ -88,7 +88,9 @@ Task，合并用户选择后的结果，再保存 draft。
 | GET | `/v1/annotation/tasks/{task_id}` | Task 详情 |
 | PUT | `/v1/annotation/tasks/{task_id}/draft` | 保存完整人工草稿 |
 | POST | `/v1/annotation/tasks/{task_id}/mask-candidates` | 请求 SAM |
+| POST | `/v1/annotation/task-batches/mask-candidates` | 为多个 Task 批量请求 SAM |
 | POST | `/v1/annotation/tasks/{task_id}/prompt-enrichments` | 请求批量 Prompt |
+| POST | `/v1/annotation/task-batches/prompt-enrichments` | 为多个 Task 批量请求 Prompt |
 | POST | `/v1/annotation/tasks/{task_id}/submit` | 提交标注样本 |
 | POST | `/v1/annotation/tasks/{task_id}/invalidate` | 作废标注样本 |
 | POST | `/v1/annotation/tasks/{task_id}/review` | 审核样本 |
@@ -393,13 +395,19 @@ Content-Type: application/json
 
 ```json
 {
-  "detection_ids": ["det_xxx"],
+  "detection_ids": ["det_1", "det_2"],
   "category": "unsafe"
 }
 ```
 
-`detection_ids` 省略时为该 Job 的全部 detection。接口对同一个 detection
-幂等，不会重复创建 Task。
+`detection_ids` 支持 1～500 个且不能重复；省略时为该 Job 的全部 detection。
+接口对同一个 detection 幂等，不会重复创建 Task。底层始终保持：
+
+```text
+一个 detection -> 一个 Task -> 一个最终 mask
+```
+
+多选只是一次创建和处理多个 Task，不会把不同目标的候选 mask 混在一起。
 
 `category` 是后续标注业务分类，不限制 GroundingDINO Prompt。可选值：
 
@@ -423,11 +431,34 @@ unsafe
 ```json
 {
   "job_id": "job_xxx",
-  "task_ids": ["tsk_xxx"],
-  "created_count": 1,
-  "existing_count": 0
+  "task_ids": ["tsk_1", "tsk_2"],
+  "created_count": 2,
+  "existing_count": 0,
+  "items": [
+    {
+      "detection_id": "det_1",
+      "task_id": "tsk_1",
+      "task_version": 1,
+      "asset_id": "ast_xxx",
+      "box_xyxy": [120.5, 80.0, 460.25, 720.75],
+      "created": true
+    },
+    {
+      "detection_id": "det_2",
+      "task_id": "tsk_2",
+      "task_version": 1,
+      "asset_id": "ast_xxx",
+      "box_xyxy": [500.0, 90.0, 810.0, 715.0],
+      "created": true
+    }
+  ],
+  "overlap_warnings": []
 }
 ```
+
+`items` 是前端建立 detection、Task、box 对应关系的依据。同类别检测框
+`box IoU >= 0.8` 时，`overlap_warnings` 会提示可能检测到同一实例；服务不会
+自动删除，前端应让用户确认后再决定保留哪个 Task。
 
 获取 Task：
 
@@ -466,7 +497,65 @@ HTTP 202：
 }
 ```
 
-### 9.2 轮询并读取 SAM 结果
+### 9.2 批量创建 SAM Operation
+
+用户勾选多个检测框时，Spring 只需发送一次请求：
+
+```http
+POST /v1/annotation/task-batches/mask-candidates
+Content-Type: application/json
+```
+
+```json
+{
+  "items": [
+    {
+      "task_id": "tsk_1",
+      "expected_version": 1,
+      "box_xyxy": [120.5, 80.0, 460.25, 720.75]
+    },
+    {
+      "task_id": "tsk_2",
+      "expected_version": 1,
+      "box_xyxy": [500.0, 90.0, 810.0, 715.0]
+    }
+  ]
+}
+```
+
+HTTP 202：
+
+```json
+{
+  "items": [
+    {
+      "task_id": "tsk_1",
+      "operation_id": "op_1",
+      "status": "queued",
+      "created_at": "2026-07-30T10:00:03+00:00",
+      "error": null
+    },
+    {
+      "task_id": "tsk_2",
+      "operation_id": "op_2",
+      "status": "queued",
+      "created_at": "2026-07-30T10:00:03+00:00",
+      "error": null
+    }
+  ],
+  "accepted_count": 2,
+  "rejected_count": 0
+}
+```
+
+请求结构正确时统一返回 HTTP 202。某个 Task 不存在、版本冲突或 box 越界时，
+该项返回 `status=rejected` 和标准 `error`，其他有效项仍会入队。
+
+SAM Worker 会把同一图片的待处理 box 组成一批：图片 embedding 只计算一次，
+但每个 box 分别从 SAM 候选中选择 `predicted_iou` 最高的一个，并把 mask 保存
+到对应 Task。不同 Task 的 mask 即使重叠也不会自动合并或互相覆盖。
+
+### 9.3 轮询并读取 SAM 结果
 
 ```http
 GET /v1/annotation/operations/{operation_id}
@@ -551,6 +640,25 @@ HTTP 202 返回 `operation_id`。继续轮询：
 ```http
 GET /v1/annotation/operations/{operation_id}
 ```
+
+多个 Task 可以一次入队：
+
+```http
+POST /v1/annotation/task-batches/prompt-enrichments
+Content-Type: application/json
+```
+
+```json
+{
+  "items": [
+    {"task_id": "tsk_1", "expected_version": 1},
+    {"task_id": "tsk_2", "expected_version": 1}
+  ]
+}
+```
+
+响应结构与批量 SAM 相同，每项返回自己的 `operation_id`。尚无 SAM mask、
+Task 不存在或版本冲突的项返回 `rejected`，不影响其他 Task。
 
 成功时 `result`：
 
@@ -754,6 +862,9 @@ reject
 - API Key 只保存在 Spring 服务端，不下发浏览器。
 - Spring 到本服务是服务端请求，不受浏览器 CORS 限制。
 - 前端返回上一步时，先取消仍在执行的 Job/Operation，再决定是否作废 Task。
+- 多选后按 `review-tasks.items` 建立 Task 列表，并提供上一个/下一个目标切换。
+- 分别轮询批量响应中的每个 `operation_id`；不能把多个 mask 当作一个 Task。
+- `overlap_warnings` 只提示可能重复，不应在前端静默删除检测框。
 
 推荐 WebClient：
 

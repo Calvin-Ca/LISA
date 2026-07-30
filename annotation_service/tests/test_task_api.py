@@ -314,6 +314,120 @@ class TaskApiTest(unittest.TestCase):
         )
         self.assertEqual(outside.status_code, 422)
 
+    def test_batch_mask_and_prompt_operations_keep_tasks_separate(self):
+        second = self.store.create_task(
+            job_id=self.job_id,
+            asset_id=self.asset_id,
+            category="helmet_missing",
+            annotation=complete_annotation("另一名作业人员"),
+            provenance={"pipeline_version": "grounded-qwen-v1"},
+        )
+        batch = self.client.post(
+            "/v1/annotation/task-batches/mask-candidates",
+            json={
+                "items": [
+                    {
+                        "task_id": self.task["task_id"],
+                        "expected_version": 1,
+                        "box_xyxy": [1, 1, 5, 9],
+                    },
+                    {
+                        "task_id": second["task_id"],
+                        "expected_version": 1,
+                        "box_xyxy": [5, 1, 9, 9],
+                    },
+                ]
+            },
+        )
+        self.assertEqual(batch.status_code, 202, batch.text)
+        payload = batch.json()
+        self.assertEqual(payload["accepted_count"], 2)
+        self.assertEqual(payload["rejected_count"], 0)
+        self.assertEqual(
+            {item["task_id"] for item in payload["items"]},
+            {self.task["task_id"], second["task_id"]},
+        )
+        self.assertEqual(
+            len(
+                {
+                    item["operation_id"]
+                    for item in payload["items"]
+                }
+            ),
+            2,
+        )
+
+        partial = self.client.post(
+            "/v1/annotation/task-batches/mask-candidates",
+            json={
+                "items": [
+                    {
+                        "task_id": self.task["task_id"],
+                        "expected_version": 1,
+                        "box_xyxy": [1, 1, 5, 9],
+                    },
+                    {
+                        "task_id": "tsk_missing",
+                        "expected_version": 1,
+                        "box_xyxy": [1, 1, 5, 9],
+                    },
+                ]
+            },
+        )
+        self.assertEqual(partial.status_code, 202, partial.text)
+        self.assertEqual(partial.json()["accepted_count"], 1)
+        self.assertEqual(partial.json()["rejected_count"], 1)
+        self.assertEqual(
+            partial.json()["items"][1]["error"]["code"],
+            "not_found",
+        )
+
+        self.store.store_artifact(
+            task_id=self.task["task_id"],
+            artifact_type="mask",
+            data=png_bytes(),
+            media_type="image/png",
+        )
+        prompts = self.client.post(
+            "/v1/annotation/task-batches/prompt-enrichments",
+            json={
+                "items": [
+                    {
+                        "task_id": self.task["task_id"],
+                        "expected_version": 1,
+                    },
+                    {
+                        "task_id": second["task_id"],
+                        "expected_version": 1,
+                    },
+                ]
+            },
+        )
+        self.assertEqual(prompts.status_code, 202, prompts.text)
+        self.assertEqual(prompts.json()["accepted_count"], 1)
+        self.assertEqual(prompts.json()["rejected_count"], 1)
+        self.assertEqual(
+            prompts.json()["items"][1]["error"]["code"],
+            "validation_error",
+        )
+
+        duplicated = self.client.post(
+            "/v1/annotation/task-batches/prompt-enrichments",
+            json={
+                "items": [
+                    {
+                        "task_id": self.task["task_id"],
+                        "expected_version": 1,
+                    },
+                    {
+                        "task_id": self.task["task_id"],
+                        "expected_version": 1,
+                    },
+                ]
+            },
+        )
+        self.assertEqual(duplicated.status_code, 422)
+
     def test_queued_operation_can_be_cancelled(self):
         accepted = self.client.post(
             (

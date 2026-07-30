@@ -300,7 +300,9 @@ class JobApiTest(unittest.TestCase):
         self.assertTrue(image.headers["etag"])
         self.assertEqual(image.content, png_bytes((30, 40, 50)))
 
-    def test_completed_detection_can_build_idempotent_review_task(self):
+    def test_completed_detections_build_mapped_tasks_with_overlap_warning(
+        self,
+    ):
         job_id = self.create_job().json()["job_id"]
         worker_id = "task-builder-test-worker"
         claimed = self.store.claim_next_job(
@@ -325,7 +327,20 @@ class JobApiTest(unittest.TestCase):
                         "box_threshold": 0.35,
                         "text_threshold": 0.25,
                     },
-                }
+                },
+                {
+                    "entity": "worker",
+                    "box_xyxy": [1.5, 1, 18.5, 9],
+                    "box_score": 0.87,
+                    "phrase_score": 0.81,
+                    "metadata": {
+                        "grounding_prompt": claimed["grounding_prompt"],
+                        "model_version": "dino-test",
+                        "prompt_version": "free-form-v1",
+                        "box_threshold": 0.35,
+                        "text_threshold": 0.25,
+                    },
+                },
             ],
             worker_id=worker_id,
         )
@@ -358,7 +373,9 @@ class JobApiTest(unittest.TestCase):
         )
 
         payload = {
-            "detection_ids": [saved[0]["detection_id"]],
+            "detection_ids": [
+                detection["detection_id"] for detection in saved
+            ],
             "category": "unsafe",
         }
         created = self.client.post(
@@ -366,7 +383,26 @@ class JobApiTest(unittest.TestCase):
             json=payload,
         )
         self.assertEqual(created.status_code, 200, created.text)
-        self.assertEqual(created.json()["created_count"], 1)
+        self.assertEqual(created.json()["created_count"], 2)
+        self.assertEqual(len(created.json()["items"]), 2)
+        self.assertEqual(
+            {
+                item["detection_id"]
+                for item in created.json()["items"]
+            },
+            {
+                detection["detection_id"]
+                for detection in saved
+            },
+        )
+        self.assertTrue(
+            all(item["created"] for item in created.json()["items"])
+        )
+        self.assertEqual(len(created.json()["overlap_warnings"]), 1)
+        self.assertGreaterEqual(
+            created.json()["overlap_warnings"][0]["box_iou"],
+            0.8,
+        )
         task_id = created.json()["task_ids"][0]
         task = self.client.get(
             f"/v1/annotation/tasks/{task_id}"
@@ -385,8 +421,17 @@ class JobApiTest(unittest.TestCase):
         )
         self.assertEqual(repeated.status_code, 200, repeated.text)
         self.assertEqual(repeated.json()["created_count"], 0)
-        self.assertEqual(repeated.json()["existing_count"], 1)
-        self.assertEqual(repeated.json()["task_ids"], [task_id])
+        self.assertEqual(repeated.json()["existing_count"], 2)
+        self.assertEqual(
+            repeated.json()["task_ids"],
+            created.json()["task_ids"],
+        )
+        self.assertTrue(
+            all(
+                not item["created"]
+                for item in repeated.json()["items"]
+            )
+        )
 
     def test_queued_job_can_be_cancelled(self):
         job_id = self.create_job().json()["job_id"]

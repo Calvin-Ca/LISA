@@ -166,7 +166,7 @@ def render_sam_candidate(
 
 
 class SAMAdapter:
-    """Lazily load Segment Anything and predict from one bounding box."""
+    """Lazily load SAM and reuse one image embedding for one or more boxes."""
 
     def __init__(self, config: SAMModelConfig):
         self.config = config
@@ -192,24 +192,44 @@ class SAMAdapter:
         image_path: Path,
         box_xyxy: list[float],
     ) -> SAMMaskCandidate:
+        return self.predict_many(
+            image_path=image_path,
+            boxes_xyxy=[box_xyxy],
+        )[0]
+
+    def predict_many(
+        self,
+        *,
+        image_path: Path,
+        boxes_xyxy: list[list[float]],
+    ) -> list[SAMMaskCandidate]:
+        if not boxes_xyxy:
+            raise ValueError("boxes_xyxy must not be empty")
         predictor = self._load()
         with Image.open(image_path) as source:
             image = source.convert("RGB")
             image_array = np.asarray(image)
         predictor.set_image(image_array, image_format="RGB")
-        masks, scores, _ = predictor.predict(
-            box=np.asarray(box_xyxy, dtype=np.float32),
-            multimask_output=True,
-            return_logits=False,
-        )
-        if len(scores) == 0:
-            raise SAMInferenceError("SAM returned no mask candidates")
-        best = int(np.argmax(scores))
-        return render_sam_candidate(
-            image=image,
-            mask=masks[best],
-            box_xyxy=box_xyxy,
-            predicted_iou=float(scores[best]),
-            model_version=self.config.model_version,
-            polygon_epsilon=self.config.polygon_epsilon,
-        )
+        candidates: list[SAMMaskCandidate] = []
+        for box_xyxy in boxes_xyxy:
+            masks, scores, _ = predictor.predict(
+                box=np.asarray(box_xyxy, dtype=np.float32),
+                multimask_output=True,
+                return_logits=False,
+            )
+            if len(scores) == 0:
+                raise SAMInferenceError(
+                    "SAM returned no mask candidates"
+                )
+            best = int(np.argmax(scores))
+            candidates.append(
+                render_sam_candidate(
+                    image=image,
+                    mask=masks[best],
+                    box_xyxy=box_xyxy,
+                    predicted_iou=float(scores[best]),
+                    model_version=self.config.model_version,
+                    polygon_epsilon=self.config.polygon_epsilon,
+                )
+            )
+        return candidates

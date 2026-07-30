@@ -484,11 +484,32 @@ class JobHazardCandidatesResponse(StrictModel):
     total: int = Field(..., ge=0)
 
 
+class ReviewTaskBuildItem(StrictModel):
+    detection_id: str
+    task_id: str
+    task_version: int = Field(..., ge=1)
+    asset_id: str
+    box_xyxy: List[float]
+    created: bool
+
+    _box_is_valid = validator("box_xyxy", allow_reuse=True)(_validate_box)
+
+
+class DetectionOverlapWarning(StrictModel):
+    detection_ids: List[str] = Field(..., min_items=2, max_items=2)
+    box_iou: float = Field(..., ge=0, le=1)
+    message: str
+
+
 class BuildReviewTasksResponse(StrictModel):
     job_id: str
     task_ids: List[str] = Field(default_factory=list)
     created_count: int = Field(..., ge=0)
     existing_count: int = Field(..., ge=0)
+    items: List[ReviewTaskBuildItem] = Field(default_factory=list)
+    overlap_warnings: List[DetectionOverlapWarning] = Field(
+        default_factory=list
+    )
 
 
 class BuildDetectionTasksRequest(StrictModel):
@@ -679,6 +700,49 @@ class CreatePromptEnrichmentRequest(StrictModel):
     expected_version: int = Field(..., ge=1)
 
 
+class BatchMaskCandidateItem(StrictModel):
+    task_id: str = Field(..., min_length=1, max_length=128)
+    expected_version: int = Field(..., ge=1)
+    box_xyxy: List[float]
+
+    _box_is_valid = validator("box_xyxy", allow_reuse=True)(_validate_box)
+
+
+class BatchMaskCandidatesRequest(StrictModel):
+    items: List[BatchMaskCandidateItem] = Field(
+        ...,
+        min_items=1,
+        max_items=500,
+    )
+
+    @validator("items")
+    def task_ids_must_be_unique(cls, value):
+        task_ids = [item.task_id for item in value]
+        if len(task_ids) != len(set(task_ids)):
+            raise ValueError("batch task_id values must be unique")
+        return value
+
+
+class BatchPromptEnrichmentItem(StrictModel):
+    task_id: str = Field(..., min_length=1, max_length=128)
+    expected_version: int = Field(..., ge=1)
+
+
+class BatchPromptEnrichmentsRequest(StrictModel):
+    items: List[BatchPromptEnrichmentItem] = Field(
+        ...,
+        min_items=1,
+        max_items=500,
+    )
+
+    @validator("items")
+    def task_ids_must_be_unique(cls, value):
+        task_ids = [item.task_id for item in value]
+        if len(task_ids) != len(set(task_ids)):
+            raise ValueError("batch task_id values must be unique")
+        return value
+
+
 class CancelOperationRequest(StrictModel):
     actor_id: str = Field(..., min_length=1, max_length=128)
     reason: str = Field(..., min_length=1, max_length=2000)
@@ -698,6 +762,20 @@ class OperationAccepted(StrictModel):
     operation_id: str
     status: Literal["queued", "running"] = "queued"
     created_at: datetime
+
+
+class BatchOperationItemResult(StrictModel):
+    task_id: str
+    operation_id: Optional[str] = None
+    status: Literal["queued", "running", "rejected"]
+    created_at: Optional[datetime] = None
+    error: Optional[ErrorPayload] = None
+
+
+class BatchOperationsAccepted(StrictModel):
+    items: List[BatchOperationItemResult] = Field(default_factory=list)
+    accepted_count: int = Field(..., ge=0)
+    rejected_count: int = Field(..., ge=0)
 
 
 class AnnotationOperation(StrictModel):

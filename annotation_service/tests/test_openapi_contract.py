@@ -55,7 +55,9 @@ class StaticOpenAPIContractTest(unittest.TestCase):
                 "invalidateAnnotationTask",
                 "reviewAnnotationTask",
                 "createMaskCandidate",
+                "createBatchMaskCandidates",
                 "createPromptEnrichment",
+                "createBatchPromptEnrichments",
                 "getTaskArtifact",
                 "getAnnotationOperation",
                 "cancelAnnotationOperation",
@@ -83,6 +85,21 @@ class StaticOpenAPIContractTest(unittest.TestCase):
             self.assertEqual(
                 static_request[field]["default"],
                 runtime_request[field]["default"],
+            )
+        for schema_name in (
+            "BatchMaskCandidateItem",
+            "BatchMaskCandidatesRequest",
+            "BatchOperationItemResult",
+            "BatchOperationsAccepted",
+            "BatchPromptEnrichmentItem",
+            "BatchPromptEnrichmentsRequest",
+            "BuildReviewTasksResponse",
+            "DetectionOverlapWarning",
+            "ReviewTaskBuildItem",
+        ):
+            self.assertEqual(
+                static["components"]["schemas"][schema_name],
+                runtime["components"]["schemas"][schema_name],
             )
 
 
