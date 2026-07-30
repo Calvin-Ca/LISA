@@ -114,14 +114,31 @@ class QwenJointTarget(StrictModel):
     task_id: str
     task_version: int = Field(..., ge=1)
     category: AnnotationCategory
+    candidate_target_object: str = Field(
+        ...,
+        min_length=1,
+        max_length=300,
+    )
+    candidate_detection_entity: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        max_length=200,
+    )
     target_box_xyxy: List[float]
     target_detection_ids: List[str] = Field(default_factory=list)
 
-    @validator("task_id")
-    def task_id_is_not_blank(cls, value: str) -> str:
+    @validator(
+        "task_id",
+        "candidate_target_object",
+        "candidate_detection_entity",
+        pre=True,
+    )
+    def joint_target_text_is_not_blank(cls, value):
+        if value is None:
+            return None
         normalized = value.strip()
         if not normalized:
-            raise ValueError("task_id must not be blank")
+            raise ValueError("joint target text must not be blank")
         return normalized
 
     @validator("target_box_xyxy")
@@ -394,7 +411,9 @@ def build_joint_visual_facts_messages(
     user_text = (
         "请查看同一张原图、每个所选目标的mask以及对应裁剪图，提取这些"
         "目标作为一个整体时的视觉事实和相互关系。每个Task代表一个独立"
-        "目标，但最终事实必须共同覆盖全部Task。\n"
+        "目标，即使一个目标是另一个目标的组成部分，也必须分别识别并共同"
+        "描述。候选对象名和检测实体仅用于定位，最终事实仍以图像和mask为准。"
+        "instance_count不得小于Task数量，最终事实必须共同覆盖全部Task。\n"
         f"Task Group上下文："
         f"{json.dumps(_model_json(context), ensure_ascii=False)}\n"
         "输出字段必须与此示例完全一致："
@@ -430,8 +449,10 @@ def build_joint_visual_facts_messages(
                 "共同描述全部所选目标，不得遗漏任一Task，也不得把多个"
                 "目标误写成单一目标。重点提取目标之间可见的空间或业务"
                 "关系；无法确认的动作、因果、违规状态或风险不得猜测。"
-                "所有mask像素的集合决定最终联合分割范围。只输出一个JSON"
-                "对象，不输出Markdown。"
+                "如果一个mask是人员、另一个mask是该人员穿戴的安全帽或"
+                "反光背心，应明确写出人员与防护用品的穿戴/从属关系，不得"
+                "只写人员。所有mask像素的集合决定最终联合分割范围。只输出"
+                "一个JSON对象，不输出Markdown。"
             ),
         },
         {

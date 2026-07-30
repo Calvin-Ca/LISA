@@ -301,6 +301,18 @@ def _joint_visual_context(
                 task_id=task["task_id"],
                 task_version=task["version"],
                 category=task["category"],
+                candidate_target_object=task["annotation"][
+                    "target_object"
+                ],
+                candidate_detection_entity=next(
+                    (
+                        detection["entity"]
+                        for detection in task.get("detections", [])
+                        if detection["detection_id"]
+                        == task.get("source_detection_id")
+                    ),
+                    None,
+                ),
                 target_box_xyxy=_target_box(task),
                 target_detection_ids=(
                     (task.get("source_hazard") or {}).get(
@@ -433,7 +445,9 @@ class QwenPromptWorker:
                                 media_type=mask_media_type,
                                 label=(
                                     f"目标{index} Task "
-                                    f"{task['task_id']} {mask_label}"
+                                    f"{task['task_id']} 候选对象"
+                                    f"{task['annotation']['target_object']} "
+                                    f"{mask_label}"
                                 ),
                             ),
                             image_file_to_input(
@@ -441,7 +455,9 @@ class QwenPromptWorker:
                                 media_type=crop_media_type,
                                 label=(
                                     f"目标{index} Task "
-                                    f"{task['task_id']} 裁剪图"
+                                    f"{task['task_id']} 候选对象"
+                                    f"{task['annotation']['target_object']} "
+                                    "裁剪图"
                                 ),
                             ),
                         ]

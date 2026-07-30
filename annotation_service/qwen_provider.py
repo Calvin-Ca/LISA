@@ -15,6 +15,7 @@ from .qwen_contract import (
     QWEN_FACTS_PROMPT_VERSION,
     QWEN_JOINT_ENRICHMENT_PROMPT_VERSION,
     QWEN_JOINT_FACTS_PROMPT_VERSION,
+    QwenContractError,
     QwenImageInput,
     QwenJointVisualContext,
     QwenPromptSet,
@@ -262,6 +263,10 @@ class Qwen25VLProvider:
             temperature=self.config.facts_temperature,
         )
         facts = parse_visual_facts(raw_facts)
+        if facts.instance_count < len(context.targets):
+            raise QwenContractError(
+                "joint visual facts omitted at least one Task target"
+            )
         raw_prompts = self._complete(
             messages=build_joint_prompt_enrichment_messages(
                 categories=[
