@@ -84,7 +84,7 @@ class GroundingDINOModelConfig:
     bert_path: Path
     device: str = "cuda"
     model_version: str = "groundingdino-swint-ogc"
-    prompt_version: str = "construction-entities-v1"
+    prompt_version: str = "free-form-v1"
     box_threshold: float = 0.35
     text_threshold: float = 0.25
 
@@ -117,7 +117,8 @@ class DetectionPredictor(Protocol):
         image_path: Path,
         width: int,
         height: int,
-        categories: Sequence[str | AnnotationCategory],
+        prompt: str | None = None,
+        categories: Sequence[str | AnnotationCategory] | None = None,
     ) -> list[GroundingDINODetection]:
         ...
 
@@ -149,6 +150,15 @@ def build_caption(entities: Sequence[str]) -> str:
     if not normalized:
         raise ValueError("GroundingDINO caption must not be empty")
     return " . ".join(normalized) + " ."
+
+
+def normalize_grounding_prompt(prompt: str) -> str:
+    """Apply only GroundingDINO's terminal-period convention."""
+
+    normalized = prompt.strip()
+    if not normalized:
+        raise ValueError("GroundingDINO prompt must not be blank")
+    return normalized if normalized.endswith(".") else normalized + " ."
 
 
 def normalized_cxcywh_to_xyxy(
@@ -266,11 +276,20 @@ class GroundingDINOAdapter:
         image_path: Path,
         width: int,
         height: int,
-        categories: Sequence[str | AnnotationCategory],
+        prompt: str | None = None,
+        categories: Sequence[str | AnnotationCategory] | None = None,
     ) -> list[GroundingDINODetection]:
         self.load()
-        entities = entities_for_categories(categories)
-        caption = build_caption(entities)
+        if prompt is not None:
+            caption = normalize_grounding_prompt(prompt)
+            requested_entities: list[str] = []
+            requested_prompt = prompt.strip()
+        else:
+            requested_entities = list(
+                entities_for_categories(categories or ())
+            )
+            caption = build_caption(requested_entities)
+            requested_prompt = caption
         with Image.open(image_path) as source:
             image_source = source.convert("RGB")
         image, _ = self._image_transform(image_source, None)
@@ -326,7 +345,8 @@ class GroundingDINOAdapter:
                     metadata={
                         "raw_phrase": str(phrase),
                         "caption": caption,
-                        "requested_entities": list(entities),
+                        "grounding_prompt": requested_prompt,
+                        "requested_entities": requested_entities,
                         "model_version": self.model_version,
                         "prompt_version": self.prompt_version,
                         "box_threshold": self.config.box_threshold,

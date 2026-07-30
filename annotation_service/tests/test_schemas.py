@@ -15,21 +15,27 @@ from annotation_service.schemas import (
 
 
 class SchemaTest(unittest.TestCase):
-    def test_job_assets_and_categories_must_be_unique(self):
+    def test_job_assets_must_be_unique_and_prompt_is_free_form(self):
         with self.assertRaises(ValidationError):
             CreateJobRequest(
                 asset_ids=["a", "a"],
-                requested_categories=["helmet_missing"],
+                grounding_prompt="person",
                 pipeline_version="v1",
             )
+
+        request = CreateJobRequest(
+            asset_ids=["a"],
+            grounding_prompt=" 任意中文 Prompt：设备旁的人员！ ",
+        )
+        self.assertEqual(
+            request.grounding_prompt,
+            "任意中文 Prompt：设备旁的人员！",
+        )
 
         with self.assertRaises(ValidationError):
             CreateJobRequest(
                 asset_ids=["a"],
-                requested_categories=[
-                    "helmet_missing",
-                    "helmet_missing",
-                ],
+                grounding_prompt="   ",
                 pipeline_version="v1",
             )
 
@@ -111,7 +117,7 @@ class SchemaTest(unittest.TestCase):
         with self.assertRaises(ValidationError):
             CreateJobRequest(
                 asset_ids=["a"],
-                requested_categories=["helmet_missing"],
+                grounding_prompt="person",
                 pipeline_version="v1",
                 unexpected=True,
             )

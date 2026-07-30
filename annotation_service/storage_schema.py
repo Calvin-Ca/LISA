@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 SCHEMA_V1 = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -394,5 +394,38 @@ SCHEMA_V6 = (
     """
     CREATE INDEX IF NOT EXISTS idx_operations_task
     ON annotation_operations(task_id, created_at)
+    """,
+)
+
+
+SCHEMA_V7 = (
+    """
+    ALTER TABLE annotation_jobs
+    ADD COLUMN grounding_prompt TEXT NOT NULL DEFAULT ''
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS job_artifacts (
+        artifact_id TEXT PRIMARY KEY,
+        job_id TEXT NOT NULL,
+        asset_id TEXT NOT NULL,
+        artifact_type TEXT NOT NULL CHECK (
+            artifact_type IN ('bbox-image')
+        ),
+        file_path TEXT NOT NULL,
+        media_type TEXT NOT NULL CHECK (media_type = 'image/png'),
+        sha256 TEXT NOT NULL,
+        size_bytes INTEGER NOT NULL CHECK (size_bytes > 0),
+        width INTEGER NOT NULL CHECK (width > 0),
+        height INTEGER NOT NULL CHECK (height > 0),
+        metadata_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        UNIQUE (job_id, asset_id, artifact_type),
+        FOREIGN KEY (job_id, asset_id)
+            REFERENCES job_assets(job_id, asset_id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_job_artifacts_job_asset
+    ON job_artifacts(job_id, asset_id, artifact_type)
     """,
 )

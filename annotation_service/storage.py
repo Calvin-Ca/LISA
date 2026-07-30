@@ -51,6 +51,7 @@ from .storage_schema import (
     SCHEMA_V4,
     SCHEMA_V5,
     SCHEMA_V6,
+    SCHEMA_V7,
     SCHEMA_VERSION,
 )
 from .validation import validate_annotation_for_submission
@@ -282,6 +283,24 @@ class AnnotationStore:
                                 ) VALUES (?, ?)
                                 """,
                                 (6, utc_now()),
+                            )
+                            connection.execute("COMMIT")
+                        except Exception:
+                            connection.execute("ROLLBACK")
+                            raise
+                        current = 6
+                    if current < 7:
+                        connection.execute("BEGIN IMMEDIATE")
+                        try:
+                            for statement in SCHEMA_V7:
+                                connection.execute(statement)
+                            connection.execute(
+                                """
+                                INSERT INTO schema_migrations(
+                                    version, applied_at
+                                ) VALUES (?, ?)
+                                """,
+                                (7, utc_now()),
                             )
                             connection.execute("COMMIT")
                         except Exception:
@@ -598,7 +617,10 @@ class AnnotationStore:
         self,
         *,
         asset_ids: list[str],
-        requested_categories: list[str | AnnotationCategory],
+        grounding_prompt: str | None = None,
+        requested_categories: (
+            list[str | AnnotationCategory] | None
+        ) = None,
         pipeline_version: str,
         options: dict[str, Any] | JobOptions | None = None,
         max_queued_jobs: int = 100,
@@ -610,13 +632,29 @@ class AnnotationStore:
             raise ValueError("asset_ids must be non-empty and unique")
         if max_queued_jobs < 1:
             raise ValueError("max_queued_jobs must be positive")
-        categories = [_enum_value(value) for value in requested_categories]
-        if not categories or len(categories) != len(set(categories)):
-            raise ValueError(
-                "requested_categories must be non-empty and unique"
-            )
+        categories = [
+            _enum_value(value)
+            for value in (requested_categories or [])
+        ]
+        if len(categories) != len(set(categories)):
+            raise ValueError("requested_categories must be unique")
         for category in categories:
             AnnotationCategory(category)
+        normalized_prompt = (
+            grounding_prompt.strip()
+            if grounding_prompt is not None
+            else ""
+        )
+        if grounding_prompt is not None and not normalized_prompt:
+            raise ValueError("grounding_prompt must not be blank")
+        if len(normalized_prompt) > 2000:
+            raise ValueError(
+                "grounding_prompt must contain at most 2000 characters"
+            )
+        if not normalized_prompt and not categories:
+            raise ValueError(
+                "grounding_prompt is required for a free detection job"
+            )
         normalized_pipeline_version = pipeline_version.strip()
         if not normalized_pipeline_version:
             raise ValueError("pipeline_version must not be blank")
@@ -647,9 +685,18 @@ class AnnotationStore:
             "completed_assets": 0,
             "generated_tasks": 0,
         }
-        stages = {
-            stage.value: {"status": "pending"} for stage in PipelineStage
-        }
+        stages = (
+            {
+                PipelineStage.GROUNDING_DINO.value: {
+                    "status": "pending"
+                }
+            }
+            if normalized_prompt
+            else {
+                stage.value: {"status": "pending"}
+                for stage in PipelineStage
+            }
+        )
         job_id = _new_id("job")
         created_at = utc_now()
 
@@ -712,13 +759,15 @@ class AnnotationStore:
                     """
                     INSERT INTO annotation_jobs (
                         job_id, status, pipeline_version,
-                        requested_categories_json, options_json,
+                        grounding_prompt, requested_categories_json,
+                        options_json,
                         progress_json, stages_json, errors_json, created_at
-                    ) VALUES (?, 'queued', ?, ?, ?, ?, ?, '[]', ?)
+                    ) VALUES (?, 'queued', ?, ?, ?, ?, ?, ?, '[]', ?)
                     """,
                     (
                         job_id,
                         normalized_pipeline_version,
+                        normalized_prompt,
                         canonical_json(categories),
                         canonical_json(option_payload),
                         canonical_json(progress),
@@ -741,6 +790,7 @@ class AnnotationStore:
                         "status": JobStatus.QUEUED.value,
                         "stage": None,
                         "pipeline_version": normalized_pipeline_version,
+                        "grounding_prompt": normalized_prompt,
                         "requested_categories": categories,
                         "options": option_payload,
                         "progress": progress,
@@ -822,6 +872,7 @@ class AnnotationStore:
             "status": row["status"],
             "stage": row["stage"],
             "pipeline_version": row["pipeline_version"],
+            "grounding_prompt": row["grounding_prompt"],
             "requested_categories": _json_loads(
                 row["requested_categories_json"], []
             ),
@@ -994,6 +1045,7 @@ class AnnotationStore:
             | None
         ) = None,
         full_pipeline_only: bool = False,
+        grounding_prompt_required: bool = False,
     ) -> dict[str, Any] | None:
         """Atomically claim one queued or expired job for a GPU worker."""
 
@@ -1044,6 +1096,8 @@ class AnnotationStore:
                     f"IN ({placeholders})"
                 )
                 parameters += stop_after_values
+            if grounding_prompt_required:
+                stop_after_filter += " AND grounding_prompt <> ''"
             row = connection.execute(
                 f"""
                 SELECT * FROM annotation_jobs
@@ -3116,6 +3170,164 @@ class AnnotationStore:
                     "annotation operation lease is no longer owned by worker"
                 )
         return self.get_operation(operation_id)
+
+    # ---------------------------------------------------------- job artifacts
+    def store_job_artifact(
+        self,
+        *,
+        job_id: str,
+        asset_id: str,
+        artifact_type: str,
+        data: bytes,
+        media_type: str,
+        worker_id: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Store a detection result image under an active job lease."""
+
+        self._ensure_initialized()
+        if artifact_type != "bbox-image":
+            raise ValueError(
+                f"unsupported job artifact_type: {artifact_type}"
+            )
+        if media_type != "image/png":
+            raise ValueError("bbox-image artifacts must use image/png")
+        normalized_worker_id = self._validate_worker_id(worker_id)
+        validated = validate_image_bytes(
+            data,
+            max_image_bytes=max(1, len(data)),
+            max_image_pixels=(2**63) - 1,
+        )
+        if validated.image_format != "png":
+            raise ValueError("bbox-image data must be encoded as PNG")
+        metadata_payload = metadata or {}
+        canonical_json(metadata_payload)
+        artifact_id = _new_id("jart")
+        relative = (
+            Path("overlays")
+            / "jobs"
+            / job_id
+            / asset_id
+            / f"{artifact_id}.png"
+        )
+        self._atomic_write(relative, data)
+        previous_path: str | None = None
+        now = utc_now()
+        try:
+            with self._lock, self._connect() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                self._assert_active_job_lease(
+                    connection,
+                    job_id=job_id,
+                    worker_id=normalized_worker_id,
+                    now=now,
+                )
+                membership = connection.execute(
+                    """
+                    SELECT 1 FROM job_assets
+                    WHERE job_id = ? AND asset_id = ?
+                    """,
+                    (job_id, asset_id),
+                ).fetchone()
+                if membership is None:
+                    raise ResourceNotFoundError(
+                        "asset is not part of the annotation job"
+                    )
+                previous = connection.execute(
+                    """
+                    SELECT file_path FROM job_artifacts
+                    WHERE job_id = ? AND asset_id = ?
+                      AND artifact_type = ?
+                    """,
+                    (job_id, asset_id, artifact_type),
+                ).fetchone()
+                if previous is not None:
+                    previous_path = previous["file_path"]
+                    connection.execute(
+                        """
+                        DELETE FROM job_artifacts
+                        WHERE job_id = ? AND asset_id = ?
+                          AND artifact_type = ?
+                        """,
+                        (job_id, asset_id, artifact_type),
+                    )
+                connection.execute(
+                    """
+                    INSERT INTO job_artifacts (
+                        artifact_id, job_id, asset_id, artifact_type,
+                        file_path, media_type, sha256, size_bytes,
+                        width, height, metadata_json, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        artifact_id,
+                        job_id,
+                        asset_id,
+                        artifact_type,
+                        relative.as_posix(),
+                        media_type,
+                        sha256_bytes(data),
+                        len(data),
+                        validated.width,
+                        validated.height,
+                        canonical_json(metadata_payload),
+                        now,
+                    ),
+                )
+                connection.execute("COMMIT")
+        except (
+            ResourceNotFoundError,
+            VersionConflictError,
+            ValueError,
+        ):
+            self._resolve_relative(relative).unlink(missing_ok=True)
+            raise
+        except Exception as exc:
+            self._resolve_relative(relative).unlink(missing_ok=True)
+            raise StorageError("failed to store job artifact") from exc
+        if previous_path and previous_path != relative.as_posix():
+            self._resolve_relative(previous_path).unlink(missing_ok=True)
+        return {
+            "artifact_id": artifact_id,
+            "job_id": job_id,
+            "asset_id": asset_id,
+            "artifact_type": artifact_type,
+            "media_type": media_type,
+            "sha256": sha256_bytes(data),
+            "size_bytes": len(data),
+            "width": validated.width,
+            "height": validated.height,
+            "metadata": metadata_payload,
+            "url": (
+                f"/v1/annotation/jobs/{job_id}/assets/"
+                f"{asset_id}/bbox-image"
+            ),
+        }
+
+    def job_artifact_file(
+        self,
+        *,
+        job_id: str,
+        asset_id: str,
+        artifact_type: str,
+    ) -> tuple[Path, str, str]:
+        self._ensure_initialized()
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT file_path, media_type, sha256
+                FROM job_artifacts
+                WHERE job_id = ? AND asset_id = ?
+                  AND artifact_type = ?
+                """,
+                (job_id, asset_id, artifact_type),
+            ).fetchone()
+        if row is None:
+            raise ResourceNotFoundError("job artifact was not found")
+        path = self._resolve_relative(row["file_path"])
+        if not path.is_file():
+            raise StorageError("job artifact file is missing")
+        return path, row["media_type"], row["sha256"]
 
     # --------------------------------------------------------------- artifacts
     def store_artifact(

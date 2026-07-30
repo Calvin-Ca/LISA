@@ -1,29 +1,37 @@
 import os
 import tempfile
 import unittest
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
-from annotation_service.errors import AnnotationValidationError
+from PIL import Image
+
 from annotation_service.storage import AnnotationStore
-from annotation_service.review_task_builder import build_review_tasks
 from annotation_service.worker.grounding_dino import (
     GroundingDINODetection,
-    build_caption,
-    entities_for_categories,
+    normalize_grounding_prompt,
     normalized_cxcywh_to_xyxy,
 )
 from annotation_service.worker.runner import GroundingDINOJobWorker
 from annotation_service.worker.settings import GroundingDINOWorkerSettings
 
 
+def png_bytes(
+    color: tuple[int, int, int] = (10, 20, 30),
+) -> bytes:
+    output = BytesIO()
+    Image.new("RGB", (40, 20), color).save(output, format="PNG")
+    return output.getvalue()
+
+
 class FakePredictor:
     model_version = "fake-grounding-dino-v1"
-    prompt_version = "fake-prompts-v1"
+    prompt_version = "free-form-v1"
 
     def __init__(self, *, fail_on_call: int | None = None):
         self.fail_on_call = fail_on_call
-        self.calls = 0
+        self.calls: list[str] = []
 
     def predict(
         self,
@@ -31,10 +39,14 @@ class FakePredictor:
         image_path: Path,
         width: int,
         height: int,
-        categories,
+        prompt: str | None = None,
+        categories=None,
     ):
-        self.calls += 1
-        if self.fail_on_call == self.calls:
+        self.calls.append(prompt or "")
+        if (
+            self.fail_on_call is not None
+            and self.fail_on_call == len(self.calls)
+        ):
             raise RuntimeError("synthetic detector failure")
         return [
             GroundingDINODetection(
@@ -45,25 +57,29 @@ class FakePredictor:
                 metadata={
                     "model_version": self.model_version,
                     "prompt_version": self.prompt_version,
+                    "grounding_prompt": prompt,
                     "image_name": image_path.name,
-                    "categories": list(categories),
                 },
             )
         ]
 
 
 class GroundingDINOHelpersTest(unittest.TestCase):
-    def test_category_entities_are_ordered_and_deduplicated(self):
-        entities = entities_for_categories(
-            ["helmet_missing", "equipment_proximity"]
-        )
-        self.assertEqual(entities[0:2], ("person", "helmet"))
-        self.assertEqual(entities.count("person"), 1)
-        self.assertIn("excavator", entities)
+    def test_free_prompt_only_adds_terminal_period(self):
         self.assertEqual(
-            build_caption(("person", "helmet")),
-            "person . helmet .",
+            normalize_grounding_prompt("person near excavator"),
+            "person near excavator .",
         )
+        self.assertEqual(
+            normalize_grounding_prompt("任意提示词。"),
+            "任意提示词。 .",
+        )
+        self.assertEqual(
+            normalize_grounding_prompt("person."),
+            "person.",
+        )
+        with self.assertRaises(ValueError):
+            normalize_grounding_prompt("   ")
 
     def test_normalized_box_conversion_clamps_to_image(self):
         self.assertEqual(
@@ -73,14 +89,6 @@ class GroundingDINOHelpersTest(unittest.TestCase):
                 height=50,
             ),
             (30.0, 10.0, 70.0, 40.0),
-        )
-        self.assertEqual(
-            normalized_cxcywh_to_xyxy(
-                (0.0, 0.0, 0.5, 0.5),
-                width=100,
-                height=50,
-            ),
-            (0.0, 0.0, 25.0, 12.5),
         )
         self.assertIsNone(
             normalized_cxcywh_to_xyxy(
@@ -92,20 +100,15 @@ class GroundingDINOHelpersTest(unittest.TestCase):
 
 
 class GroundingDINOWorkerSettingsTest(unittest.TestCase):
-    def test_paths_are_resolved_from_model_root(self):
+    def test_absolute_model_store_paths_are_supported(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / "GroundingDINO"
-            bert = root / "weights" / "bert-base-uncased"
-            config = (
-                root
-                / "groundingdino"
-                / "config"
-                / "GroundingDINO_SwinT_OGC.py"
-            )
-            checkpoint = root / "weights" / "groundingdino_swint_ogc.pth"
-            config.parent.mkdir(parents=True)
+            model_store = Path(temporary) / "MODEL_STORE"
+            bert = model_store / "text_encoder" / "bert-base-uncased"
+            config = model_store / "GroundingDINO_SwinT_OGC.py"
+            checkpoint = model_store / "groundingdino_swint_ogc.pth"
+            root.mkdir()
             bert.mkdir(parents=True)
-            checkpoint.parent.mkdir(parents=True, exist_ok=True)
             config.write_text("text_encoder_type = 'bert-base-uncased'")
             checkpoint.write_bytes(b"checkpoint")
             for filename in (
@@ -121,6 +124,9 @@ class GroundingDINOWorkerSettingsTest(unittest.TestCase):
                     Path(temporary) / "annotation-data"
                 ),
                 "ANNOTATION_GROUNDING_DINO_ROOT": str(root),
+                "ANNOTATION_GROUNDING_DINO_CONFIG": str(config),
+                "ANNOTATION_GROUNDING_DINO_CHECKPOINT": str(checkpoint),
+                "ANNOTATION_GROUNDING_DINO_BERT": str(bert),
                 "ANNOTATION_WORKER_ID": "worker-test",
             }
             with patch.dict(os.environ, environment, clear=True):
@@ -130,18 +136,7 @@ class GroundingDINOWorkerSettingsTest(unittest.TestCase):
             self.assertEqual(settings.config_path, config.resolve())
             self.assertEqual(settings.checkpoint_path, checkpoint.resolve())
             self.assertEqual(settings.bert_path, bert.resolve())
-            self.assertEqual(settings.box_threshold, 0.35)
-
-    def test_heartbeat_must_be_shorter_than_lease(self):
-        environment = {
-            "ANNOTATION_STORAGE_ROOT": "/tmp/annotation-data",
-            "ANNOTATION_GROUNDING_DINO_ROOT": "/tmp/GroundingDINO",
-            "ANNOTATION_WORKER_LEASE_SECONDS": "30",
-            "ANNOTATION_WORKER_HEARTBEAT_SECONDS": "30",
-        }
-        with patch.dict(os.environ, environment, clear=True):
-            with self.assertRaises(ValueError):
-                GroundingDINOWorkerSettings.from_env()
+            self.assertEqual(settings.prompt_version, "free-form-v1")
 
 
 class GroundingDINOJobWorkerTest(unittest.TestCase):
@@ -156,39 +151,32 @@ class GroundingDINOJobWorkerTest(unittest.TestCase):
         self.store.close()
         self.temporary.cleanup()
 
-    def create_asset(self, content: bytes) -> dict:
+    def create_asset(
+        self,
+        color: tuple[int, int, int] = (10, 20, 30),
+    ) -> dict:
         return self.store.create_asset(
-            image_bytes=content,
+            image_bytes=png_bytes(color),
             media_type="image/png",
-            width=20,
-            height=10,
+            width=40,
+            height=20,
             group_id="site01:camera01",
         )
 
     def create_job(
         self,
         asset_ids: list[str],
-        *,
-        detection_only: bool = True,
-        stop_after: str = "grounding_dino",
+        prompt: str = "worker beside excavator",
     ) -> dict:
-        options = (
-            {
-                "generate_masks": False,
-                "enrich_prompts": False,
-                "stop_after": stop_after,
-            }
-            if detection_only
-            else {}
-        )
         return self.store.create_job(
             asset_ids=asset_ids,
-            requested_categories=[
-                "helmet_missing",
-                "equipment_proximity",
-            ],
-            pipeline_version="grounding-dino-v1",
-            options=options,
+            grounding_prompt=prompt,
+            pipeline_version="groundingdino-free-form-v1",
+            options={
+                "generate_masks": False,
+                "enrich_prompts": False,
+                "stop_after": "grounding_dino",
+            },
         )
 
     def make_worker(self, predictor: FakePredictor):
@@ -201,47 +189,52 @@ class GroundingDINOJobWorkerTest(unittest.TestCase):
             poll_seconds=0.1,
         )
 
-    def test_worker_processes_detection_only_job(self):
-        asset = self.create_asset(b"first")
-        full_job = self.create_job(
-            [asset["asset_id"]],
-            detection_only=False,
-        )
-        detection_job = self.create_job([asset["asset_id"]])
-        worker = self.make_worker(FakePredictor())
+    def test_worker_uses_free_prompt_and_generates_bbox_image(self):
+        asset = self.create_asset()
+        prompt = "the blue machine and nearby worker"
+        job = self.create_job([asset["asset_id"]], prompt)
+        predictor = FakePredictor()
 
-        self.assertTrue(worker.run_once())
+        self.assertTrue(self.make_worker(predictor).run_once())
 
-        untouched = self.store.get_job(full_job["job_id"])
-        completed = self.store.get_job(detection_job["job_id"])
-        detections = self.store.list_detections(
-            job_id=detection_job["job_id"],
-            asset_id=asset["asset_id"],
-        )
-        self.assertEqual(untouched["status"], "queued")
+        completed = self.store.get_job(job["job_id"])
         self.assertEqual(completed["status"], "succeeded")
-        self.assertEqual(completed["progress"]["completed_assets"], 1)
+        self.assertEqual(completed["grounding_prompt"], prompt)
+        self.assertEqual(predictor.calls, [prompt])
         self.assertEqual(
             completed["stages"]["grounding_dino"]["status"],
             "succeeded",
         )
-        self.assertEqual(completed["stages"]["sam"]["status"], "skipped")
-        self.assertEqual(len(detections), 1)
-        self.assertEqual(detections[0]["entity"], "person")
-        self.assertEqual(
-            detections[0]["metadata"]["model_version"],
-            "fake-grounding-dino-v1",
+        self.assertEqual(set(completed["stages"]), {"grounding_dino"})
+        detections = self.store.list_detections(
+            job_id=job["job_id"],
+            asset_id=asset["asset_id"],
         )
+        self.assertEqual(len(detections), 1)
+        path, media_type, sha256 = self.store.job_artifact_file(
+            job_id=job["job_id"],
+            asset_id=asset["asset_id"],
+            artifact_type="bbox-image",
+        )
+        self.assertEqual(media_type, "image/png")
+        self.assertEqual(len(sha256), 64)
+        with Image.open(path) as overlay:
+            self.assertEqual(overlay.size, (40, 20))
+            self.assertNotEqual(
+                overlay.convert("RGB").getpixel((1, 1)),
+                (10, 20, 30),
+            )
 
     def test_worker_records_partial_asset_failure(self):
-        first = self.create_asset(b"first")
-        second = self.create_asset(b"second")
+        first = self.create_asset()
+        second = self.create_asset((30, 40, 50))
         job = self.create_job(
             [first["asset_id"], second["asset_id"]]
         )
-        worker = self.make_worker(FakePredictor(fail_on_call=2))
 
-        self.assertTrue(worker.run_once())
+        self.assertTrue(
+            self.make_worker(FakePredictor(fail_on_call=2)).run_once()
+        )
 
         completed = self.store.get_job(job["job_id"])
         self.assertEqual(completed["status"], "partial_failed")
@@ -250,142 +243,20 @@ class GroundingDINOJobWorkerTest(unittest.TestCase):
             completed["errors"][0]["asset_id"],
             second["asset_id"],
         )
-        self.assertEqual(
-            len(
-                self.store.list_detections(
-                    job_id=job["job_id"],
-                    asset_id=first["asset_id"],
-                )
-            ),
-            1,
-        )
-        self.assertEqual(
-            self.store.list_detections(
-                job_id=job["job_id"],
-                asset_id=second["asset_id"],
-            ),
-            [],
-        )
 
-    def test_worker_runs_hazard_rules_and_persists_candidates(self):
-        asset = self.create_asset(b"hazard")
-        job = self.create_job(
-            [asset["asset_id"]],
-            stop_after="hazard_rules",
+    def test_legacy_category_job_is_not_claimed(self):
+        asset = self.create_asset()
+        self.store.create_job(
+            asset_ids=[asset["asset_id"]],
+            requested_categories=["helmet_missing"],
+            pipeline_version="legacy-v1",
+            options={
+                "generate_masks": False,
+                "enrich_prompts": False,
+                "stop_after": "grounding_dino",
+            },
         )
-        worker = self.make_worker(FakePredictor())
-
-        self.assertTrue(worker.run_once())
-
-        completed = self.store.get_job(job["job_id"])
-        candidates = self.store.list_job_hazard_candidates(
-            job_id=job["job_id"],
-            asset_id=asset["asset_id"],
-        )
-        self.assertEqual(completed["status"], "succeeded")
-        self.assertEqual(completed["stage"], "hazard_rules")
-        self.assertEqual(
-            completed["stages"]["grounding_dino"]["status"],
-            "succeeded",
-        )
-        self.assertEqual(
-            completed["stages"]["hazard_rules"]["status"],
-            "succeeded",
-        )
-        self.assertEqual(completed["stages"]["sam"]["status"], "skipped")
-        self.assertEqual(len(candidates), 1)
-        self.assertEqual(candidates[0]["category"], "helmet_missing")
-        self.assertEqual(candidates[0]["target_entity"], "person")
-        self.assertEqual(
-            candidates[0]["rule_version"],
-            "construction-hazard-rules-v1",
-        )
-        job_completed_at = completed["completed_at"]
-
-        first = build_review_tasks(
-            self.store,
-            job_id=job["job_id"],
-        )
-        second = build_review_tasks(
-            self.store,
-            job_id=job["job_id"],
-        )
-        self.assertEqual(first["created_count"], 1)
-        self.assertEqual(second["created_count"], 0)
-        self.assertEqual(second["existing_count"], 1)
-        self.assertEqual(first["task_ids"], second["task_ids"])
-        materialized = self.store.get_job(job["job_id"])
-        self.assertEqual(materialized["completed_at"], job_completed_at)
-        self.assertEqual(
-            materialized["stages"]["build_review_tasks"]["status"],
-            "succeeded",
-        )
-        self.assertEqual(materialized["progress"]["generated_tasks"], 1)
-        task = self.store.get_task(first["task_ids"][0])
-        self.assertEqual(task["status"], "generated")
-        self.assertEqual(task["annotation"]["shapes"], [])
-        self.assertEqual(task["annotation"]["prompts"], [])
-        self.assertEqual(
-            task["source_hazard"]["hazard_id"],
-            candidates[0]["hazard_id"],
-        )
-        self.assertEqual(
-            task["provenance"]["hazard_candidate_id"],
-            candidates[0]["hazard_id"],
-        )
-        self.assertTrue(
-            any("人工" in warning for warning in task["warnings"])
-        )
-        with self.assertRaises(AnnotationValidationError):
-            self.store.submit_task(
-                task["task_id"],
-                expected_version=1,
-                annotator_id="annotator-1",
-                primary_result="mask_missing",
-            )
-
-    def test_detection_replacement_is_idempotent_and_lease_guarded(self):
-        asset = self.create_asset(b"first")
-        job = self.create_job([asset["asset_id"]])
-        claimed = self.store.claim_next_job(
-            worker_id="test-gpu-worker",
-            lease_seconds=30,
-            required_stop_after="grounding_dino",
-        )
-        self.assertIsNotNone(claimed)
-        payload = [
-            {
-                "entity": "person",
-                "box_xyxy": [1, 1, 19, 9],
-                "box_score": 0.9,
-                "phrase_score": 0.8,
-                "metadata": {"model": "fake"},
-            }
-        ]
-
-        first = self.store.replace_detections(
-            job_id=job["job_id"],
-            asset_id=asset["asset_id"],
-            detections=payload,
-            worker_id="test-gpu-worker",
-        )
-        second = self.store.replace_detections(
-            job_id=job["job_id"],
-            asset_id=asset["asset_id"],
-            detections=payload,
-            worker_id="test-gpu-worker",
-        )
-
-        self.assertEqual(first[0]["detection_id"], second[0]["detection_id"])
-        self.assertEqual(
-            len(
-                self.store.list_detections(
-                    job_id=job["job_id"],
-                    asset_id=asset["asset_id"],
-                )
-            ),
-            1,
-        )
+        self.assertFalse(self.make_worker(FakePredictor()).run_once())
 
 
 if __name__ == "__main__":

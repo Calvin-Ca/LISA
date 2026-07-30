@@ -1,8 +1,7 @@
-"""Construction-safety annotation service.
+"""Free-form GroundingDINO detection service.
 
-The API process intentionally does not import or load GroundingDINO, SAM,
-Qwen, or LISA model weights. Model execution is delegated to independent GPU
-worker processes.
+The API process intentionally does not import or load GroundingDINO weights.
+Model execution is delegated to an independent GPU worker process.
 """
 
 from typing import TYPE_CHECKING, Any

@@ -208,24 +208,28 @@ class JobOptions(StrictModel):
 
 class CreateJobRequest(StrictModel):
     asset_ids: List[str] = Field(..., min_items=1, max_items=500)
-    requested_categories: List[AnnotationCategory] = Field(
+    grounding_prompt: str = Field(
         ...,
-        min_items=1,
+        min_length=1,
+        max_length=2000,
     )
-    pipeline_version: str = Field(..., min_length=1, max_length=128)
-    options: JobOptions = Field(default_factory=JobOptions)
+    pipeline_version: str = Field(
+        default="groundingdino-free-form-v1",
+        min_length=1,
+        max_length=128,
+    )
 
-    @validator("asset_ids", "requested_categories")
+    @validator("asset_ids")
     def values_must_be_unique(cls, value):
         if len(value) != len(set(value)):
             raise ValueError("items must be unique")
         return value
 
-    @validator("pipeline_version")
-    def pipeline_version_must_not_be_blank(cls, value: str) -> str:
+    @validator("grounding_prompt", "pipeline_version")
+    def text_must_not_be_blank(cls, value: str) -> str:
         normalized = value.strip()
         if not normalized:
-            raise ValueError("pipeline_version must not be blank")
+            raise ValueError("value must not be blank")
         return normalized
 
 
@@ -252,19 +256,32 @@ class StageResult(StrictModel):
 
 class JobError(StrictModel):
     asset_id: Optional[str] = None
-    stage: Optional[PipelineStage] = None
+    stage: Optional[Literal["grounding_dino"]] = None
     code: str
     message: str
+
+
+class DetectionJobProgress(StrictModel):
+    total_assets: int = Field(..., ge=0)
+    completed_assets: int = Field(..., ge=0)
+
+    @root_validator(skip_on_failure=True)
+    def completed_must_not_exceed_total(cls, values):
+        completed = values.get("completed_assets")
+        total = values.get("total_assets")
+        if completed is not None and total is not None and completed > total:
+            raise ValueError("completed_assets must not exceed total_assets")
+        return values
 
 
 class Job(StrictModel):
     job_id: str
     status: JobStatus
-    stage: Optional[PipelineStage] = None
+    stage: Optional[Literal["grounding_dino"]] = None
     pipeline_version: str
-    progress: JobProgress
-    stages: Dict[PipelineStage, StageResult]
-    task_ids: List[str] = Field(default_factory=list)
+    grounding_prompt: str
+    progress: DetectionJobProgress
+    stages: Dict[Literal["grounding_dino"], StageResult]
     errors: List[JobError] = Field(default_factory=list)
     created_at: datetime
     started_at: Optional[datetime] = None

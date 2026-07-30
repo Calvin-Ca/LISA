@@ -93,7 +93,7 @@ class AnnotationStoreTest(unittest.TestCase):
         )
 
     def test_initialize_creates_versioned_schema_and_directories(self):
-        self.assertEqual(self.store.schema_version(), 6)
+        self.assertEqual(self.store.schema_version(), 7)
         self.assertEqual(self.store.readiness(), {"storage": "ready"})
         for name in (
             "images",
@@ -118,6 +118,7 @@ class AnnotationStoreTest(unittest.TestCase):
                 "annotation_jobs",
                 "job_assets",
                 "detections",
+                "job_artifacts",
                 "hazard_candidates",
                 "annotation_tasks",
                 "task_versions",
@@ -140,6 +141,7 @@ class AnnotationStoreTest(unittest.TestCase):
                 "lease_expires_at",
                 "heartbeat_at",
                 "attempt_count",
+                "grounding_prompt",
             }.issubset(job_columns)
         )
         with self.store._connect() as connection:
@@ -189,7 +191,7 @@ class AnnotationStoreTest(unittest.TestCase):
 
         migrated = AnnotationStore(root)
         migrated.initialize()
-        self.assertEqual(migrated.schema_version(), 6)
+        self.assertEqual(migrated.schema_version(), 7)
         with migrated._connect() as connection:
             columns = {
                 row["name"]
@@ -217,7 +219,7 @@ class AnnotationStoreTest(unittest.TestCase):
 
         migrated = AnnotationStore(root)
         migrated.initialize()
-        self.assertEqual(migrated.schema_version(), 6)
+        self.assertEqual(migrated.schema_version(), 7)
         with migrated._connect() as connection:
             table = connection.execute(
                 """

@@ -7,8 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ..detection_overlay import render_detection_overlay
 from ..errors import VersionConflictError
-from ..hazard_rules import HazardRuleEngine
 from ..schemas import JobStatus, PipelineStage
 from ..storage import AnnotationStore
 from .grounding_dino import DetectionPredictor
@@ -74,14 +74,13 @@ class LeaseHeartbeat:
 
 
 class GroundingDINOJobWorker:
-    """Run GroundingDINO and optional hazard-rule jobs from the queue."""
+    """Run free-form GroundingDINO detection jobs from the queue."""
 
     def __init__(
         self,
         *,
         store: AnnotationStore,
         predictor: DetectionPredictor,
-        hazard_engine: HazardRuleEngine | None = None,
         worker_id: str,
         lease_seconds: int = 300,
         heartbeat_seconds: int = 60,
@@ -93,7 +92,6 @@ class GroundingDINOJobWorker:
             )
         self.store = store
         self.predictor = predictor
-        self.hazard_engine = hazard_engine or HazardRuleEngine()
         self.worker_id = worker_id
         self.lease_seconds = lease_seconds
         self.heartbeat_seconds = heartbeat_seconds
@@ -103,10 +101,8 @@ class GroundingDINOJobWorker:
         job = self.store.claim_next_job(
             worker_id=self.worker_id,
             lease_seconds=self.lease_seconds,
-            required_stop_after=(
-                PipelineStage.GROUNDING_DINO,
-                PipelineStage.HAZARD_RULES,
-            ),
+            required_stop_after=PipelineStage.GROUNDING_DINO,
+            grounding_prompt_required=True,
         )
         if job is None:
             return False
@@ -197,7 +193,6 @@ class GroundingDINOJobWorker:
         asset_id: str,
     ) -> dict[str, Any] | None:
         job_id = job["job_id"]
-        current_stage = PipelineStage.GROUNDING_DINO
         self.store.update_job_asset(
             job_id=job_id,
             asset_id=asset_id,
@@ -211,7 +206,7 @@ class GroundingDINOJobWorker:
                 image_path=Path(image_path),
                 width=int(asset["width"]),
                 height=int(asset["height"]),
-                categories=job["requested_categories"],
+                prompt=job["grounding_prompt"],
             )
             saved_detections = self.store.replace_detections(
                 job_id=job_id,
@@ -222,23 +217,24 @@ class GroundingDINOJobWorker:
                 ],
                 worker_id=self.worker_id,
             )
-            if self._terminal_stage(job) == PipelineStage.HAZARD_RULES:
-                current_stage = PipelineStage.HAZARD_RULES
-                candidates = self.hazard_engine.infer(
-                    detections=saved_detections,
-                    requested_categories=job["requested_categories"],
-                    width=int(asset["width"]),
-                    height=int(asset["height"]),
-                )
-                self.store.replace_hazard_candidates(
-                    job_id=job_id,
-                    asset_id=asset_id,
-                    candidates=[
-                        candidate.as_storage_payload()
-                        for candidate in candidates
-                    ],
-                    worker_id=self.worker_id,
-                )
+            overlay = render_detection_overlay(
+                image_path=Path(image_path),
+                detections=saved_detections,
+            )
+            self.store.store_job_artifact(
+                job_id=job_id,
+                asset_id=asset_id,
+                artifact_type="bbox-image",
+                data=overlay,
+                media_type="image/png",
+                worker_id=self.worker_id,
+                metadata={
+                    "grounding_prompt": job["grounding_prompt"],
+                    "detection_count": len(saved_detections),
+                    "model_version": self.predictor.model_version,
+                    "prompt_version": self.predictor.prompt_version,
+                },
+            )
             self.store.update_job_asset(
                 job_id=job_id,
                 asset_id=asset_id,
@@ -258,17 +254,9 @@ class GroundingDINOJobWorker:
             )
             error = {
                 "asset_id": asset_id,
-                "stage": current_stage.value,
-                "code": (
-                    "grounding_dino_asset_failed"
-                    if current_stage == PipelineStage.GROUNDING_DINO
-                    else "hazard_rules_asset_failed"
-                ),
-                "message": (
-                    "GroundingDINO inference failed for this asset"
-                    if current_stage == PipelineStage.GROUNDING_DINO
-                    else "hazard rule inference failed for this asset"
-                ),
+                "stage": PipelineStage.GROUNDING_DINO.value,
+                "code": "grounding_dino_asset_failed",
+                "message": "GroundingDINO inference failed for this asset",
             }
             self.store.update_job_asset(
                 job_id=job_id,
@@ -288,21 +276,6 @@ class GroundingDINOJobWorker:
         terminal_stage: PipelineStage,
     ) -> None:
         stages = dict(job["stages"])
-        if terminal_stage == PipelineStage.HAZARD_RULES:
-            stages[PipelineStage.HAZARD_RULES.value] = {
-                **stages[PipelineStage.HAZARD_RULES.value],
-                "status": "running",
-                "started_at": (
-                    stages[PipelineStage.HAZARD_RULES.value].get(
-                        "started_at"
-                    )
-                    or _now()
-                ),
-                "message": (
-                    f"derived candidates for {completed_assets}/"
-                    f"{len(job['asset_ids'])} assets"
-                ),
-            }
         stages[PipelineStage.GROUNDING_DINO.value] = {
             **stages[PipelineStage.GROUNDING_DINO.value],
             "status": "running",
@@ -343,11 +316,6 @@ class GroundingDINOJobWorker:
             for error in errors
             if error.get("stage") == PipelineStage.GROUNDING_DINO.value
         ]
-        hazard_errors = [
-            error
-            for error in errors
-            if error.get("stage") == PipelineStage.HAZARD_RULES.value
-        ]
         terminal_stage = self._terminal_stage(job)
         stages[PipelineStage.GROUNDING_DINO.value] = {
             **stages[PipelineStage.GROUNDING_DINO.value],
@@ -358,31 +326,6 @@ class GroundingDINOJobWorker:
                 f"detected; {len(dino_errors)} failed"
             ),
         }
-        if terminal_stage == PipelineStage.HAZARD_RULES:
-            stages[PipelineStage.HAZARD_RULES.value] = {
-                **stages[PipelineStage.HAZARD_RULES.value],
-                "status": "succeeded" if not errors else "failed",
-                "started_at": (
-                    stages[PipelineStage.HAZARD_RULES.value].get(
-                        "started_at"
-                    )
-                    or now
-                ),
-                "completed_at": now,
-                "message": (
-                    f"{succeeded_assets}/{total_assets} assets derived; "
-                    f"{len(hazard_errors)} rule failures and "
-                    f"{len(dino_errors)} upstream failures"
-                ),
-            }
-        for stage in PipelineStage:
-            if self._stage_is_after(stage, terminal_stage):
-                stages[stage.value] = {
-                    "status": "skipped",
-                    "started_at": None,
-                    "completed_at": now,
-                    "message": f"stop_after={terminal_stage.value}",
-                }
         if not errors:
             status = JobStatus.SUCCEEDED
         elif succeeded_assets:
@@ -415,13 +358,4 @@ class GroundingDINOJobWorker:
 
     @staticmethod
     def _terminal_stage(job: dict[str, Any]) -> PipelineStage:
-        stop_after = job.get("options", {}).get("stop_after")
-        return PipelineStage(stop_after or PipelineStage.GROUNDING_DINO.value)
-
-    @staticmethod
-    def _stage_is_after(
-        stage: PipelineStage,
-        terminal_stage: PipelineStage,
-    ) -> bool:
-        order = tuple(PipelineStage)
-        return order.index(stage) > order.index(terminal_stage)
+        return PipelineStage.GROUNDING_DINO

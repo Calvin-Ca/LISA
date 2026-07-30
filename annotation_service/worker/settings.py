@@ -120,7 +120,7 @@ class GroundingDINOWorkerSettings:
         ).strip()
         prompt_version = os.getenv(
             "ANNOTATION_GROUNDING_DINO_PROMPT_VERSION",
-            "construction-entities-v1",
+            "free-form-v1",
         ).strip()
         if not model_version or not prompt_version:
             raise ValueError(

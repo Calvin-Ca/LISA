@@ -141,69 +141,14 @@ class AnnotationAppTest(unittest.TestCase):
                 "get",
             ): "getAnnotationJob",
             (
-                "/v1/annotation/jobs/{job_id}/review-tasks",
-                "post",
-            ): "buildAnnotationReviewTasks",
-            (
-                "/v1/annotation/tasks",
+                "/v1/annotation/jobs/{job_id}/detections",
                 "get",
-            ): "listAnnotationTasks",
+            ): "listAnnotationJobDetections",
             (
-                "/v1/annotation/tasks/{task_id}",
+                "/v1/annotation/jobs/{job_id}/assets/"
+                "{asset_id}/bbox-image",
                 "get",
-            ): "getAnnotationTask",
-            (
-                "/v1/annotation/tasks/{task_id}/versions",
-                "get",
-            ): "listAnnotationTaskVersions",
-            (
-                "/v1/annotation/tasks/{task_id}/reviews",
-                "get",
-            ): "listAnnotationTaskReviews",
-            (
-                "/v1/annotation/tasks/{task_id}/draft",
-                "put",
-            ): "saveAnnotationDraft",
-            (
-                "/v1/annotation/tasks/{task_id}/submit",
-                "post",
-            ): "submitAnnotationTask",
-            (
-                "/v1/annotation/tasks/{task_id}/review",
-                "post",
-            ): "reviewAnnotationTask",
-            (
-                "/v1/annotation/tasks/{task_id}/prompt-enrichments",
-                "post",
-            ): "createPromptEnrichment",
-            (
-                "/v1/annotation/tasks/{task_id}/mask-candidates",
-                "post",
-            ): "createMaskCandidate",
-            (
-                "/v1/annotation/operations/{operation_id}",
-                "get",
-            ): "getAnnotationOperation",
-            (
-                "/v1/annotation/tasks/{task_id}/artifacts/{artifact_type}",
-                "get",
-            ): "getTaskArtifact",
-            (
-                "/v1/annotation/releases",
-                "post",
-            ): "createAnnotationRelease",
-            (
-                "/v1/annotation/releases/{release_id}",
-                "get",
-            ): "getAnnotationRelease",
-            (
-                "/v1/annotation/releases/{release_id}/manifest",
-                "get",
-            ): "getAnnotationReleaseManifest",
-            (
-                "/v1/annotation/releases/{release_id}/archive",
-                "get",
-            ): "getAnnotationReleaseArchive",
+            ): "getAnnotationJobBoundingBoxImage",
         }
         for (path, method), operation_id in expected_operations.items():
             self.assertEqual(
@@ -228,6 +173,8 @@ class AnnotationAppTest(unittest.TestCase):
             upload["security"],
             [{"apiKeyAuth": []}, {"bearerAuth": []}],
         )
+        self.assertNotIn("/v1/annotation/tasks", document["paths"])
+        self.assertNotIn("/v1/annotation/releases", document["paths"])
 
     def test_storage_lifecycle_is_reflected_in_readiness(self):
         with tempfile.TemporaryDirectory() as temporary:

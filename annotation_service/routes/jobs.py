@@ -5,19 +5,17 @@ import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, Query
+from fastapi.responses import FileResponse
 
 from ..auth import AuthDependency
 from ..config import Settings
 from ..errors import StorageUnavailableError
 from ..schemas import (
     CreateJobRequest,
-    BuildReviewTasksResponse,
     ErrorPayload,
     Job,
     JobDetectionsResponse,
-    JobHazardCandidatesResponse,
 )
-from ..review_task_builder import build_review_tasks
 from ..storage import AnnotationStore
 
 
@@ -41,9 +39,9 @@ PUBLIC_JOB_FIELDS = {
     "status",
     "stage",
     "pipeline_version",
+    "grounding_prompt",
     "progress",
     "stages",
-    "task_ids",
     "errors",
     "created_at",
     "started_at",
@@ -59,10 +57,18 @@ def _model_json(model: Any) -> dict[str, Any]:
 
 
 def _public_job(payload: dict[str, Any]) -> dict[str, Any]:
-    return {
+    public = {
         field: payload[field]
         for field in PUBLIC_JOB_FIELDS
     }
+    public["progress"] = {
+        "total_assets": payload["progress"]["total_assets"],
+        "completed_assets": payload["progress"]["completed_assets"],
+    }
+    public["stages"] = {
+        "grounding_dino": payload["stages"]["grounding_dino"]
+    }
+    return public
 
 
 def build_jobs_router(
@@ -105,11 +111,14 @@ def build_jobs_router(
         job = await asyncio.to_thread(
             store.create_job,
             asset_ids=request_payload["asset_ids"],
-            requested_categories=request_payload[
-                "requested_categories"
-            ],
+            grounding_prompt=request_payload["grounding_prompt"],
             pipeline_version=request_payload["pipeline_version"],
-            options=request_payload["options"],
+            options={
+                "generate_masks": False,
+                "enrich_prompts": False,
+                "prompt_count": 6,
+                "stop_after": "grounding_dino",
+            },
             max_queued_jobs=settings.max_queued_jobs,
             idempotency_key=idempotency_key,
             idempotency_request=(
@@ -158,52 +167,42 @@ def build_jobs_router(
         }
 
     @router.get(
-        "/{job_id}/hazard-candidates",
-        operation_id="listAnnotationJobHazardCandidates",
-        response_model=JobHazardCandidatesResponse,
-        dependencies=[Depends(authenticate)],
-        responses=GET_JOB_RESPONSES,
-    )
-    async def list_annotation_job_hazard_candidates(
-        job_id: str,
-        asset_id: str | None = Query(
-            default=None,
-            min_length=1,
-            max_length=128,
-        ),
-    ) -> dict[str, Any]:
-        store = require_storage()
-        items = await asyncio.to_thread(
-            store.list_job_hazard_candidates,
-            job_id=job_id,
-            asset_id=asset_id,
-        )
-        return {
-            "job_id": job_id,
-            "items": items,
-            "total": len(items),
-        }
-
-    @router.post(
-        "/{job_id}/review-tasks",
-        operation_id="buildAnnotationReviewTasks",
-        response_model=BuildReviewTasksResponse,
+        "/{job_id}/assets/{asset_id}/bbox-image",
+        operation_id="getAnnotationJobBoundingBoxImage",
+        response_class=FileResponse,
         dependencies=[Depends(authenticate)],
         responses={
             **GET_JOB_RESPONSES,
-            409: {
-                "model": ErrorPayload,
-                "description": "Hazard job is not ready.",
+            200: {
+                "description": "PNG image with GroundingDINO bounding boxes.",
+                "content": {
+                    "image/png": {
+                        "schema": {
+                            "type": "string",
+                            "format": "binary",
+                        }
+                    }
+                },
             },
         },
     )
-    async def build_annotation_review_tasks(
+    async def get_annotation_job_bbox_image(
         job_id: str,
-    ) -> dict[str, Any]:
-        return await asyncio.to_thread(
-            build_review_tasks,
-            require_storage(),
+        asset_id: str,
+    ) -> FileResponse:
+        path, media_type, sha256 = await asyncio.to_thread(
+            require_storage().job_artifact_file,
             job_id=job_id,
+            asset_id=asset_id,
+            artifact_type="bbox-image",
+        )
+        return FileResponse(
+            path,
+            media_type=media_type,
+            headers={
+                "ETag": f'"{sha256}"',
+                "Cache-Control": "private, no-cache",
+            },
         )
 
     return router
