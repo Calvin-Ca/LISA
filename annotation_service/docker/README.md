@@ -1,8 +1,9 @@
-# GroundingDINO 自由检测 Docker 部署
+# 自动标注服务 Docker 部署
 
-当前 Compose 只包含 API 和自由检测 GroundingDINO Worker，不包含 SAM、
-Qwen、Task 或 Release 服务。用户当前采用宿主机 Python 联调时无需构建镜像；
-本文件用于后续容器化。
+当前 Compose 只启动 API 和 GroundingDINO Worker。API 已包含 SAM Operation、
+Qwen Prompt、Task、提交/作废和 Release 路由，但 Compose 尚未启动对应的
+SAM、Qwen 和 Release Worker。完整流程联调按 `annotation_service/README.md`
+使用宿主机 Python 启动各 Worker；本文件保留给后续容器化。
 
 以下命令均在远程 Linux 服务器执行。
 
@@ -78,5 +79,5 @@ curl -fsS -H "X-API-Key: <API_KEY>" \
   http://127.0.0.1:8008/ready
 ```
 
-API 和 Worker 必须挂载同一个完整持久化目录。升级前应停止两个容器并备份整个
-目录；schema v7 会自动迁移，旧代码回滚时必须同时恢复迁移前备份。
+API 和所有 Worker 必须挂载同一个完整持久化目录。升级前应停止进程并备份整个
+目录；schema v8 会自动迁移，旧代码回滚时必须同时恢复迁移前备份。

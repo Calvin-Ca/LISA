@@ -1,94 +1,116 @@
-# GroundingDINO 自由检测 API（Spring 后端对接）
+# 自动标注完整流程 API（Spring 后端对接）
 
-文档版本：`1.0.0`
+文档版本：`1.1.0`
 
 更新时间：`2026-07-30`
 
-## 0. 当前联调地址
+## 1. 联调配置
 
-Spring 后端与自动标注服务不在同一台主机。当前测试环境使用：
+Spring 后端与自动标注服务不在同一台主机。当前测试环境：
 
 ```text
 Base URL: http://172.19.2.2:8008
 ```
 
-其中 `172.19.2.2` 是自动标注服务器地址，`8008` 是自动标注 API 端口。
-Spring 自身监听的 `18080` 是 Spring 对外提供业务接口的端口，不是自动标注
-服务端口。
-
-推荐在 Spring 的外部配置中声明：
+Spring 配置示例：
 
 ```yaml
 annotation:
   base-url: ${ANNOTATION_BASE_URL:http://172.19.2.2:8008}
-  api-key: ${ANNOTATION_API_KEY}
+  api-key: ${ANNOTATION_API_KEY:<TEST_API_KEY>}
 ```
 
-当前测试 API Key：
-
-```text
-<TEST_API_KEY>
-```
-
-测试交接副本可以直接填写测试密钥；正式部署时应替换密钥，并改由 Spring
-部署环境注入。
-
-不要使用 `127.0.0.1` 或 `localhost`：它们会指向 Spring 所在主机，无法访问
-另一台服务器上的自动标注服务。
-
-## 1. 服务范围
-
-该服务只提供：
-
-```text
-图片上传 -> 任意文本 Prompt -> GroundingDINO -> bbox JSON + 带框 PNG
-```
-
-不再提供类别白名单检测、隐患规则、SAM、Qwen、人工 Task 或数据集 Release。
-
-所有业务接口携带：
+除 `GET /health` 外，所有接口统一携带：
 
 ```http
-X-API-Key: <ANNOTATION_API_KEY>
+X-API-Key: <TEST_API_KEY>
 ```
 
-也可以使用：
+也支持：
 
 ```http
-Authorization: Bearer <ANNOTATION_API_KEY>
+Authorization: Bearer <TEST_API_KEY>
 ```
 
-Spring 推荐统一使用 `X-API-Key`。
+不要使用 `127.0.0.1` 或 `localhost`，它们指向 Spring 所在主机，不是自动
+标注服务器。Spring 自身的 `18080` 是 Spring 对外端口，与自动标注 API 的
+`8008` 不冲突。
 
-## 2. 通用约定
+## 2. 完整业务流程
 
-- JSON 使用 UTF-8。
-- 时间为 ISO 8601 UTC。
-- 响应中的 `content_url` 是相对路径，需要与 Base URL 拼接。
-- `POST /assets`、`POST /jobs` 支持 `Idempotency-Key`。
-- 幂等键长度为 8～128；相同键和相同请求返回首次结果，不同请求返回 409。
-- Prompt 不做类别或关键词白名单限制。
-- Prompt 必须非空，去除首尾空白后最长 2000 字符。
-- 一个 Job 最多包含 500 个不重复的 Asset。
-- bbox 坐标为原图绝对像素 `xyxy=[x1,y1,x2,y2]`。
-- 所有响应都可能携带 `X-Request-ID`；Spring 应记录它以便排查服务端日志。
-- API 是异步接口。创建 Job 返回 202 只表示已入队，不表示推理已经完成。
+```text
+1. 上传原图，取得 asset_id
+2. 提交任意 GroundingDINO Prompt，取得 job_id
+3. 轮询 Job 到终态
+4. 获取 bbox JSON 和带框图片
+5. 选择 detection，创建人工标注 Task
+6. 按 bbox 请求 SAM mask，轮询 Operation
+7. 下载二值 mask、mask overlay、crop，读取 polygon
+8. 请求 Qwen2.5-VL 批量生成 Prompt，轮询 Operation
+9. Spring/前端选择 Prompt、批量换词或自定义 Prompt
+10. 将 mask polygon 和 Prompt 合并到最新 Task 并保存草稿
+11. 提交 Task，或将不应继续的 Task 作废
+12. 可选：审核通过后构建 ReasonSeg Release
+```
 
-### API 一览
+GroundingDINO、SAM 和 Qwen 都是异步执行。HTTP 202 只表示任务已入队，Spring
+必须轮询 Job 或 Operation。
 
-| 方法 | 路径 | 鉴权 | 说明 |
-|---|---|---:|---|
-| GET | `/health` | 否 | 进程存活检查 |
-| GET | `/ready` | 是 | API 和持久化存储就绪检查 |
-| POST | `/v1/annotation/assets` | 是 | 上传 JPEG/PNG |
-| GET | `/v1/annotation/assets/{asset_id}` | 是 | 查询图片元数据 |
-| GET | `/v1/annotation/assets/{asset_id}/content` | 是 | 下载原图 |
-| POST | `/v1/annotation/jobs` | 是 | 创建自由文本检测任务 |
-| GET | `/v1/annotation/jobs/{job_id}` | 是 | 查询任务状态 |
-| GET | `/v1/annotation/jobs/{job_id}/detections` | 是 | 获取 bbox JSON |
-| GET | `/v1/annotation/jobs/{job_id}/assets/{asset_id}/bbox-image` | 是 | 下载带框 PNG |
+SAM 和 Qwen 返回的是候选结果，不会自动覆盖人工草稿。Spring 必须获取最新
+Task，合并用户选择后的结果，再保存 draft。
 
-统一错误：
+## 3. API 一览
+
+| 方法 | 路径 | 用途 |
+|---|---|---|
+| GET | `/health` | 存活检查 |
+| GET | `/ready` | API 和存储就绪检查 |
+| POST | `/v1/annotation/assets` | 上传 JPEG/PNG |
+| GET | `/v1/annotation/assets/{asset_id}` | 图片元数据 |
+| GET | `/v1/annotation/assets/{asset_id}/content` | 下载原图 |
+| POST | `/v1/annotation/jobs` | 创建自由检测任务 |
+| GET | `/v1/annotation/jobs/{job_id}` | 查询检测任务 |
+| POST | `/v1/annotation/jobs/{job_id}/cancel` | 取消检测任务 |
+| GET | `/v1/annotation/jobs/{job_id}/detections` | bbox JSON |
+| GET | `/v1/annotation/jobs/{job_id}/assets/{asset_id}/bbox-image` | 带框 PNG |
+| POST | `/v1/annotation/jobs/{job_id}/review-tasks` | 从检测框创建 Task |
+| GET | `/v1/annotation/tasks` | 分页查询 Task |
+| GET | `/v1/annotation/tasks/{task_id}` | Task 详情 |
+| PUT | `/v1/annotation/tasks/{task_id}/draft` | 保存完整人工草稿 |
+| POST | `/v1/annotation/tasks/{task_id}/mask-candidates` | 请求 SAM |
+| POST | `/v1/annotation/tasks/{task_id}/prompt-enrichments` | 请求批量 Prompt |
+| POST | `/v1/annotation/tasks/{task_id}/submit` | 提交标注样本 |
+| POST | `/v1/annotation/tasks/{task_id}/invalidate` | 作废标注样本 |
+| POST | `/v1/annotation/tasks/{task_id}/review` | 审核样本 |
+| GET | `/v1/annotation/tasks/{task_id}/artifacts/{artifact_type}` | 下载图片制品 |
+| GET | `/v1/annotation/operations/{operation_id}` | 查询 SAM/Qwen Operation |
+| POST | `/v1/annotation/operations/{operation_id}/cancel` | 取消 SAM/Qwen 步骤 |
+| POST | `/v1/annotation/releases` | 创建数据集 Release |
+| GET | `/v1/annotation/releases/{release_id}` | 查询 Release |
+| GET | `/v1/annotation/releases/{release_id}/manifest` | 下载 manifest |
+| GET | `/v1/annotation/releases/{release_id}/archive` | 下载 ZIP |
+
+## 4. 通用约定
+
+- JSON 编码为 UTF-8。
+- 时间为带时区的 ISO 8601 UTC。
+- bbox 为原图绝对像素 `xyxy=[x1,y1,x2,y2]`。
+- polygon 为原图绝对像素 `[[x,y], ...]`。
+- 图片只接受 JPEG/PNG。
+- mask、overlay 和带框图均返回 `image/png`。
+- 响应中的 URL 是相对路径，Spring 需要与 Base URL 拼接。
+- Spring 应记录响应头 `X-Request-ID`。
+- `expected_version` 是乐观锁；HTTP 409 后必须重新读取 Task。
+
+创建 Asset、Job 和 Release 支持：
+
+```http
+Idempotency-Key: <8到128字符>
+```
+
+相同 Key 和相同请求返回第一次结果；相同 Key 对应不同请求返回 HTTP 409。
+
+统一错误结构：
 
 ```json
 {
@@ -108,34 +130,32 @@ Spring 推荐统一使用 `X-API-Key`。
 
 | 状态码 | 含义 |
 |---|---|
-| 200 | 查询成功 |
+| 200 | 查询或修改成功 |
 | 201 | Asset 创建成功 |
-| 202 | Job 已入队 |
-| 401 | API Key 无效 |
-| 404 | 资源或结果图不存在 |
-| 409 | 幂等键冲突 |
+| 202 | 异步任务已入队 |
+| 401 | API Key 错误 |
+| 404 | 资源或制品不存在 |
+| 409 | 幂等、版本或状态冲突 |
 | 413 | 请求或图片过大 |
 | 415 | 图片格式不支持 |
-| 422 | 参数校验失败 |
-| 429 | Job 队列已满 |
+| 422 | 参数或标注内容校验失败 |
+| 429 | 队列已满 |
 | 503 | 存储未就绪 |
 
-Spring 不应只依赖 HTTP 状态码判断异步任务结果，还要读取 Job 响应中的
-`status` 和 `errors`。
+## 5. 健康检查
 
-## 3. 健康检查
-
-### `GET /health`
-
-不需要认证。
+```http
+GET /health
+```
 
 ```json
 {"status":"ok"}
 ```
 
-### `GET /ready`
-
-需要认证。HTTP 200 示例：
+```http
+GET /ready
+X-API-Key: <API_KEY>
+```
 
 ```json
 {
@@ -147,34 +167,32 @@ Spring 不应只依赖 HTTP 状态码判断异步任务结果，还要读取 Job
 }
 ```
 
-## 4. 上传图片
+`/ready` 不检查 GPU Worker 和 Qwen 模型是否正在运行。模型是否可用以 Job、
+Operation 状态及部署监控为准。
 
-### `POST /v1/annotation/assets`
-
-请求：
+## 6. 上传图片
 
 ```http
+POST /v1/annotation/assets
 Content-Type: multipart/form-data
 X-API-Key: <API_KEY>
-Idempotency-Key: upload-image-0001
+Idempotency-Key: asset-<业务请求ID>
 ```
-
-字段：
 
 | 字段 | 必填 | 说明 |
 |---|---:|---|
 | `file` | 是 | JPEG 或 PNG |
-| `group_id` | 是 | 来源分组，1～256 字符 |
-| `source_id` | 否 | 上游业务 ID |
+| `group_id` | 是 | 项目、视频、拍摄序列或工地分组 |
+| `source_id` | 否 | Spring 业务图片 ID |
 | `metadata_json` | 否 | JSON object 字符串 |
 
-响应 HTTP 201：
+HTTP 201：
 
 ```json
 {
   "asset_id": "ast_xxx",
-  "source_id": "spring-file-1001",
-  "group_id": "manual-detection",
+  "source_id": "spring-image-1001",
+  "group_id": "project-a:camera-01",
   "width": 1920,
   "height": 1080,
   "sha256": "<64位小写SHA256>",
@@ -186,92 +204,44 @@ Idempotency-Key: upload-image-0001
 }
 ```
 
-查询：
+## 7. GroundingDINO 自由检测
 
-```text
-GET /v1/annotation/assets/{asset_id}
-GET /v1/annotation/assets/{asset_id}/content
-```
-
-## 5. 创建自由检测 Job
-
-### `POST /v1/annotation/jobs`
-
-请求：
+### 7.1 创建 Job
 
 ```http
+POST /v1/annotation/jobs
 Content-Type: application/json
 X-API-Key: <API_KEY>
-Idempotency-Key: detection-job-0001
+Idempotency-Key: dino-<业务请求ID>
 ```
 
 ```json
 {
   "asset_ids": ["ast_xxx"],
-  "grounding_prompt": "the worker beside the blue excavator",
+  "grounding_prompt": "找出画面右侧蓝色设备旁边的人员",
   "pipeline_version": "groundingdino-free-form-v1"
 }
 ```
 
-`pipeline_version` 可省略，默认：
+Prompt 不做类别、语言或关键词白名单限制。只要求去除首尾空白后非空，且不超过
+2000 字符。
+
+HTTP 202 返回 `job_id`，初始状态为 `queued`。
+
+### 7.2 轮询 Job
+
+```http
+GET /v1/annotation/jobs/{job_id}
+```
+
+非终态：
 
 ```text
-groundingdino-free-form-v1
+queued
+running
 ```
 
-任意中文、英文、标点和自然语言描述都可以提交，例如：
-
-```json
-{
-  "asset_ids": ["ast_xxx"],
-  "grounding_prompt": "找出画面右侧蓝色设备旁边的人员"
-}
-```
-
-服务不再接受旧字段：
-
-```json
-{
-  "requested_categories": ["helmet_missing"],
-  "options": {}
-}
-```
-
-携带旧字段会返回 HTTP 422。
-
-响应 HTTP 202：
-
-```json
-{
-  "job_id": "job_xxx",
-  "status": "queued",
-  "stage": null,
-  "pipeline_version": "groundingdino-free-form-v1",
-  "grounding_prompt": "the worker beside the blue excavator",
-  "progress": {
-    "total_assets": 1,
-    "completed_assets": 0
-  },
-  "stages": {
-    "grounding_dino": {
-      "status": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "message": null
-    }
-  },
-  "errors": [],
-  "created_at": "2026-07-30T10:00:00+00:00",
-  "started_at": null,
-  "completed_at": null
-}
-```
-
-## 6. 轮询 Job
-
-### `GET /v1/annotation/jobs/{job_id}`
-
-建议每 1～2 秒轮询，直到：
+终态：
 
 ```text
 succeeded
@@ -280,45 +250,15 @@ failed
 cancelled
 ```
 
-成功时：
+建议每 1～2 秒轮询。`partial_failed` 时仍可读取成功图片的 detections，同时
+处理 `errors`。
 
-```json
-{
-  "job_id": "job_xxx",
-  "status": "succeeded",
-  "stage": "grounding_dino",
-  "pipeline_version": "groundingdino-free-form-v1",
-  "grounding_prompt": "the worker beside the blue excavator",
-  "progress": {
-    "total_assets": 1,
-    "completed_assets": 1
-  },
-  "stages": {
-    "grounding_dino": {
-      "status": "succeeded",
-      "started_at": "2026-07-30T10:00:01+00:00",
-      "completed_at": "2026-07-30T10:00:02+00:00",
-      "message": "1/1 assets detected; 0 failed"
-    }
-  },
-  "errors": [],
-  "created_at": "2026-07-30T10:00:00+00:00",
-  "started_at": "2026-07-30T10:00:01+00:00",
-  "completed_at": "2026-07-30T10:00:02+00:00"
-}
+### 7.3 获取检测结果
+
+```http
+GET /v1/annotation/jobs/{job_id}/detections
+GET /v1/annotation/jobs/{job_id}/detections?asset_id={asset_id}
 ```
-
-## 7. 获取 bbox JSON
-
-### `GET /v1/annotation/jobs/{job_id}/detections`
-
-可选查询参数：
-
-```text
-asset_id=ast_xxx
-```
-
-响应：
 
 ```json
 {
@@ -332,13 +272,11 @@ asset_id=ast_xxx
       "box_score": 0.91,
       "phrase_score": 0.91,
       "metadata": {
-        "caption": "the worker beside the blue excavator .",
-        "grounding_prompt": "the worker beside the blue excavator",
+        "grounding_prompt": "找出画面右侧蓝色设备旁边的人员",
         "model_version": "groundingdino-swint-ogc",
         "prompt_version": "free-form-v1",
         "box_threshold": 0.35,
-        "text_threshold": 0.25,
-        "ordinal": 0
+        "text_threshold": 0.25
       },
       "created_at": "2026-07-30T10:00:02+00:00"
     }
@@ -347,54 +285,390 @@ asset_id=ast_xxx
 }
 ```
 
-无目标时返回 HTTP 200，`items=[]`、`total=0`。
+无目标时 HTTP 200，`items=[]`、`total=0`。
 
-## 8. 获取带框图片
-
-### `GET /v1/annotation/jobs/{job_id}/assets/{asset_id}/bbox-image`
-
-成功响应：
+带框图片：
 
 ```http
-Content-Type: image/png
-ETag: "<SHA256>"
-Cache-Control: private, no-cache
+GET /v1/annotation/jobs/{job_id}/assets/{asset_id}/bbox-image
 ```
 
-即使未检测到 bbox，成功完成的 Asset 也会生成 PNG；此时图片内容为未画框的
-原图 PNG。Job 尚未完成、Asset 不属于 Job 或生成失败时返回 HTTP 404。
+响应为 `image/png`。
 
-Spring 示例：
+## 8. 从 detection 创建 Task
 
-```java
-byte[] image = webClient.get()
-    .uri(baseUrl + "/v1/annotation/jobs/{jobId}/assets/{assetId}/bbox-image",
-        jobId, assetId)
-    .header("X-API-Key", apiKey)
-    .retrieve()
-    .bodyToMono(byte[].class)
-    .block();
+Spring 或前端选择需要继续分割的检测框：
+
+```http
+POST /v1/annotation/jobs/{job_id}/review-tasks
+Content-Type: application/json
 ```
 
-## 9. 推荐调用顺序
+```json
+{
+  "detection_ids": ["det_xxx"],
+  "category": "unsafe"
+}
+```
+
+`detection_ids` 省略时为该 Job 的全部 detection。接口对同一个 detection
+幂等，不会重复创建 Task。
+
+`category` 是后续标注业务分类，不限制 GroundingDINO Prompt。可选值：
 
 ```text
-1. POST /assets
-2. 保存 asset_id
-3. POST /jobs，传入 grounding_prompt
-4. 保存 job_id
-5. GET /jobs/{job_id} 轮询终态
-6. GET /jobs/{job_id}/detections
-7. GET /jobs/{job_id}/assets/{asset_id}/bbox-image
+helmet_missing
+no_helmet
+no_jacket
+harness_missing
+equipment_proximity
+opening_unprotected
+guardrail_missing
+poor_housekeeping
+safe
+unsafe
 ```
 
-不要在 Job 未进入成功或部分成功终态前将 bbox 图片 404 当成永久失败。
+省略时默认 `unsafe`。
 
-## 10. Spring 接入建议
+响应：
 
-### 10.1 WebClient 配置
+```json
+{
+  "job_id": "job_xxx",
+  "task_ids": ["tsk_xxx"],
+  "created_count": 1,
+  "existing_count": 0
+}
+```
 
-下面仅展示连接配置，DTO 字段应按本文各接口的 JSON 定义创建：
+获取 Task：
+
+```http
+GET /v1/annotation/tasks/{task_id}
+```
+
+Task 中包含 `version`、`source_detection_id`、原图信息、detections、annotation、
+artifacts、provenance 和 warnings。
+
+## 9. SAM 按框分割
+
+### 9.1 创建 SAM Operation
+
+`box_xyxy` 使用第 7 节 detection 的原图坐标：
+
+```http
+POST /v1/annotation/tasks/{task_id}/mask-candidates
+Content-Type: application/json
+```
+
+```json
+{
+  "expected_version": 1,
+  "box_xyxy": [120.5, 80.0, 460.25, 720.75]
+}
+```
+
+HTTP 202：
+
+```json
+{
+  "operation_id": "op_xxx",
+  "status": "queued",
+  "created_at": "2026-07-30T10:00:03+00:00"
+}
+```
+
+### 9.2 轮询并读取 SAM 结果
+
+```http
+GET /v1/annotation/operations/{operation_id}
+```
+
+状态：
+
+```text
+queued
+running
+succeeded
+failed
+cancelled
+```
+
+成功响应的 `result`：
+
+```json
+{
+  "operation_id": "op_xxx",
+  "operation_type": "mask_candidate",
+  "task_id": "tsk_xxx",
+  "task_version": 1,
+  "status": "succeeded",
+  "result": {
+    "box_xyxy": [120.5, 80.0, 460.25, 720.75],
+    "predicted_iou": 0.93,
+    "mask_area_pixels": 182340,
+    "shapes": [
+      {
+        "shape_id": "sam-target-1",
+        "label": "target",
+        "shape_type": "polygon",
+        "points": [[121, 82], [459, 83], [455, 719]]
+      }
+    ],
+    "artifacts": {
+      "mask": "/v1/annotation/tasks/tsk_xxx/artifacts/mask",
+      "mask_overlay": "/v1/annotation/tasks/tsk_xxx/artifacts/mask-overlay",
+      "crop": "/v1/annotation/tasks/tsk_xxx/artifacts/crop"
+    },
+    "provenance": {
+      "sam_version": "sam-vit-h-4b8939"
+    }
+  },
+  "error": null,
+  "created_at": "2026-07-30T10:00:03+00:00",
+  "started_at": "2026-07-30T10:00:04+00:00",
+  "completed_at": "2026-07-30T10:00:05+00:00"
+}
+```
+
+图片制品可以使用 `result.artifacts`，也可以使用：
+
+```http
+GET /v1/annotation/tasks/{task_id}/artifacts/mask
+GET /v1/annotation/tasks/{task_id}/artifacts/mask-overlay
+GET /v1/annotation/tasks/{task_id}/artifacts/crop
+```
+
+- `mask`：二值 PNG，目标为 255、背景为 0。
+- `mask-overlay`：彩色叠加图。
+- `crop`：目标局部裁剪图。
+
+## 10. Qwen 批量生成 Prompt
+
+SAM 成功后创建 Prompt Operation：
+
+```http
+POST /v1/annotation/tasks/{task_id}/prompt-enrichments
+Content-Type: application/json
+```
+
+```json
+{
+  "expected_version": 1
+}
+```
+
+HTTP 202 返回 `operation_id`。继续轮询：
+
+```http
+GET /v1/annotation/operations/{operation_id}
+```
+
+成功时 `result`：
+
+```json
+{
+  "facts": {
+    "target_object": "画面中央靠近设备的一名作业人员",
+    "instance_count": 1,
+    "visual_anchor": ["位于画面中央", "位于蓝色设备左侧"],
+    "mask_granularity": "人员整体",
+    "visible_facts": ["画面中可见一名人员"],
+    "risk_semantics": "人员与设备距离较近"
+  },
+  "prompts": [
+    {"prompt_id": "v1", "type": "visual", "text": "分割画面中央靠近蓝色设备的人员。"},
+    {"prompt_id": "v2", "type": "visual", "text": "标出蓝色设备左侧的作业人员。"},
+    {"prompt_id": "v3", "type": "visual", "text": "提取画面中央的单名人员。"},
+    {"prompt_id": "r1", "type": "risk", "text": "分割与设备距离较近的中央人员。"},
+    {"prompt_id": "r2", "type": "risk", "text": "标出存在人机接近风险的作业人员。"},
+    {"prompt_id": "a1", "type": "agent", "text": "请定位并分割蓝色设备旁的人员。"}
+  ],
+  "provenance": {
+    "qwen_provider": "openai-compatible",
+    "qwen_model": "qwen25vl",
+    "qwen_facts_prompt_version": "facts-v1",
+    "qwen_enrichment_prompt_version": "prompts-v1"
+  }
+}
+```
+
+服务固定生成 6 条候选：3 条 `visual`、2 条 `risk`、1 条 `agent`。前端可以
+选择、批量替换词语或完全自定义，但最终提交仍必须满足 3+2+1，并且所有 Prompt
+不得重复。
+
+## 11. 保存、提交和作废标注样本
+
+### 11.1 保存草稿
+
+先重新获取 Task，确认最新 `version`。将 SAM `shapes`、Qwen `facts` 和用户
+最终选择的 `prompts` 合并成完整 annotation：
+
+```http
+PUT /v1/annotation/tasks/{task_id}/draft
+Content-Type: application/json
+```
+
+```json
+{
+  "expected_version": 1,
+  "editor_id": "spring-user-1001",
+  "annotation": {
+    "target_object": "画面中央靠近蓝色设备的一名作业人员",
+    "instance_count": 1,
+    "visual_anchor": ["位于画面中央", "位于蓝色设备左侧"],
+    "mask_granularity": "人员整体",
+    "risk_semantics": "人员与设备距离较近",
+    "shapes": [
+      {
+        "shape_id": "sam-target-1",
+        "label": "target",
+        "shape_type": "polygon",
+        "points": [[121, 82], [459, 83], [455, 719]]
+      }
+    ],
+    "prompts": [
+      {"prompt_id": "v1", "type": "visual", "text": "分割画面中央靠近蓝色设备的人员。"},
+      {"prompt_id": "v2", "type": "visual", "text": "标出蓝色设备左侧的作业人员。"},
+      {"prompt_id": "v3", "type": "visual", "text": "提取画面中央的单名人员。"},
+      {"prompt_id": "r1", "type": "risk", "text": "分割与设备距离较近的中央人员。"},
+      {"prompt_id": "r2", "type": "risk", "text": "标出存在人机接近风险的作业人员。"},
+      {"prompt_id": "a1", "type": "agent", "text": "请定位并分割蓝色设备旁的人员。"}
+    ]
+  }
+}
+```
+
+草稿允许不完整；每次保存成功后 `version` 加 1。
+
+### 11.2 提交样本
+
+```http
+POST /v1/annotation/tasks/{task_id}/submit
+```
+
+```json
+{
+  "expected_version": 2,
+  "annotator_id": "spring-user-1001",
+  "primary_result": "prompt_ok",
+  "comment": "人工检查完成"
+}
+```
+
+提交时强制校验：
+
+- 至少一个有效 target polygon。
+- polygon 在原图范围内且面积大于 0。
+- `instance_count`、目标粒度和字段非空。
+- Prompt 恰好为 3 visual + 2 risk + 1 agent。
+- Prompt ID 和内容不重复。
+
+成功后状态为 `review_pending`。
+
+### 11.3 作废样本
+
+对于误检、目标不应进入标注或用户主动终止的 Task：
+
+```http
+POST /v1/annotation/tasks/{task_id}/invalidate
+```
+
+```json
+{
+  "expected_version": 1,
+  "actor_id": "spring-user-1001",
+  "reason": "检测框不是需要标注的目标"
+}
+```
+
+成功后 Task 状态为 `rejected`，版本加 1，原因写入版本审计记录。作废不会删除
+原图、模型候选或历史版本。已 `accepted`、`frozen` 或已作废的 Task 不能再次
+作废。
+
+## 12. 取消步骤
+
+取消尚未完成的 GroundingDINO Job：
+
+```http
+POST /v1/annotation/jobs/{job_id}/cancel
+```
+
+```json
+{
+  "actor_id": "spring-user-1001",
+  "reason": "用户返回上传步骤"
+}
+```
+
+取消尚未完成的 SAM/Qwen Operation：
+
+```http
+POST /v1/annotation/operations/{operation_id}/cancel
+```
+
+```json
+{
+  "actor_id": "spring-user-1001",
+  "reason": "用户重新选择检测框"
+}
+```
+
+只能取消 `queued` 或 `running` 状态。成功后状态为 `cancelled`。取消只停止该
+异步步骤，不自动作废 Task；是否继续编辑或调用 invalidate 由 Spring 决定。
+
+## 13. Task 查询和审核
+
+分页查询：
+
+```http
+GET /v1/annotation/tasks?status=review_pending&limit=50
+```
+
+可选过滤字段包括 `status`、`category`、`group_id`、`job_id`、
+`annotator_id`、`reviewer_id` 和 `bad_case_type`。返回的 `next_cursor` 原样用于
+下一页。
+
+审核：
+
+```http
+POST /v1/annotation/tasks/{task_id}/review
+```
+
+```json
+{
+  "expected_version": 3,
+  "reviewer_id": "reviewer-1001",
+  "decision": "accept",
+  "primary_result": "prompt_ok",
+  "comment": "审核通过"
+}
+```
+
+`decision`：
+
+```text
+accept
+request_changes
+needs_expert
+reject
+```
+
+## 14. Spring 实现建议
+
+- 使用 WebClient 或其他支持 multipart 和二进制流的 HTTP 客户端。
+- Base URL、API Key、连接超时和读取超时使用外部配置。
+- Job/Operation 每 1～2 秒轮询，并设置整体业务超时。
+- 只有 `succeeded` 才读取 Operation `result`。
+- `partial_failed` 需要同时处理结果和 errors。
+- HTTP 409 后重新获取资源，不自动覆盖新版本。
+- mask、overlay 和原图按二进制流转发，不转成 JSON Base64。
+- API Key 只保存在 Spring 服务端，不下发浏览器。
+- Spring 到本服务是服务端请求，不受浏览器 CORS 限制。
+- 前端返回上一步时，先取消仍在执行的 Job/Operation，再决定是否作废 Task。
+
+推荐 WebClient：
 
 ```java
 @Bean
@@ -409,53 +683,16 @@ WebClient annotationWebClient(
 }
 ```
 
-上传图片必须使用 `multipart/form-data`，创建 Job 使用 `application/json`。
-下载带框图片时可直接接收 `byte[]`，并向前端返回 `image/png`。
+## 15. 联调前检查
 
-### 10.2 轮询策略
-
-- 建议每 1～2 秒查询一次 Job。
-- `queued`、`running`：继续轮询。
-- `succeeded`：读取 detections 和带框图片。
-- `partial_failed`：读取成功结果，同时记录 `errors`。
-- `failed`、`cancelled`：停止轮询并返回明确业务错误。
-- 建议设置总超时，不要让单个 HTTP 请求同步阻塞到模型推理结束。
-
-### 10.3 幂等键
-
-上传和创建 Job 建议分别生成不同的幂等键，例如：
-
-```text
-asset-<Spring业务请求ID>
-job-<Spring业务请求ID>
-```
-
-重试同一次业务请求时复用原 Key 和原请求内容。改变图片、Prompt 或 Asset
-列表时必须生成新 Key，否则会返回 HTTP 409。
-
-### 10.4 CORS
-
-Spring 到本服务属于服务端到服务端请求，不受浏览器 CORS 限制。推荐由浏览器
-只访问 Spring 的 `18080`，再由 Spring 调用本服务；不要把自动标注 API Key
-下发到浏览器。
-
-## 11. 联调检查清单
-
-交给 Spring 后端同事的必要信息：
-
-- 本文档。
-- `ANNOTATION_BASE_URL=http://172.19.2.2:8008`。
-- 通过安全渠道提供的 API Key。
-- 一张用于联调的 JPEG 或 PNG。
-
-后端开始联调前可执行：
+从 Spring 所在机器执行：
 
 ```bash
 curl -fsS http://172.19.2.2:8008/health
 curl -fsS \
-  -H "X-API-Key: ${ANNOTATION_API_KEY}" \
+  -H "X-API-Key: <TEST_API_KEY>" \
   http://172.19.2.2:8008/ready
 ```
 
-两项均成功后即可按第 9 节调用。当前契约只包含 GroundingDINO 自由检测、
-bbox JSON 和带框 PNG，不包含 SAM mask、Qwen Prompt 生成或数据集发布接口。
+两项成功只代表 API 和存储就绪。完整流程还需要 GroundingDINO Worker、SAM
+Worker，以及连接到 Qwen2.5-VL 服务的 Prompt Worker 正在运行。
