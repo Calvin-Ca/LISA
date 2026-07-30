@@ -32,6 +32,7 @@ from .schemas import (
     JobOptions,
     JobProgress,
     JobStatus,
+    OperationStatus,
     PipelineStage,
     Provenance,
     ReleaseStatus,
@@ -52,6 +53,7 @@ from .storage_schema import (
     SCHEMA_V5,
     SCHEMA_V6,
     SCHEMA_V7,
+    SCHEMA_V8,
     SCHEMA_VERSION,
 )
 from .validation import validate_annotation_for_submission
@@ -301,6 +303,24 @@ class AnnotationStore:
                                 ) VALUES (?, ?)
                                 """,
                                 (7, utc_now()),
+                            )
+                            connection.execute("COMMIT")
+                        except Exception:
+                            connection.execute("ROLLBACK")
+                            raise
+                        current = 7
+                    if current < 8:
+                        connection.execute("BEGIN IMMEDIATE")
+                        try:
+                            for statement in SCHEMA_V8:
+                                connection.execute(statement)
+                            connection.execute(
+                                """
+                                INSERT INTO schema_migrations(
+                                    version, applied_at
+                                ) VALUES (?, ?)
+                                """,
+                                (8, utc_now()),
                             )
                             connection.execute("COMMIT")
                         except Exception:
@@ -1011,6 +1031,47 @@ class AnnotationStore:
             )
             connection.execute("COMMIT")
         return self.get_job(job_id)
+
+    def cancel_job(
+        self,
+        job_id: str,
+        *,
+        actor_id: str,
+        reason: str,
+    ) -> dict[str, Any]:
+        """Cancel a queued or running job without deleting its audit trail."""
+
+        normalized_actor = self._validate_worker_id(actor_id)
+        normalized_reason = reason.strip()
+        if not normalized_reason:
+            raise ValueError("cancellation reason must not be blank")
+        job = self.get_job(job_id)
+        current = JobStatus(job["status"])
+        if current not in {JobStatus.QUEUED, JobStatus.RUNNING}:
+            raise InvalidStateTransitionError(
+                f"cannot cancel a job in {current.value} status"
+            )
+        return self.update_job(
+            job_id,
+            expected_status=current,
+            status=JobStatus.CANCELLED,
+            errors=[
+                *job["errors"],
+                {
+                    "asset_id": None,
+                    "stage": (
+                        job["stage"]
+                        if job["stage"] == PipelineStage.GROUNDING_DINO.value
+                        else None
+                    ),
+                    "code": "cancelled",
+                    "message": (
+                        f"cancelled by {normalized_actor}: "
+                        f"{normalized_reason[:1800]}"
+                    ),
+                },
+            ],
+        )
 
     def list_recoverable_jobs(self) -> list[dict[str, Any]]:
         self._ensure_initialized()
@@ -1962,6 +2023,7 @@ class AnnotationStore:
         provenance: dict[str, Any] | Provenance,
         warnings: list[str] | None = None,
         source_hazard_id: str | None = None,
+        source_detection_id: str | None = None,
     ) -> dict[str, Any]:
         self._ensure_initialized()
         category_value = AnnotationCategory(_enum_value(category)).value
@@ -1987,6 +2049,17 @@ class AnnotationStore:
                         WHERE source_hazard_id = ?
                         """,
                         (source_hazard_id,),
+                    ).fetchone()
+                    if existing is not None:
+                        connection.execute("COMMIT")
+                        return self.get_task(existing["task_id"])
+                if source_detection_id is not None:
+                    existing = connection.execute(
+                        """
+                        SELECT task_id FROM annotation_tasks
+                        WHERE source_detection_id = ?
+                        """,
+                        (source_detection_id,),
                     ).fetchone()
                     if existing is not None:
                         connection.execute("COMMIT")
@@ -2018,14 +2091,27 @@ class AnnotationStore:
                         raise ValueError(
                             "task category must match the hazard candidate"
                         )
+                if source_detection_id is not None:
+                    detection = connection.execute(
+                        """
+                        SELECT 1 FROM detections
+                        WHERE detection_id = ? AND job_id = ? AND asset_id = ?
+                        """,
+                        (source_detection_id, job_id, asset_id),
+                    ).fetchone()
+                    if detection is None:
+                        raise ResourceNotFoundError(
+                            "source detection was not found for this job asset"
+                        )
                 connection.execute(
                     """
                     INSERT INTO annotation_tasks (
                         task_id, job_id, asset_id, category, status, version,
                         annotation_json, provenance_json, warnings_json,
-                        source_hazard_id, created_at, updated_at
+                        source_hazard_id, source_detection_id,
+                        created_at, updated_at
                     ) VALUES (
-                        ?, ?, ?, ?, 'generated', 1, ?, ?, ?, ?, ?, ?
+                        ?, ?, ?, ?, 'generated', 1, ?, ?, ?, ?, ?, ?, ?
                     )
                     """,
                     (
@@ -2037,6 +2123,7 @@ class AnnotationStore:
                         canonical_json(provenance_payload),
                         canonical_json(warnings or []),
                         source_hazard_id,
+                        source_detection_id,
                         now,
                         now,
                     ),
@@ -2157,6 +2244,7 @@ class AnnotationStore:
             "annotation": _json_loads(row["annotation_json"], {}),
             "artifacts": links,
             "provenance": _json_loads(row["provenance_json"], {}),
+            "source_detection_id": row["source_detection_id"],
             "source_hazard": (
                 {
                     "hazard_id": source_hazard["hazard_id"],
@@ -2321,6 +2409,7 @@ class AnnotationStore:
                     "category": row["category"],
                     "status": row["status"],
                     "version": row["version"],
+                    "source_detection_id": row["source_detection_id"],
                     "source_hazard_id": row["source_hazard_id"],
                     "primary_result": row["primary_result"],
                     "annotator_id": row["annotator_id"],
@@ -2606,6 +2695,54 @@ class AnnotationStore:
                     comment,
                     now,
                 ),
+            )
+            connection.execute("COMMIT")
+        return self.get_task(task_id)
+
+    def invalidate_task(
+        self,
+        task_id: str,
+        *,
+        expected_version: int,
+        actor_id: str,
+        reason: str,
+    ) -> dict[str, Any]:
+        """Mark an editable sample as rejected while preserving all versions."""
+
+        normalized_actor = self._validate_worker_id(actor_id)
+        normalized_reason = reason.strip()
+        if not normalized_reason:
+            raise ValueError("invalidation reason must not be blank")
+        with self._lock, self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = self._row_or_not_found(
+                connection,
+                "SELECT * FROM annotation_tasks WHERE task_id = ?",
+                (task_id,),
+                "annotation task",
+            )
+            current = TaskStatus(row["status"])
+            if current not in {
+                TaskStatus.GENERATED,
+                TaskStatus.ANNOTATING,
+                TaskStatus.REVIEW_PENDING,
+                TaskStatus.CHANGES_REQUESTED,
+                TaskStatus.NEEDS_EXPERT,
+            }:
+                connection.execute("ROLLBACK")
+                raise InvalidStateTransitionError(
+                    f"cannot invalidate a task in {current.value} status"
+                )
+            self._update_task_snapshot(
+                connection,
+                row=row,
+                expected_version=expected_version,
+                annotation_payload=_json_loads(row["annotation_json"], {}),
+                target_status=TaskStatus.REJECTED,
+                editor_id=normalized_actor,
+                change_kind="invalidate",
+                primary_result=BadCaseType.OTHER.value,
+                comment=f"作废：{normalized_reason}",
             )
             connection.execute("COMMIT")
         return self.get_task(task_id)
@@ -2978,6 +3115,57 @@ class AnnotationStore:
                 "annotation operation",
             )
         return self._operation_payload(row)
+
+    def cancel_operation(
+        self,
+        operation_id: str,
+        *,
+        actor_id: str,
+        reason: str,
+    ) -> dict[str, Any]:
+        """Cancel a queued or running SAM/Qwen operation."""
+
+        normalized_actor = self._validate_worker_id(actor_id)
+        normalized_reason = reason.strip()
+        if not normalized_reason:
+            raise ValueError("cancellation reason must not be blank")
+        now = utc_now()
+        result = {
+            "cancelled_by": normalized_actor,
+            "reason": normalized_reason,
+        }
+        with self._lock, self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = self._row_or_not_found(
+                connection,
+                """
+                SELECT status FROM annotation_operations
+                WHERE operation_id = ?
+                """,
+                (operation_id,),
+                "annotation operation",
+            )
+            if row["status"] not in {
+                OperationStatus.QUEUED.value,
+                OperationStatus.RUNNING.value,
+            }:
+                connection.execute("ROLLBACK")
+                raise InvalidStateTransitionError(
+                    "only queued or running operations can be cancelled"
+                )
+            connection.execute(
+                """
+                UPDATE annotation_operations
+                SET status = 'cancelled', result_json = ?,
+                    error_json = NULL, completed_at = ?,
+                    claimed_by = NULL, lease_expires_at = NULL,
+                    heartbeat_at = NULL
+                WHERE operation_id = ?
+                """,
+                (canonical_json(result), now, operation_id),
+            )
+            connection.execute("COMMIT")
+        return self.get_operation(operation_id)
 
     def claim_next_operation(
         self,

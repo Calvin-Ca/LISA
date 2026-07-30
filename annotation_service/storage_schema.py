@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 SCHEMA_V1 = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -427,5 +427,114 @@ SCHEMA_V7 = (
     """
     CREATE INDEX IF NOT EXISTS idx_job_artifacts_job_asset
     ON job_artifacts(job_id, asset_id, artifact_type)
+    """,
+)
+
+
+SCHEMA_V8 = (
+    """
+    ALTER TABLE annotation_tasks
+    ADD COLUMN source_detection_id TEXT
+        REFERENCES detections(detection_id)
+    """,
+    """
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_source_detection
+    ON annotation_tasks(source_detection_id)
+    WHERE source_detection_id IS NOT NULL
+    """,
+    """
+    ALTER TABLE task_versions RENAME TO task_versions_v7
+    """,
+    """
+    CREATE TABLE task_versions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id TEXT NOT NULL,
+        version INTEGER NOT NULL CHECK (version >= 1),
+        annotation_json TEXT NOT NULL,
+        status TEXT NOT NULL,
+        editor_id TEXT,
+        change_kind TEXT NOT NULL CHECK (
+            change_kind IN (
+                'generated', 'draft', 'submit', 'review', 'freeze',
+                'invalidate'
+            )
+        ),
+        comment TEXT,
+        created_at TEXT NOT NULL,
+        UNIQUE (task_id, version),
+        FOREIGN KEY (task_id)
+            REFERENCES annotation_tasks(task_id) ON DELETE CASCADE
+    )
+    """,
+    """
+    INSERT INTO task_versions (
+        id, task_id, version, annotation_json, status, editor_id,
+        change_kind, comment, created_at
+    )
+    SELECT
+        id, task_id, version, annotation_json, status, editor_id,
+        change_kind, comment, created_at
+    FROM task_versions_v7
+    """,
+    """
+    DROP TABLE task_versions_v7
+    """,
+    """
+    ALTER TABLE annotation_operations RENAME TO annotation_operations_v7
+    """,
+    """
+    CREATE TABLE annotation_operations (
+        operation_id TEXT PRIMARY KEY,
+        operation_type TEXT NOT NULL CHECK (
+            operation_type IN ('mask_candidate', 'prompt_enrichment')
+        ),
+        task_id TEXT NOT NULL,
+        task_version INTEGER NOT NULL CHECK (task_version >= 1),
+        status TEXT NOT NULL CHECK (
+            status IN (
+                'queued', 'running', 'succeeded', 'failed', 'cancelled'
+            )
+        ),
+        request_json TEXT NOT NULL DEFAULT '{}',
+        result_json TEXT,
+        error_json TEXT,
+        claimed_by TEXT,
+        lease_expires_at TEXT,
+        heartbeat_at TEXT,
+        attempt_count INTEGER NOT NULL DEFAULT 0
+            CHECK (attempt_count >= 0),
+        created_at TEXT NOT NULL,
+        started_at TEXT,
+        completed_at TEXT,
+        FOREIGN KEY (task_id)
+            REFERENCES annotation_tasks(task_id) ON DELETE CASCADE
+    )
+    """,
+    """
+    INSERT INTO annotation_operations (
+        operation_id, operation_type, task_id, task_version, status,
+        request_json, result_json, error_json, claimed_by,
+        lease_expires_at, heartbeat_at, attempt_count, created_at,
+        started_at, completed_at
+    )
+    SELECT
+        operation_id, operation_type, task_id, task_version, status,
+        request_json, result_json, error_json, claimed_by,
+        lease_expires_at, heartbeat_at, attempt_count, created_at,
+        started_at, completed_at
+    FROM annotation_operations_v7
+    """,
+    """
+    DROP TABLE annotation_operations_v7
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_operations_claimable
+    ON annotation_operations(
+        operation_type, status, lease_expires_at, created_at
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_operations_task
+    ON annotation_operations(task_id, created_at)
     """,
 )

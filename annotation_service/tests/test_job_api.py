@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 
@@ -218,6 +219,107 @@ class JobApiTest(unittest.TestCase):
         self.assertEqual(image.headers["content-type"], "image/png")
         self.assertTrue(image.headers["etag"])
         self.assertEqual(image.content, png_bytes((30, 40, 50)))
+
+    def test_completed_detection_can_build_idempotent_review_task(self):
+        job_id = self.create_job().json()["job_id"]
+        worker_id = "task-builder-test-worker"
+        claimed = self.store.claim_next_job(
+            worker_id=worker_id,
+            lease_seconds=30,
+            required_stop_after="grounding_dino",
+            grounding_prompt_required=True,
+        )
+        saved = self.store.replace_detections(
+            job_id=job_id,
+            asset_id=self.asset_id,
+            detections=[
+                {
+                    "entity": "worker",
+                    "box_xyxy": [1, 1, 19, 9],
+                    "box_score": 0.91,
+                    "phrase_score": 0.83,
+                    "metadata": {
+                        "grounding_prompt": claimed["grounding_prompt"],
+                        "model_version": "dino-test",
+                        "prompt_version": "free-form-v1",
+                        "box_threshold": 0.35,
+                        "text_threshold": 0.25,
+                    },
+                }
+            ],
+            worker_id=worker_id,
+        )
+        self.store.update_job_asset(
+            job_id=job_id,
+            asset_id=self.asset_id,
+            status="succeeded",
+            worker_id=worker_id,
+        )
+        completed_at = datetime.now(timezone.utc).isoformat()
+        self.store.update_job(
+            job_id,
+            expected_status="running",
+            status="succeeded",
+            stage="grounding_dino",
+            progress={
+                "total_assets": 1,
+                "completed_assets": 1,
+                "generated_tasks": 0,
+            },
+            stages={
+                "grounding_dino": {
+                    "status": "succeeded",
+                    "started_at": claimed["started_at"],
+                    "completed_at": completed_at,
+                    "message": "1/1 assets detected",
+                }
+            },
+            worker_id=worker_id,
+        )
+
+        payload = {
+            "detection_ids": [saved[0]["detection_id"]],
+            "category": "unsafe",
+        }
+        created = self.client.post(
+            f"/v1/annotation/jobs/{job_id}/review-tasks",
+            json=payload,
+        )
+        self.assertEqual(created.status_code, 200, created.text)
+        self.assertEqual(created.json()["created_count"], 1)
+        task_id = created.json()["task_ids"][0]
+        task = self.client.get(
+            f"/v1/annotation/tasks/{task_id}"
+        ).json()
+        self.assertEqual(
+            task["source_detection_id"],
+            saved[0]["detection_id"],
+        )
+        self.assertEqual(task["provenance"]["grounding_prompt"], claimed[
+            "grounding_prompt"
+        ])
+
+        repeated = self.client.post(
+            f"/v1/annotation/jobs/{job_id}/review-tasks",
+            json=payload,
+        )
+        self.assertEqual(repeated.status_code, 200, repeated.text)
+        self.assertEqual(repeated.json()["created_count"], 0)
+        self.assertEqual(repeated.json()["existing_count"], 1)
+        self.assertEqual(repeated.json()["task_ids"], [task_id])
+
+    def test_queued_job_can_be_cancelled(self):
+        job_id = self.create_job().json()["job_id"]
+        response = self.client.post(
+            f"/v1/annotation/jobs/{job_id}/cancel",
+            json={
+                "actor_id": "spring-test",
+                "reason": "用户取消检测步骤",
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["status"], "cancelled")
+        self.assertEqual(response.json()["errors"][-1]["code"], "cancelled")
 
     def test_idempotent_retry_and_conflict(self):
         headers = {"Idempotency-Key": "frontend-job-001"}

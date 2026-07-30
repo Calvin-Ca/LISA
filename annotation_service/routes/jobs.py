@@ -11,11 +11,15 @@ from ..auth import AuthDependency
 from ..config import Settings
 from ..errors import StorageUnavailableError
 from ..schemas import (
+    BuildDetectionTasksRequest,
+    BuildReviewTasksResponse,
+    CancelJobRequest,
     CreateJobRequest,
     ErrorPayload,
     Job,
     JobDetectionsResponse,
 )
+from ..review_task_builder import build_detection_review_tasks
 from ..storage import AnnotationStore
 
 
@@ -139,6 +143,31 @@ def build_jobs_router(
         job = await asyncio.to_thread(store.get_job, job_id)
         return _public_job(job)
 
+    @router.post(
+        "/{job_id}/cancel",
+        operation_id="cancelAnnotationJob",
+        response_model=Job,
+        dependencies=[Depends(authenticate)],
+        responses={
+            **GET_JOB_RESPONSES,
+            409: {
+                "model": ErrorPayload,
+                "description": "Job is already in a terminal state.",
+            },
+        },
+    )
+    async def cancel_annotation_job(
+        job_id: str,
+        request: CancelJobRequest,
+    ) -> dict[str, Any]:
+        job = await asyncio.to_thread(
+            require_storage().cancel_job,
+            job_id,
+            actor_id=request.actor_id,
+            reason=request.reason,
+        )
+        return _public_job(job)
+
     @router.get(
         "/{job_id}/detections",
         operation_id="listAnnotationJobDetections",
@@ -165,6 +194,35 @@ def build_jobs_router(
             "items": items,
             "total": len(items),
         }
+
+    @router.post(
+        "/{job_id}/review-tasks",
+        operation_id="buildDetectionReviewTasks",
+        response_model=BuildReviewTasksResponse,
+        dependencies=[Depends(authenticate)],
+        responses={
+            **GET_JOB_RESPONSES,
+            409: {
+                "model": ErrorPayload,
+                "description": "Detection job has not completed.",
+            },
+            422: {
+                "model": ErrorPayload,
+                "description": "Detection selection is invalid.",
+            },
+        },
+    )
+    async def build_detection_tasks(
+        job_id: str,
+        request: BuildDetectionTasksRequest,
+    ) -> dict[str, Any]:
+        return await asyncio.to_thread(
+            build_detection_review_tasks,
+            require_storage(),
+            job_id=job_id,
+            detection_ids=request.detection_ids,
+            category=request.category.value,
+        )
 
     @router.get(
         "/{job_id}/assets/{asset_id}/bbox-image",

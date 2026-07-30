@@ -24,6 +24,9 @@ from .schemas import (
 )
 from .routes.assets import build_assets_router
 from .routes.jobs import build_jobs_router
+from .routes.operations import build_operations_router
+from .routes.releases import build_releases_router
+from .routes.tasks import build_tasks_router
 from .storage import AnnotationStore, StorageBackend
 
 
@@ -82,12 +85,12 @@ def create_app(
                 await asyncio.to_thread(storage.close)
 
     app = FastAPI(
-        title="GroundingDINO Free Detection API",
+        title="Construction Safety Annotation API",
         version=settings.service_version,
         description=(
-            "Free-form GroundingDINO detection service returning bounding-box "
-            "JSON and rendered PNG images. The API process does not load "
-            "model weights."
+            "Free-form GroundingDINO detection, SAM box-prompt segmentation, "
+            "Qwen prompt enrichment, manual annotation review, and dataset "
+            "release API. The API process does not load model weights."
         ),
         docs_url="/docs" if settings.docs_enabled else None,
         redoc_url="/redoc" if settings.docs_enabled else None,
@@ -257,6 +260,24 @@ def create_app(
     app.include_router(
         build_jobs_router(
             settings=settings,
+            storage=cast(AnnotationStore | None, storage),
+            authenticate=authenticate,
+        )
+    )
+    app.include_router(
+        build_tasks_router(
+            storage=cast(AnnotationStore | None, storage),
+            authenticate=authenticate,
+        )
+    )
+    app.include_router(
+        build_operations_router(
+            storage=cast(AnnotationStore | None, storage),
+            authenticate=authenticate,
+        )
+    )
+    app.include_router(
+        build_releases_router(
             storage=cast(AnnotationStore | None, storage),
             authenticate=authenticate,
         )

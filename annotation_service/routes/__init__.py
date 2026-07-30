@@ -1,1 +1,1 @@
-"""HTTP routes for assets and free-form GroundingDINO jobs."""
+"""HTTP routes for the complete assisted-annotation workflow."""

@@ -103,6 +103,7 @@ class OperationStatus(str, Enum):
     RUNNING = "running"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class OperationType(str, Enum):
@@ -397,6 +398,33 @@ class BuildReviewTasksResponse(StrictModel):
     existing_count: int = Field(..., ge=0)
 
 
+class BuildDetectionTasksRequest(StrictModel):
+    detection_ids: Optional[List[str]] = Field(
+        default=None,
+        min_items=1,
+        max_items=500,
+    )
+    category: AnnotationCategory = AnnotationCategory.UNSAFE
+
+    @validator("detection_ids")
+    def detection_ids_must_be_unique(cls, value):
+        if value is not None and len(value) != len(set(value)):
+            raise ValueError("detection_ids must be unique")
+        return value
+
+
+class CancelJobRequest(StrictModel):
+    actor_id: str = Field(..., min_length=1, max_length=128)
+    reason: str = Field(..., min_length=1, max_length=2000)
+
+    @validator("actor_id", "reason")
+    def cancellation_text_must_not_be_blank(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("value must not be blank")
+        return normalized
+
+
 class TaskAsset(StrictModel):
     asset_id: str
     group_id: str
@@ -414,6 +442,8 @@ class ArtifactLinks(StrictModel):
 
 class Provenance(StrictModel):
     pipeline_version: str
+    source_detection_id: Optional[str] = None
+    grounding_prompt: Optional[str] = None
     hazard_candidate_id: Optional[str] = None
     review_task_builder_version: Optional[str] = None
     grounding_dino_version: Optional[str] = None
@@ -441,6 +471,7 @@ class AnnotationTask(StrictModel):
     annotation: AnnotationContent
     artifacts: ArtifactLinks = Field(default_factory=ArtifactLinks)
     provenance: Provenance
+    source_detection_id: Optional[str] = None
     source_hazard: Optional[HazardCandidate] = None
     warnings: List[str] = Field(default_factory=list)
     primary_result: Optional[BadCaseType] = None
@@ -457,6 +488,7 @@ class TaskSummary(StrictModel):
     category: AnnotationCategory
     status: TaskStatus
     version: int = Field(..., ge=1)
+    source_detection_id: Optional[str] = None
     source_hazard_id: Optional[str] = None
     primary_result: Optional[BadCaseType] = None
     annotator_id: Optional[str] = None
@@ -482,6 +514,7 @@ class TaskVersionRecord(StrictModel):
         "submit",
         "review",
         "freeze",
+        "invalidate",
     ]
     comment: Optional[str] = None
     created_at: datetime
@@ -529,6 +562,19 @@ class ReviewTaskRequest(StrictModel):
     comment: Optional[str] = Field(default=None, max_length=2000)
 
 
+class InvalidateTaskRequest(StrictModel):
+    expected_version: int = Field(..., ge=1)
+    actor_id: str = Field(..., min_length=1, max_length=128)
+    reason: str = Field(..., min_length=1, max_length=2000)
+
+    @validator("actor_id", "reason")
+    def invalidation_text_must_not_be_blank(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("value must not be blank")
+        return normalized
+
+
 class CreateMaskCandidateRequest(StrictModel):
     expected_version: int = Field(..., ge=1)
     box_xyxy: List[float]
@@ -538,6 +584,21 @@ class CreateMaskCandidateRequest(StrictModel):
 
 class CreatePromptEnrichmentRequest(StrictModel):
     expected_version: int = Field(..., ge=1)
+
+
+class CancelOperationRequest(StrictModel):
+    actor_id: str = Field(..., min_length=1, max_length=128)
+    reason: str = Field(..., min_length=1, max_length=2000)
+
+    @validator("actor_id", "reason")
+    def operation_cancellation_text_must_not_be_blank(
+        cls,
+        value: str,
+    ) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("value must not be blank")
+        return normalized
 
 
 class OperationAccepted(StrictModel):

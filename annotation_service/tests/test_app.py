@@ -149,6 +149,26 @@ class AnnotationAppTest(unittest.TestCase):
                 "{asset_id}/bbox-image",
                 "get",
             ): "getAnnotationJobBoundingBoxImage",
+            (
+                "/v1/annotation/jobs/{job_id}/review-tasks",
+                "post",
+            ): "buildDetectionReviewTasks",
+            (
+                "/v1/annotation/tasks/{task_id}/mask-candidates",
+                "post",
+            ): "createMaskCandidate",
+            (
+                "/v1/annotation/tasks/{task_id}/prompt-enrichments",
+                "post",
+            ): "createPromptEnrichment",
+            (
+                "/v1/annotation/tasks/{task_id}/submit",
+                "post",
+            ): "submitAnnotationTask",
+            (
+                "/v1/annotation/tasks/{task_id}/invalidate",
+                "post",
+            ): "invalidateAnnotationTask",
         }
         for (path, method), operation_id in expected_operations.items():
             self.assertEqual(
@@ -173,8 +193,8 @@ class AnnotationAppTest(unittest.TestCase):
             upload["security"],
             [{"apiKeyAuth": []}, {"bearerAuth": []}],
         )
-        self.assertNotIn("/v1/annotation/tasks", document["paths"])
-        self.assertNotIn("/v1/annotation/releases", document["paths"])
+        self.assertIn("/v1/annotation/tasks", document["paths"])
+        self.assertIn("/v1/annotation/releases", document["paths"])
 
     def test_storage_lifecycle_is_reflected_in_readiness(self):
         with tempfile.TemporaryDirectory() as temporary:
