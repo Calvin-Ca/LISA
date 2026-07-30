@@ -124,7 +124,7 @@ cd <LISA仓库目录>
 set -a
 source annotation_service/.env
 set +a
-python -m uvicorn annotation_service.app:app --host 0.0.0.0 --port 8001
+python -m uvicorn annotation_service.app:app --host 0.0.0.0 --port 8008
 ```
 
 终端二启动持续检测 Worker：
@@ -150,14 +150,14 @@ python -m annotation_service.worker --once
 健康检查：
 
 ```bash
-curl -fsS http://127.0.0.1:8001/health
-curl -fsS -H "X-API-Key: <API_KEY>" http://127.0.0.1:8001/ready
+curl -fsS http://127.0.0.1:8008/health
+curl -fsS -H "X-API-Key: <API_KEY>" http://127.0.0.1:8008/ready
 ```
 
 上传图片：
 
 ```bash
-curl -fsS -X POST http://127.0.0.1:8001/v1/annotation/assets \
+curl -fsS -X POST http://127.0.0.1:8008/v1/annotation/assets \
   -H "X-API-Key: <API_KEY>" \
   -F "file=@/path/to/test.jpg" \
   -F "group_id=manual-test"
@@ -166,7 +166,7 @@ curl -fsS -X POST http://127.0.0.1:8001/v1/annotation/assets \
 创建自由检测 Job：
 
 ```bash
-curl -fsS -X POST http://127.0.0.1:8001/v1/annotation/jobs \
+curl -fsS -X POST http://127.0.0.1:8008/v1/annotation/jobs \
   -H "X-API-Key: <API_KEY>" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: detection-test-001" \
@@ -177,12 +177,12 @@ curl -fsS -X POST http://127.0.0.1:8001/v1/annotation/jobs \
 
 ```bash
 curl -fsS -H "X-API-Key: <API_KEY>" \
-  http://127.0.0.1:8001/v1/annotation/jobs/<JOB_ID>
+  http://127.0.0.1:8008/v1/annotation/jobs/<JOB_ID>
 curl -fsS -H "X-API-Key: <API_KEY>" \
-  http://127.0.0.1:8001/v1/annotation/jobs/<JOB_ID>/detections
+  http://127.0.0.1:8008/v1/annotation/jobs/<JOB_ID>/detections
 curl -fsS -H "X-API-Key: <API_KEY>" \
   -o bbox.png \
-  http://127.0.0.1:8001/v1/annotation/jobs/<JOB_ID>/assets/<ASSET_ID>/bbox-image
+  http://127.0.0.1:8008/v1/annotation/jobs/<JOB_ID>/assets/<ASSET_ID>/bbox-image
 ```
 
 ## 本地 CPU 测试

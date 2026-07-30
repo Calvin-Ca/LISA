@@ -57,8 +57,8 @@ docker compose \
 默认地址：
 
 ```text
-API:     http://<服务器地址>:18001
-Swagger: http://<服务器地址>:18001/docs
+API:     http://<服务器地址>:8008
+Swagger: http://<服务器地址>:8008/docs
 ```
 
 检查：
@@ -75,7 +75,7 @@ docker compose \
   -f annotation_service/docker/compose.yaml \
   logs --tail=100 api worker
 curl -fsS -H "X-API-Key: <API_KEY>" \
-  http://127.0.0.1:18001/ready
+  http://127.0.0.1:8008/ready
 ```
 
 API 和 Worker 必须挂载同一个完整持久化目录。升级前应停止两个容器并备份整个

@@ -1,4 +1,40 @@
-# GroundingDINO 自由检测 API（Spring 对接）
+# GroundingDINO 自由检测 API（Spring 后端对接）
+
+文档版本：`1.0.0`
+
+更新时间：`2026-07-30`
+
+## 0. 当前联调地址
+
+Spring 后端与自动标注服务不在同一台主机。当前测试环境使用：
+
+```text
+Base URL: http://172.19.2.2:8008
+```
+
+其中 `172.19.2.2` 是自动标注服务器地址，`8008` 是自动标注 API 端口。
+Spring 自身监听的 `18080` 是 Spring 对外提供业务接口的端口，不是自动标注
+服务端口。
+
+推荐在 Spring 的外部配置中声明：
+
+```yaml
+annotation:
+  base-url: ${ANNOTATION_BASE_URL:http://172.19.2.2:8008}
+  api-key: ${ANNOTATION_API_KEY}
+```
+
+当前测试 API Key：
+
+```text
+<TEST_API_KEY>
+```
+
+测试交接副本可以直接填写测试密钥；正式部署时应替换密钥，并改由 Spring
+部署环境注入。
+
+不要使用 `127.0.0.1` 或 `localhost`：它们会指向 Spring 所在主机，无法访问
+另一台服务器上的自动标注服务。
 
 ## 1. 服务范围
 
@@ -9,12 +45,6 @@
 ```
 
 不再提供类别白名单检测、隐患规则、SAM、Qwen、人工 Task 或数据集 Release。
-
-示例 Base URL：
-
-```text
-http://<服务器地址>:8001
-```
 
 所有业务接口携带：
 
@@ -28,16 +58,35 @@ X-API-Key: <ANNOTATION_API_KEY>
 Authorization: Bearer <ANNOTATION_API_KEY>
 ```
 
+Spring 推荐统一使用 `X-API-Key`。
+
 ## 2. 通用约定
 
 - JSON 使用 UTF-8。
 - 时间为 ISO 8601 UTC。
+- 响应中的 `content_url` 是相对路径，需要与 Base URL 拼接。
 - `POST /assets`、`POST /jobs` 支持 `Idempotency-Key`。
 - 幂等键长度为 8～128；相同键和相同请求返回首次结果，不同请求返回 409。
 - Prompt 不做类别或关键词白名单限制。
 - Prompt 必须非空，去除首尾空白后最长 2000 字符。
 - 一个 Job 最多包含 500 个不重复的 Asset。
 - bbox 坐标为原图绝对像素 `xyxy=[x1,y1,x2,y2]`。
+- 所有响应都可能携带 `X-Request-ID`；Spring 应记录它以便排查服务端日志。
+- API 是异步接口。创建 Job 返回 202 只表示已入队，不表示推理已经完成。
+
+### API 一览
+
+| 方法 | 路径 | 鉴权 | 说明 |
+|---|---|---:|---|
+| GET | `/health` | 否 | 进程存活检查 |
+| GET | `/ready` | 是 | API 和持久化存储就绪检查 |
+| POST | `/v1/annotation/assets` | 是 | 上传 JPEG/PNG |
+| GET | `/v1/annotation/assets/{asset_id}` | 是 | 查询图片元数据 |
+| GET | `/v1/annotation/assets/{asset_id}/content` | 是 | 下载原图 |
+| POST | `/v1/annotation/jobs` | 是 | 创建自由文本检测任务 |
+| GET | `/v1/annotation/jobs/{job_id}` | 是 | 查询任务状态 |
+| GET | `/v1/annotation/jobs/{job_id}/detections` | 是 | 获取 bbox JSON |
+| GET | `/v1/annotation/jobs/{job_id}/assets/{asset_id}/bbox-image` | 是 | 下载带框 PNG |
 
 统一错误：
 
@@ -70,6 +119,9 @@ Authorization: Bearer <ANNOTATION_API_KEY>
 | 422 | 参数校验失败 |
 | 429 | Job 队列已满 |
 | 503 | 存储未就绪 |
+
+Spring 不应只依赖 HTTP 状态码判断异步任务结果，还要读取 Job 响应中的
+`status` 和 `errors`。
 
 ## 3. 健康检查
 
@@ -337,3 +389,73 @@ byte[] image = webClient.get()
 ```
 
 不要在 Job 未进入成功或部分成功终态前将 bbox 图片 404 当成永久失败。
+
+## 10. Spring 接入建议
+
+### 10.1 WebClient 配置
+
+下面仅展示连接配置，DTO 字段应按本文各接口的 JSON 定义创建：
+
+```java
+@Bean
+WebClient annotationWebClient(
+        WebClient.Builder builder,
+        @Value("${annotation.base-url}") String baseUrl,
+        @Value("${annotation.api-key}") String apiKey) {
+    return builder
+        .baseUrl(baseUrl)
+        .defaultHeader("X-API-Key", apiKey)
+        .build();
+}
+```
+
+上传图片必须使用 `multipart/form-data`，创建 Job 使用 `application/json`。
+下载带框图片时可直接接收 `byte[]`，并向前端返回 `image/png`。
+
+### 10.2 轮询策略
+
+- 建议每 1～2 秒查询一次 Job。
+- `queued`、`running`：继续轮询。
+- `succeeded`：读取 detections 和带框图片。
+- `partial_failed`：读取成功结果，同时记录 `errors`。
+- `failed`、`cancelled`：停止轮询并返回明确业务错误。
+- 建议设置总超时，不要让单个 HTTP 请求同步阻塞到模型推理结束。
+
+### 10.3 幂等键
+
+上传和创建 Job 建议分别生成不同的幂等键，例如：
+
+```text
+asset-<Spring业务请求ID>
+job-<Spring业务请求ID>
+```
+
+重试同一次业务请求时复用原 Key 和原请求内容。改变图片、Prompt 或 Asset
+列表时必须生成新 Key，否则会返回 HTTP 409。
+
+### 10.4 CORS
+
+Spring 到本服务属于服务端到服务端请求，不受浏览器 CORS 限制。推荐由浏览器
+只访问 Spring 的 `18080`，再由 Spring 调用本服务；不要把自动标注 API Key
+下发到浏览器。
+
+## 11. 联调检查清单
+
+交给 Spring 后端同事的必要信息：
+
+- 本文档。
+- `ANNOTATION_BASE_URL=http://172.19.2.2:8008`。
+- 通过安全渠道提供的 API Key。
+- 一张用于联调的 JPEG 或 PNG。
+
+后端开始联调前可执行：
+
+```bash
+curl -fsS http://172.19.2.2:8008/health
+curl -fsS \
+  -H "X-API-Key: ${ANNOTATION_API_KEY}" \
+  http://172.19.2.2:8008/ready
+```
+
+两项均成功后即可按第 9 节调用。当前契约只包含 GroundingDINO 自由检测、
+bbox JSON 和带框 PNG，不包含 SAM mask、Qwen Prompt 生成或数据集发布接口。
