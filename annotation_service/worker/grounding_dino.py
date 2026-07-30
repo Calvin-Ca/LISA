@@ -10,8 +10,10 @@ from typing import Any, Protocol, Sequence
 from PIL import Image
 
 from ..prompt_normalization import (
+    GroundingPromptTranslator,
     PromptNormalizationMode,
     PromptNormalizationProfile,
+    PromptTranslationFailurePolicy,
     normalize_grounding_prompt as normalize_prompt_result,
 )
 from ..schemas import AnnotationCategory
@@ -94,6 +96,9 @@ class GroundingDINOModelConfig:
     prompt_normalization_profile: PromptNormalizationProfile = (
         "construction_safety_v1"
     )
+    prompt_translation_failure_policy: PromptTranslationFailurePolicy = (
+        "fallback_canonical_terms"
+    )
     box_threshold: float = 0.35
     text_threshold: float = 0.25
 
@@ -130,6 +135,9 @@ class DetectionPredictor(Protocol):
         categories: Sequence[str | AnnotationCategory] | None = None,
         prompt_normalization_mode: PromptNormalizationMode | None = None,
         prompt_normalization_profile: PromptNormalizationProfile | None = None,
+        prompt_translation_failure_policy: (
+            PromptTranslationFailurePolicy | None
+        ) = None,
     ) -> list[GroundingDINODetection]:
         ...
 
@@ -208,8 +216,14 @@ def _normalize_phrase(value: str) -> str:
 class GroundingDINOAdapter:
     """Lazy GroundingDINO adapter used only by the GPU worker process."""
 
-    def __init__(self, config: GroundingDINOModelConfig):
+    def __init__(
+        self,
+        config: GroundingDINOModelConfig,
+        *,
+        prompt_translator: GroundingPromptTranslator | None = None,
+    ):
         self.config = config
+        self.prompt_translator = prompt_translator
         self.model_version = config.model_version
         self.prompt_version = config.prompt_version
         self._model: Any | None = None
@@ -291,8 +305,10 @@ class GroundingDINOAdapter:
         categories: Sequence[str | AnnotationCategory] | None = None,
         prompt_normalization_mode: PromptNormalizationMode | None = None,
         prompt_normalization_profile: PromptNormalizationProfile | None = None,
+        prompt_translation_failure_policy: (
+            PromptTranslationFailurePolicy | None
+        ) = None,
     ) -> list[GroundingDINODetection]:
-        self.load()
         effective_mode = (
             prompt_normalization_mode
             if prompt_normalization_mode is not None
@@ -303,11 +319,18 @@ class GroundingDINOAdapter:
             if prompt_normalization_profile is not None
             else self.config.prompt_normalization_profile
         )
+        effective_failure_policy = (
+            prompt_translation_failure_policy
+            if prompt_translation_failure_policy is not None
+            else self.config.prompt_translation_failure_policy
+        )
         if prompt is not None:
             prompt_result = normalize_prompt_result(
                 prompt,
                 mode=effective_mode,
                 profile=effective_profile,
+                translator=self.prompt_translator,
+                translation_failure_policy=effective_failure_policy,
             )
             caption = prompt_result.normalized_prompt
             requested_entities: list[str] = []
@@ -330,6 +353,7 @@ class GroundingDINOAdapter:
                 ),
                 "grounding_prompt_applied_aliases": [],
             }
+        self.load()
         with Image.open(image_path) as source:
             image_source = source.convert("RGB")
         image, _ = self._image_transform(image_source, None)

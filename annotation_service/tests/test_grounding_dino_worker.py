@@ -46,12 +46,16 @@ class FakePredictor:
         categories=None,
         prompt_normalization_mode=None,
         prompt_normalization_profile=None,
+        prompt_translation_failure_policy=None,
     ):
         self.calls.append(
             {
                 "prompt": prompt,
                 "prompt_normalization_mode": prompt_normalization_mode,
                 "prompt_normalization_profile": prompt_normalization_profile,
+                "prompt_translation_failure_policy": (
+                    prompt_translation_failure_policy
+                ),
             }
         )
         if (
@@ -157,6 +161,16 @@ class GroundingDINOWorkerSettingsTest(unittest.TestCase):
                 "ANNOTATION_GROUNDING_DINO_CHECKPOINT": str(checkpoint),
                 "ANNOTATION_GROUNDING_DINO_BERT": str(bert),
                 "ANNOTATION_WORKER_ID": "worker-test",
+                "ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_MODE": (
+                    "llm_grounding_caption"
+                ),
+                "ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_PROFILE": (
+                    "open_semantic_zh_en_v1"
+                ),
+                "ANNOTATION_PROMPT_TRANSLATOR_BASE_URL": (
+                    "http://127.0.0.1:18000/qwen25/v1"
+                ),
+                "ANNOTATION_PROMPT_TRANSLATOR_MODEL": "qwen25vl",
             }
             with patch.dict(os.environ, environment, clear=True):
                 settings = GroundingDINOWorkerSettings.from_env()
@@ -166,6 +180,11 @@ class GroundingDINOWorkerSettingsTest(unittest.TestCase):
             self.assertEqual(settings.checkpoint_path, checkpoint.resolve())
             self.assertEqual(settings.bert_path, bert.resolve())
             self.assertEqual(settings.prompt_version, "free-form-v1")
+            self.assertEqual(
+                settings.prompt_normalization_mode,
+                "llm_grounding_caption",
+            )
+            self.assertIsNotNone(settings.prompt_translator())
 
 
 class GroundingDINOJobWorkerTest(unittest.TestCase):
@@ -209,6 +228,9 @@ class GroundingDINOJobWorkerTest(unittest.TestCase):
                 "grounding_prompt_normalization_profile": (
                     "construction_safety_v1"
                 ),
+                "grounding_prompt_translation_failure_policy": (
+                    "fallback_canonical_terms"
+                ),
             },
         )
 
@@ -241,6 +263,9 @@ class GroundingDINOJobWorkerTest(unittest.TestCase):
                     "prompt_normalization_mode": "off",
                     "prompt_normalization_profile": (
                         "construction_safety_v1"
+                    ),
+                    "prompt_translation_failure_policy": (
+                        "fallback_canonical_terms"
                     ),
                 }
             ],

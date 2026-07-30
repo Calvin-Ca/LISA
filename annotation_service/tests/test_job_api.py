@@ -80,6 +80,9 @@ class JobApiTest(unittest.TestCase):
             "grounding_prompt_normalization_profile": (
                 "construction_safety_v1"
             ),
+            "grounding_prompt_translation_failure_policy": (
+                "fallback_canonical_terms"
+            ),
             "pipeline_version": "groundingdino-free-form-v1",
         }
         payload.update(overrides)
@@ -113,6 +116,10 @@ class JobApiTest(unittest.TestCase):
         self.assertEqual(
             job["grounding_prompt_normalization_profile"],
             "construction_safety_v1",
+        )
+        self.assertEqual(
+            job["grounding_prompt_translation_failure_policy"],
+            "fallback_canonical_terms",
         )
         self.assertEqual(
             set(job["stages"]),
@@ -181,6 +188,35 @@ class JobApiTest(unittest.TestCase):
         old_contract["requested_categories"] = ["helmet_missing"]
         rejected = self.create_job(payload=old_contract)
         self.assertEqual(rejected.status_code, 422)
+
+    def test_open_semantic_translation_contract_is_persisted(self):
+        response = self.create_job(
+            payload=self.request_payload(
+                grounding_prompt="找出蓝色设备旁的施工人员",
+                grounding_prompt_normalization_mode=(
+                    "llm_grounding_caption"
+                ),
+                grounding_prompt_normalization_profile=(
+                    "open_semantic_zh_en_v1"
+                ),
+                grounding_prompt_translation_failure_policy="fail_job",
+            )
+        )
+
+        self.assertEqual(response.status_code, 202, response.text)
+        payload = response.json()
+        self.assertEqual(
+            payload["grounding_prompt_normalization_mode"],
+            "llm_grounding_caption",
+        )
+        self.assertEqual(
+            payload["grounding_prompt_normalization_profile"],
+            "open_semantic_zh_en_v1",
+        )
+        self.assertEqual(
+            payload["grounding_prompt_translation_failure_policy"],
+            "fail_job",
+        )
 
     def test_blank_or_oversized_prompt_is_rejected(self):
         blank = self.create_job(

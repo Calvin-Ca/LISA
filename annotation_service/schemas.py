@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, root_validator, validator
 from .prompt_normalization import (
     PromptNormalizationMode,
     PromptNormalizationProfile,
+    PromptTranslationFailurePolicy,
 )
 
 
@@ -154,6 +155,7 @@ class ErrorPayload(StrictModel):
 
 class HealthResponse(StrictModel):
     status: Literal["ok"] = "ok"
+    version: str
 
 
 class ReadinessResponse(StrictModel):
@@ -194,6 +196,9 @@ class JobOptions(StrictModel):
     grounding_prompt_normalization_profile: PromptNormalizationProfile = (
         "construction_safety_v1"
     )
+    grounding_prompt_translation_failure_policy: (
+        PromptTranslationFailurePolicy
+    ) = "fallback_canonical_terms"
 
     @root_validator(skip_on_failure=True)
     def staged_execution_must_match_requested_outputs(cls, values):
@@ -215,6 +220,24 @@ class JobOptions(StrictModel):
                 "a full pipeline job requires generate_masks=true and "
                 "enrich_prompts=true"
             )
+        mode = values.get("grounding_prompt_normalization_mode")
+        profile = values.get("grounding_prompt_normalization_profile")
+        if (
+            mode == "canonical_terms"
+            and profile != "construction_safety_v1"
+        ):
+            raise ValueError(
+                "canonical_terms requires profile "
+                "construction_safety_v1"
+            )
+        if (
+            mode == "llm_grounding_caption"
+            and profile != "open_semantic_zh_en_v1"
+        ):
+            raise ValueError(
+                "llm_grounding_caption requires profile "
+                "open_semantic_zh_en_v1"
+            )
         return values
 
 
@@ -231,6 +254,9 @@ class CreateJobRequest(StrictModel):
     grounding_prompt_normalization_profile: PromptNormalizationProfile = (
         "construction_safety_v1"
     )
+    grounding_prompt_translation_failure_policy: (
+        PromptTranslationFailurePolicy
+    ) = "fallback_canonical_terms"
     pipeline_version: str = Field(
         default="groundingdino-free-form-v1",
         min_length=1,
@@ -256,12 +282,40 @@ class CreateJobRequest(StrictModel):
 
     @validator("grounding_prompt_normalization_mode")
     def mode_must_be_supported(cls, value: str) -> str:
-        if value not in {"off", "terminal_period", "canonical_terms"}:
+        if value not in {
+            "off",
+            "terminal_period",
+            "canonical_terms",
+            "llm_grounding_caption",
+        }:
             raise ValueError(
                 "grounding_prompt_normalization_mode must be one of: "
-                "off, terminal_period, canonical_terms"
+                "off, terminal_period, canonical_terms, "
+                "llm_grounding_caption"
             )
         return value
+
+    @root_validator(skip_on_failure=True)
+    def normalization_mode_must_match_profile(cls, values):
+        mode = values.get("grounding_prompt_normalization_mode")
+        profile = values.get("grounding_prompt_normalization_profile")
+        if (
+            mode == "canonical_terms"
+            and profile != "construction_safety_v1"
+        ):
+            raise ValueError(
+                "canonical_terms requires profile "
+                "construction_safety_v1"
+            )
+        if (
+            mode == "llm_grounding_caption"
+            and profile != "open_semantic_zh_en_v1"
+        ):
+            raise ValueError(
+                "llm_grounding_caption requires profile "
+                "open_semantic_zh_en_v1"
+            )
+        return values
 
 
 class JobProgress(StrictModel):
@@ -317,6 +371,9 @@ class Job(StrictModel):
     grounding_prompt_normalization_profile: PromptNormalizationProfile = (
         "construction_safety_v1"
     )
+    grounding_prompt_translation_failure_policy: (
+        PromptTranslationFailurePolicy
+    ) = "fallback_canonical_terms"
     progress: DetectionJobProgress
     stages: Dict[Literal["grounding_dino"], StageResult]
     errors: List[JobError] = Field(default_factory=list)

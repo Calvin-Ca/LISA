@@ -36,11 +36,15 @@ class FakeDINO:
         categories,
         prompt_normalization_mode=None,
         prompt_normalization_profile=None,
+        prompt_translation_failure_policy=None,
     ):
         self.last_call = {
             "categories": list(categories),
             "prompt_normalization_mode": prompt_normalization_mode,
             "prompt_normalization_profile": prompt_normalization_profile,
+            "prompt_translation_failure_policy": (
+                prompt_translation_failure_policy
+            ),
         }
         return [
             GroundingDINODetection(

@@ -44,9 +44,13 @@ def main() -> int:
             prompt_normalization_profile=(
                 settings.prompt_normalization_profile
             ),
+            prompt_translation_failure_policy=(
+                settings.prompt_translation_failure_policy
+            ),
             box_threshold=settings.box_threshold,
             text_threshold=settings.text_threshold,
-        )
+        ),
+        prompt_translator=settings.prompt_translator(),
     )
     worker = GroundingDINOJobWorker(
         store=store,

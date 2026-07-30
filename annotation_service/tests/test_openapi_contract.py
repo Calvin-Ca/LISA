@@ -65,6 +65,25 @@ class StaticOpenAPIContractTest(unittest.TestCase):
                 "getAnnotationReleaseArchive",
             },
         )
+        static_request = static["components"]["schemas"][
+            "CreateJobRequest"
+        ]["properties"]
+        runtime_request = runtime["components"]["schemas"][
+            "CreateJobRequest"
+        ]["properties"]
+        for field in (
+            "grounding_prompt_normalization_mode",
+            "grounding_prompt_normalization_profile",
+            "grounding_prompt_translation_failure_policy",
+        ):
+            self.assertEqual(
+                static_request[field]["enum"],
+                runtime_request[field]["enum"],
+            )
+            self.assertEqual(
+                static_request[field]["default"],
+                runtime_request[field]["default"],
+            )
 
 
 if __name__ == "__main__":

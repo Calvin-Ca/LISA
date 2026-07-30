@@ -1,8 +1,18 @@
 # 自动标注完整流程 API（Spring 后端对接）
 
-文档版本：`1.1.0`
+文档版本：`1.2.0`
 
 更新时间：`2026-07-30`
+
+开放语义字段要求服务版本不低于 `1.2.0`。联调前先调用 `GET /health` 核对
+`version`；低版本服务不识别本页新增的 mode、profile 和 failure policy。
+
+```json
+{
+  "status": "ok",
+  "version": "1.2.0"
+}
+```
 
 ## 1. 联调配置
 
@@ -218,9 +228,10 @@ Idempotency-Key: dino-<业务请求ID>
 ```json
 {
   "asset_ids": ["ast_xxx"],
-  "grounding_prompt": "找出画面右侧蓝色设备旁边的人员",
-  "grounding_prompt_normalization_mode": "canonical_terms",
-  "grounding_prompt_normalization_profile": "construction_safety_v1",
+  "grounding_prompt": "找出画面右侧蓝色设备旁边的施工人员",
+  "grounding_prompt_normalization_mode": "llm_grounding_caption",
+  "grounding_prompt_normalization_profile": "open_semantic_zh_en_v1",
+  "grounding_prompt_translation_failure_policy": "fallback_canonical_terms",
   "pipeline_version": "groundingdino-free-form-v1"
 }
 ```
@@ -233,16 +244,57 @@ Prompt 不做类别、语言或关键词白名单限制。只要求去除首尾�
 - `off`：不做任何归一化。
 - `terminal_period`：仅补齐末尾句号，默认值。
 - `canonical_terms`：按配置的 profile 做术语归一化，再补齐末尾句号。
+- `llm_grounding_caption`：把开放中文或中英混合查询转换成适合
+  GroundingDINO 的简洁英文 caption。
 
 `grounding_prompt_normalization_profile` 当前可用值：
 
 - `construction_safety_v1`：把常见中文/英文工地术语归一到统一英文词表。
+- `open_semantic_zh_en_v1`：保留目标、数量、可见属性、否定、方位和对象
+  关系，删除“找出、定位、分割”等指令词，不允许新增画面事实。
+
+模式与 profile 必须匹配：
+
+```text
+canonical_terms       -> construction_safety_v1
+llm_grounding_caption -> open_semantic_zh_en_v1
+```
+
+`llm_grounding_caption` 使用混合策略：
+
+1. 明确的单目标或目标列表走确定性快速路径，不调用大模型：
+
+```text
+安全帽                   -> helmet .
+反光背心                 -> safety vest .
+工人                     -> person .
+安全帽、反光背心、工人   -> helmet . safety vest . person .
+```
+
+2. 其他开放查询调用服务端配置的 OpenAI-compatible Qwen 翻译器：
+
+```text
+找出画面右侧蓝色设备旁边的施工人员
+-> person beside the blue equipment on the right .
+```
+
+这一步只做面向检测模型的语义转换，不读取图片，也不生成检测框。复杂否定关系
+即使翻译正确，GroundingDINO 仍可能无法稳定理解，需要以最终 detection 和人工
+检查为准。
+
+`grounding_prompt_translation_failure_policy` 可选值：
+
+- `fail_job`：翻译失败时 Job 失败，适合严格评估。
+- `fallback_canonical_terms`：降级到确定性术语替换，默认值。
+- `fallback_terminal_period`：保留原 Prompt，仅补末尾句点。
 
 请求显式提供模式/profile 时以请求为准；省略时使用 Annotation 服务端配置，
 标准部署的默认模式是 `terminal_period`。
 
 服务会把实际生效的归一化模式和 profile 回写到 Job 响应里，方便前端对比不同
-策略的效果。
+策略的效果。Spring 应保存并透传
+`grounding_prompt_translation_failure_policy`；修改 Prompt、mode、profile
+或 failure policy 后不能复用旧 `Idempotency-Key`。
 
 HTTP 202 返回 `job_id`，初始状态为 `queued`。
 
@@ -290,9 +342,24 @@ GET /v1/annotation/jobs/{job_id}/detections?asset_id={asset_id}
       "box_score": 0.91,
       "phrase_score": 0.91,
       "metadata": {
-        "grounding_prompt": "找出画面右侧蓝色设备旁边的人员",
-        "grounding_prompt_normalization_mode": "canonical_terms",
-        "grounding_prompt_normalization_profile": "construction_safety_v1",
+        "grounding_prompt": "找出画面右侧蓝色设备旁边的施工人员",
+        "grounding_prompt_raw": "找出画面右侧蓝色设备旁边的施工人员",
+        "grounding_prompt_normalized": "person beside the blue equipment on the right .",
+        "grounding_prompt_normalization_mode": "llm_grounding_caption",
+        "grounding_prompt_normalization_profile": "open_semantic_zh_en_v1",
+        "grounding_prompt_translation_provider": "vllm-openai-compatible",
+        "grounding_prompt_translation_model": "qwen25vl",
+        "grounding_prompt_translation_prompt_version": "open-semantic-zh-en-v1",
+        "grounding_prompt_translation_latency_ms": 86.4,
+        "grounding_prompt_translation_cache_hit": false,
+        "grounding_prompt_translation_fallback_used": false,
+        "grounding_prompt_translation_fallback_mode": null,
+        "grounding_prompt_translation_target_entities": ["person"],
+        "grounding_prompt_translation_preserved_constraints": [
+          "beside the blue equipment",
+          "on the right"
+        ],
+        "grounding_prompt_translation_warnings": [],
         "model_version": "groundingdino-swint-ogc",
         "prompt_version": "free-form-v1",
         "box_threshold": 0.35,
@@ -702,6 +769,31 @@ WebClient annotationWebClient(
         .build();
 }
 ```
+
+建议 Spring DTO 使用枚举承接新增字段，避免把模式拼写错误拖到异步 Worker 才发现：
+
+```java
+public enum GroundingPromptNormalizationMode {
+    OFF,
+    TERMINAL_PERIOD,
+    CANONICAL_TERMS,
+    LLM_GROUNDING_CAPTION
+}
+
+public enum GroundingPromptNormalizationProfile {
+    CONSTRUCTION_SAFETY_V1,
+    OPEN_SEMANTIC_ZH_EN_V1
+}
+
+public enum GroundingPromptTranslationFailurePolicy {
+    FAIL_JOB,
+    FALLBACK_CANONICAL_TERMS,
+    FALLBACK_TERMINAL_PERIOD
+}
+```
+
+若 Jackson 使用默认枚举序列化，Spring 字段值需保持小写 snake_case；可统一配置
+`PropertyNamingStrategies.SNAKE_CASE`，或为枚举添加 `@JsonValue`。
 
 ## 15. 联调前检查
 

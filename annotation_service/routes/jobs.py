@@ -46,6 +46,7 @@ PUBLIC_JOB_FIELDS = {
     "grounding_prompt",
     "grounding_prompt_normalization_mode",
     "grounding_prompt_normalization_profile",
+    "grounding_prompt_translation_failure_policy",
     "progress",
     "stages",
     "errors",
@@ -125,6 +126,10 @@ def build_jobs_router(
             request_payload["grounding_prompt_normalization_profile"] = (
                 settings.prompt_normalization_profile
             )
+        if "grounding_prompt_translation_failure_policy" not in fields_set:
+            request_payload[
+                "grounding_prompt_translation_failure_policy"
+            ] = settings.prompt_translation_failure_policy
         job = await asyncio.to_thread(
             store.create_job,
             asset_ids=request_payload["asset_ids"],
@@ -143,6 +148,11 @@ def build_jobs_router(
                 "grounding_prompt_normalization_profile": (
                     request_payload[
                         "grounding_prompt_normalization_profile"
+                    ]
+                ),
+                "grounding_prompt_translation_failure_policy": (
+                    request_payload[
+                        "grounding_prompt_translation_failure_policy"
                     ]
                 ),
             },

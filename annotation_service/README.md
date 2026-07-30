@@ -101,11 +101,30 @@ GroundingDINO 支持可插拔的 prompt 规范化，用于对比不同提示词�
 - `ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_MODE=off`
 - `ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_MODE=terminal_period`
 - `ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_MODE=canonical_terms`
+- `ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_MODE=llm_grounding_caption`
 
 其中 `canonical_terms` 会把常见安全术语收敛到标准英文别名，例如
 `安全帽`/`头盔`/`hard hat` -> `helmet`。对应别名组由
 `ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_PROFILE` 控制，当前默认值是
 `construction_safety_v1`。
+
+`llm_grounding_caption` 使用 `open_semantic_zh_en_v1` profile。明确的短目标
+优先走确定性快速路径，例如 `安全帽、反光背心、工人` 会直接变为
+`helmet . safety vest . person .`，不调用大模型；其他中文或中英混合自然
+查询通过 `ANNOTATION_PROMPT_TRANSLATOR_BASE_URL` 指向的 OpenAI-compatible
+Qwen 服务转换为简洁英文 grounding caption。翻译器只保留目标、数量、可见
+属性、否定、方位和对象关系，不允许新增画面事实或安全结论。
+
+翻译失败策略由
+`ANNOTATION_GROUNDING_DINO_PROMPT_TRANSLATION_FAILURE_POLICY` 控制：
+
+- `fail_job`：直接使当前 Job 失败，适合严格评估。
+- `fallback_canonical_terms`：降级到确定性术语替换，默认值。
+- `fallback_terminal_period`：保留原 Prompt，仅补 GroundingDINO 句点。
+
+翻译器默认复用 `ANNOTATION_QWEN_BASE_URL`、model 和 API Key，也可以使用
+`ANNOTATION_PROMPT_TRANSLATOR_*` 单独配置。进程内会按原 Prompt、profile、
+模型和 Prompt 版本缓存成功翻译；worker 重启后缓存失效。
 
 API 请求显式提供规范化模式/profile 时以请求为准；省略时使用上述服务端配置。
 

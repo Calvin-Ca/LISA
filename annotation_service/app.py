@@ -223,7 +223,7 @@ def create_app(
         operation_id="getHealth",
     )
     async def health() -> HealthResponse:
-        return HealthResponse()
+        return HealthResponse(version=settings.service_version)
 
     @app.get(
         "/ready",

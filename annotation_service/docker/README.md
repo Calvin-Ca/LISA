@@ -44,10 +44,16 @@ text_encoder/bert-base-uncased/
 - `ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_MODE=off`
 - `ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_MODE=terminal_period`
 - `ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_MODE=canonical_terms`
+- `ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_MODE=llm_grounding_caption`
 
 其中 `canonical_terms` 会启用别名收敛，当前默认 profile 为
 `construction_safety_v1`。API 请求显式提供模式/profile 时以请求为准，省略
 时使用这里的服务端配置。
+
+`llm_grounding_caption` 必须使用 `open_semantic_zh_en_v1` profile，并配置
+容器内可访问的 `ANNOTATION_PROMPT_TRANSLATOR_BASE_URL`。短目标词表直接转换，
+其他开放中文查询调用 OpenAI-compatible Qwen 服务。翻译服务不可用时的行为由
+`ANNOTATION_GROUNDING_DINO_PROMPT_TRANSLATION_FAILURE_POLICY` 控制。
 
 真实路径、密钥和权重不得提交。
 

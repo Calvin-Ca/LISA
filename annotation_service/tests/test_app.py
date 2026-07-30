@@ -34,7 +34,10 @@ class AnnotationAppTest(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"status": "ok"})
+        self.assertEqual(
+            response.json(),
+            {"status": "ok", "version": "test-v1"},
+        )
         self.assertEqual(
             response.headers["x-request-id"],
             "frontend-request",

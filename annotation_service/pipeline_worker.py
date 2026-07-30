@@ -267,6 +267,9 @@ class FullAnnotationPipelineWorker:
                 prompt_normalization_profile=options.get(
                     "grounding_prompt_normalization_profile"
                 ),
+                prompt_translation_failure_policy=options.get(
+                    "grounding_prompt_translation_failure_policy"
+                ),
             )
             saved = self.store.replace_detections(
                 job_id=job["job_id"],
@@ -494,9 +497,13 @@ def main() -> int:
                 prompt_normalization_profile=(
                     dino.prompt_normalization_profile
                 ),
+                prompt_translation_failure_policy=(
+                    dino.prompt_translation_failure_policy
+                ),
                 box_threshold=dino.box_threshold,
                 text_threshold=dino.text_threshold,
-            )
+            ),
+            prompt_translator=dino.prompt_translator(),
         ),
         mask_predictor=SAMAdapter(sam_config),
         prompt_provider=Qwen25VLProvider(qwen.provider_config()),

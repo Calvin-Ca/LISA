@@ -214,6 +214,9 @@ class GroundingDINOJobWorker:
                 prompt_normalization_profile=options.get(
                     "grounding_prompt_normalization_profile"
                 ),
+                prompt_translation_failure_policy=options.get(
+                    "grounding_prompt_translation_failure_policy"
+                ),
             )
             saved_detections = self.store.replace_detections(
                 job_id=job_id,
@@ -242,6 +245,11 @@ class GroundingDINOJobWorker:
                     ),
                     "grounding_prompt_normalization_profile": options.get(
                         "grounding_prompt_normalization_profile"
+                    ),
+                    "grounding_prompt_translation_failure_policy": (
+                        options.get(
+                            "grounding_prompt_translation_failure_policy"
+                        )
                     ),
                     "detection_count": len(saved_detections),
                     "model_version": self.predictor.model_version,

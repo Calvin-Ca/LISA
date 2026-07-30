@@ -821,6 +821,12 @@ class AnnotationStore:
                                 "grounding_prompt_normalization_profile"
                             ]
                         ),
+                        "grounding_prompt_translation_failure_policy": (
+                            option_payload.get(
+                                "grounding_prompt_translation_failure_policy",
+                                "fallback_canonical_terms",
+                            )
+                        ),
                         "requested_categories": categories,
                         "options": option_payload,
                         "progress": progress,
@@ -909,6 +915,9 @@ class AnnotationStore:
             ),
             "grounding_prompt_normalization_profile": (
                 options.grounding_prompt_normalization_profile
+            ),
+            "grounding_prompt_translation_failure_policy": (
+                options.grounding_prompt_translation_failure_policy
             ),
             "requested_categories": _json_loads(
                 row["requested_categories_json"], []

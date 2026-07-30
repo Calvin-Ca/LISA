@@ -3,7 +3,7 @@
   "info": {
     "title": "Construction Safety Annotation API",
     "description": "Free-form GroundingDINO detection, SAM box-prompt segmentation, Qwen prompt enrichment, manual annotation review, and dataset release API. The API process does not load model weights.",
-    "version": "1.1.0"
+    "version": "1.2.0"
   },
   "paths": {
     "/health": {
@@ -3334,17 +3334,30 @@
             "enum": [
               "off",
               "terminal_period",
-              "canonical_terms"
+              "canonical_terms",
+              "llm_grounding_caption"
             ],
             "title": "Grounding Prompt Normalization Mode",
             "default": "terminal_period"
           },
           "grounding_prompt_normalization_profile": {
             "type": "string",
-            "maxLength": 128,
-            "minLength": 1,
+            "enum": [
+              "construction_safety_v1",
+              "open_semantic_zh_en_v1"
+            ],
             "title": "Grounding Prompt Normalization Profile",
             "default": "construction_safety_v1"
+          },
+          "grounding_prompt_translation_failure_policy": {
+            "type": "string",
+            "enum": [
+              "fail_job",
+              "fallback_canonical_terms",
+              "fallback_terminal_period"
+            ],
+            "title": "Grounding Prompt Translation Failure Policy",
+            "default": "fallback_canonical_terms"
           },
           "pipeline_version": {
             "type": "string",
@@ -3660,18 +3673,25 @@
         ],
         "title": "HazardCandidate"
       },
-      "HealthResponse": {
-        "properties": {
-          "status": {
-            "type": "string",
-            "const": "ok",
-            "title": "Status",
-            "default": "ok"
-          }
+    "HealthResponse": {
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "ok",
+          "title": "Status",
+          "default": "ok"
         },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "HealthResponse"
+        "version": {
+          "type": "string",
+          "title": "Version"
+        }
+      },
+      "required": [
+        "version"
+      ],
+      "additionalProperties": false,
+      "type": "object",
+      "title": "HealthResponse"
       },
       "InvalidateTaskRequest": {
         "properties": {
@@ -3736,15 +3756,30 @@
             "enum": [
               "off",
               "terminal_period",
-              "canonical_terms"
+              "canonical_terms",
+              "llm_grounding_caption"
             ],
             "title": "Grounding Prompt Normalization Mode",
             "default": "terminal_period"
           },
           "grounding_prompt_normalization_profile": {
             "type": "string",
+            "enum": [
+              "construction_safety_v1",
+              "open_semantic_zh_en_v1"
+            ],
             "title": "Grounding Prompt Normalization Profile",
             "default": "construction_safety_v1"
+          },
+          "grounding_prompt_translation_failure_policy": {
+            "type": "string",
+            "enum": [
+              "fail_job",
+              "fallback_canonical_terms",
+              "fallback_terminal_period"
+            ],
+            "title": "Grounding Prompt Translation Failure Policy",
+            "default": "fallback_canonical_terms"
           },
           "progress": {
             "$ref": "#/components/schemas/DetectionJobProgress"
