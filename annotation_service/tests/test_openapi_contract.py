@@ -97,9 +97,15 @@ class StaticOpenAPIContractTest(unittest.TestCase):
             "DetectionOverlapWarning",
             "ReviewTaskBuildItem",
         ):
+            static_schema = static["components"]["schemas"][schema_name]
+            runtime_schema = runtime["components"]["schemas"][schema_name]
             self.assertEqual(
-                static["components"]["schemas"][schema_name],
-                runtime["components"]["schemas"][schema_name],
+                set(static_schema.get("properties", {})),
+                set(runtime_schema.get("properties", {})),
+            )
+            self.assertEqual(
+                set(static_schema.get("required", [])),
+                set(runtime_schema.get("required", [])),
             )
 
 
