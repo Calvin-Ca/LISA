@@ -9,6 +9,7 @@ from typing import Any
 
 from ..detection_overlay import render_detection_overlay
 from ..errors import VersionConflictError
+from ..prompt_normalization import PromptRouteFailure
 from ..schemas import JobStatus, PipelineStage
 from ..storage import AnnotationStore
 from .grounding_dino import DetectionPredictor
@@ -203,20 +204,58 @@ class GroundingDINOJobWorker:
             asset = self.store.get_asset(asset_id)
             image_path, _ = self.store.asset_file(asset_id)
             options = job.get("options", {})
-            detections = self.predictor.predict(
-                image_path=Path(image_path),
-                width=int(asset["width"]),
-                height=int(asset["height"]),
-                prompt=job["grounding_prompt"],
-                prompt_normalization_mode=options.get(
+            prediction_arguments = {
+                "image_path": Path(image_path),
+                "width": int(asset["width"]),
+                "height": int(asset["height"]),
+                "prompt": job["grounding_prompt"],
+                "prompt_normalization_mode": options.get(
                     "grounding_prompt_normalization_mode"
                 ),
-                prompt_normalization_profile=options.get(
+                "prompt_normalization_profile": options.get(
                     "grounding_prompt_normalization_profile"
                 ),
-                prompt_translation_failure_policy=options.get(
+                "prompt_translation_failure_policy": options.get(
                     "grounding_prompt_translation_failure_policy"
                 ),
+            }
+            prepare_prompt = getattr(
+                self.predictor,
+                "prepare_prompt",
+                None,
+            )
+            if callable(prepare_prompt):
+                try:
+                    prepared_prompt = prepare_prompt(
+                        prompt=job["grounding_prompt"],
+                        prompt_normalization_mode=options.get(
+                            "grounding_prompt_normalization_mode"
+                        ),
+                        prompt_normalization_profile=options.get(
+                            "grounding_prompt_normalization_profile"
+                        ),
+                        prompt_translation_failure_policy=options.get(
+                            "grounding_prompt_translation_failure_policy"
+                        ),
+                    )
+                except PromptRouteFailure as exc:
+                    self.store.update_job(
+                        job_id,
+                        expected_status=job["status"],
+                        grounding_prompt_route=exc.route,
+                        worker_id=self.worker_id,
+                    )
+                    raise
+                if prepared_prompt.route is not None:
+                    self.store.update_job(
+                        job_id,
+                        expected_status=job["status"],
+                        grounding_prompt_route=prepared_prompt.route,
+                        worker_id=self.worker_id,
+                    )
+                prediction_arguments["prepared_prompt"] = prepared_prompt
+            detections = self.predictor.predict(
+                **prediction_arguments,
             )
             saved_detections = self.store.replace_detections(
                 job_id=job_id,

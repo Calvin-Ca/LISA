@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 SCHEMA_V1 = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -536,5 +536,13 @@ SCHEMA_V8 = (
     """
     CREATE INDEX IF NOT EXISTS idx_operations_task
     ON annotation_operations(task_id, created_at)
+    """,
+)
+
+
+SCHEMA_V9 = (
+    """
+    ALTER TABLE annotation_jobs
+    ADD COLUMN grounding_prompt_route_json TEXT
     """,
 )

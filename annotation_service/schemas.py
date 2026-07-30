@@ -359,6 +359,14 @@ class DetectionJobProgress(StrictModel):
         return values
 
 
+class GroundingPromptRoute(StrictModel):
+    rule_attempted: bool
+    rule_matched: bool
+    llm_attempted: bool
+    llm_succeeded: bool
+    fallback_used: bool
+
+
 class Job(StrictModel):
     job_id: str
     status: JobStatus
@@ -374,6 +382,7 @@ class Job(StrictModel):
     grounding_prompt_translation_failure_policy: (
         PromptTranslationFailurePolicy
     ) = "fallback_canonical_terms"
+    grounding_prompt_route: Optional[GroundingPromptRoute] = None
     progress: DetectionJobProgress
     stages: Dict[Literal["grounding_dino"], StageResult]
     errors: List[JobError] = Field(default_factory=list)

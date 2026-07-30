@@ -55,7 +55,7 @@ def _get_optional_secret(name: str) -> str | None:
 
 @dataclass(frozen=True)
 class Settings:
-    service_version: str = "1.3.0"
+    service_version: str = "1.4.0"
     api_key: str | None = None
     cors_origins: tuple[str, ...] = ()
     cors_allow_credentials: bool = False
@@ -77,7 +77,7 @@ class Settings:
     def from_env(cls) -> "Settings":
         settings = cls(
             service_version=os.getenv(
-                "ANNOTATION_SERVICE_VERSION", "1.3.0"
+                "ANNOTATION_SERVICE_VERSION", "1.4.0"
             ).strip(),
             api_key=_get_optional_secret("ANNOTATION_API_KEY"),
             cors_origins=_get_origins("ANNOTATION_CORS_ORIGINS"),

@@ -1,16 +1,17 @@
 # 自动标注完整流程 API（Spring 后端对接）
 
-文档版本：`1.3.0`
+文档版本：`1.4.0`
 
-更新时间：`2026-07-30`
+更新时间：`2026-07-31`
 
 开放语义字段要求服务版本不低于 `1.2.0`，多检测框批处理要求不低于
-`1.3.0`。联调前先调用 `GET /health` 核对 `version`。
+`1.3.0`，Prompt 处理轨迹要求不低于 `1.4.0`。联调前先调用
+`GET /health` 核对 `version`。
 
 ```json
 {
   "status": "ok",
-  "version": "1.3.0"
+  "version": "1.4.0"
 }
 ```
 
@@ -298,7 +299,9 @@ llm_grounding_caption -> open_semantic_zh_en_v1
 `grounding_prompt_translation_failure_policy`；修改 Prompt、mode、profile
 或 failure policy 后不能复用旧 `Idempotency-Key`。
 
-HTTP 202 返回 `job_id`，初始状态为 `queued`。
+HTTP 202 返回 `job_id`，初始状态为 `queued`。此时
+`grounding_prompt_route` 为 `null`；Worker 完成 Prompt 路由后会写入下面的
+处理轨迹，再开始目标检测。
 
 ### 7.2 轮询 Job
 
@@ -324,6 +327,58 @@ cancelled
 
 建议每 1～2 秒轮询。`partial_failed` 时仍可读取成功图片的 detections，同时
 处理 `errors`。
+
+#### 7.2.1 Prompt 处理轨迹
+
+Job 响应新增 `grounding_prompt_route`。该字段属于 Job，不依赖 detection，
+所以检测结果为 0 时也能可靠展示处理过程：
+
+```json
+{
+  "grounding_prompt_route": {
+    "rule_attempted": true,
+    "rule_matched": false,
+    "llm_attempted": true,
+    "llm_succeeded": true,
+    "fallback_used": false
+  }
+}
+```
+
+五个字段均为布尔值，含义如下：
+
+| 字段 | 含义 |
+|---|---|
+| `rule_attempted` | 是否尝试确定性规则路径 |
+| `rule_matched` | 确定性规则是否命中 |
+| `llm_attempted` | 是否调用智能转换 |
+| `llm_succeeded` | 智能转换是否成功 |
+| `fallback_used` | 智能转换失败后是否使用保底 Prompt |
+
+前端应直接读取这些字段，不要再根据 detection metadata 中的 `provider` 猜测。
+推荐步骤条映射：
+
+```text
+输入“安全帽”：
+规则匹配 → 成功
+开始目标检测
+
+开放查询且智能转换成功：
+规则匹配 → 未命中
+智能转换 → 成功
+开始目标检测
+
+智能转换失败且使用 fallback_terminal_period：
+规则匹配 → 未命中
+智能转换 → 失败
+原文保底 → 已使用
+开始目标检测
+```
+
+如果 failure policy 是 `fallback_canonical_terms`，第三步建议显示
+“术语保底 → 已使用”；如果是 `fail_job`，`fallback_used=false`，Job 会失败，
+不应显示“开始目标检测”。`off` 和 `terminal_period` 不执行规则或 LLM，
+相应 attempted 字段为 `false`。
 
 ### 7.3 获取检测结果
 
@@ -855,6 +910,8 @@ reject
 - 使用 WebClient 或其他支持 multipart 和二进制流的 HTTP 客户端。
 - Base URL、API Key、连接超时和读取超时使用外部配置。
 - Job/Operation 每 1～2 秒轮询，并设置整体业务超时。
+- Job 的 Prompt 步骤条直接读取 `grounding_prompt_route`，不要从 detection
+  metadata 反推；该字段在 Worker 确定路由后即可用，不要求存在检测框。
 - 只有 `succeeded` 才读取 Operation `result`。
 - `partial_failed` 需要同时处理结果和 errors。
 - HTTP 409 后重新获取资源，不自动覆盖新版本。

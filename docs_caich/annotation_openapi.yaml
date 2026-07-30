@@ -3,7 +3,7 @@
   "info": {
     "title": "Construction Safety Annotation API",
     "description": "Free-form GroundingDINO detection, SAM box-prompt segmentation, Qwen prompt enrichment, manual annotation review, and dataset release API. The API process does not load model weights.",
-    "version": "1.3.0"
+    "version": "1.4.0"
   },
   "paths": {
     "/health": {
@@ -4031,6 +4031,40 @@
         ],
         "title": "HazardCandidate"
       },
+      "GroundingPromptRoute": {
+        "properties": {
+          "rule_attempted": {
+            "type": "boolean",
+            "title": "Rule Attempted"
+          },
+          "rule_matched": {
+            "type": "boolean",
+            "title": "Rule Matched"
+          },
+          "llm_attempted": {
+            "type": "boolean",
+            "title": "Llm Attempted"
+          },
+          "llm_succeeded": {
+            "type": "boolean",
+            "title": "Llm Succeeded"
+          },
+          "fallback_used": {
+            "type": "boolean",
+            "title": "Fallback Used"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "rule_attempted",
+          "rule_matched",
+          "llm_attempted",
+          "llm_succeeded",
+          "fallback_used"
+        ],
+        "title": "GroundingPromptRoute"
+      },
     "HealthResponse": {
       "properties": {
         "status": {
@@ -4138,6 +4172,16 @@
             ],
             "title": "Grounding Prompt Translation Failure Policy",
             "default": "fallback_canonical_terms"
+          },
+          "grounding_prompt_route": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GroundingPromptRoute"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "progress": {
             "$ref": "#/components/schemas/DetectionJobProgress"

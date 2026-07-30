@@ -13,6 +13,7 @@ from annotation_service.prompt_normalization import (
 )
 from annotation_service.worker.grounding_dino import (
     GroundingDINODetection,
+    GroundingPromptPreparation,
     normalize_grounding_prompt,
     normalized_cxcywh_to_xyxy,
 )
@@ -77,6 +78,28 @@ class FakePredictor:
                 },
             )
         ]
+
+
+class RouteAwareEmptyPredictor:
+    model_version = "fake-grounding-dino-v1"
+    prompt_version = "free-form-v1"
+
+    def __init__(self, route: dict[str, bool]):
+        self.route = route
+        self.prepared_prompt_seen = False
+
+    def prepare_prompt(self, *, prompt: str, **kwargs):
+        return GroundingPromptPreparation(
+            caption="person .",
+            requested_entities=(),
+            requested_prompt=prompt,
+            metadata={},
+            route=self.route,
+        )
+
+    def predict(self, *, prepared_prompt=None, **kwargs):
+        self.prepared_prompt_seen = prepared_prompt is not None
+        return []
 
 
 class GroundingDINOHelpersTest(unittest.TestCase):
@@ -311,6 +334,35 @@ class GroundingDINOJobWorkerTest(unittest.TestCase):
         self.assertEqual(
             completed["errors"][0]["asset_id"],
             second["asset_id"],
+        )
+
+    def test_job_route_is_persisted_when_detection_result_is_empty(self):
+        asset = self.create_asset()
+        job = self.create_job(
+            [asset["asset_id"]],
+            "找出右侧没有佩戴安全帽的人员",
+        )
+        route = {
+            "rule_attempted": True,
+            "rule_matched": False,
+            "llm_attempted": True,
+            "llm_succeeded": True,
+            "fallback_used": False,
+        }
+        predictor = RouteAwareEmptyPredictor(route)
+
+        self.assertTrue(self.make_worker(predictor).run_once())
+
+        completed = self.store.get_job(job["job_id"])
+        self.assertEqual(completed["status"], "succeeded")
+        self.assertEqual(completed["grounding_prompt_route"], route)
+        self.assertTrue(predictor.prepared_prompt_seen)
+        self.assertEqual(
+            self.store.list_detections(
+                job_id=job["job_id"],
+                asset_id=asset["asset_id"],
+            ),
+            [],
         )
 
     def test_legacy_category_job_is_not_claimed(self):

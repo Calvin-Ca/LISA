@@ -121,6 +121,7 @@ class JobApiTest(unittest.TestCase):
             job["grounding_prompt_translation_failure_policy"],
             "fallback_canonical_terms",
         )
+        self.assertIsNone(job["grounding_prompt_route"])
         self.assertEqual(
             set(job["stages"]),
             {"grounding_dino"},
@@ -216,6 +217,32 @@ class JobApiTest(unittest.TestCase):
         self.assertEqual(
             payload["grounding_prompt_translation_failure_policy"],
             "fail_job",
+        )
+        self.assertIsNone(payload["grounding_prompt_route"])
+
+    def test_job_response_exposes_persisted_prompt_route(self):
+        created = self.create_job().json()
+        route = {
+            "rule_attempted": True,
+            "rule_matched": False,
+            "llm_attempted": True,
+            "llm_succeeded": False,
+            "fallback_used": True,
+        }
+        self.store.update_job(
+            created["job_id"],
+            expected_status="queued",
+            grounding_prompt_route=route,
+        )
+
+        response = self.client.get(
+            f"/v1/annotation/jobs/{created['job_id']}"
+        )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(
+            response.json()["grounding_prompt_route"],
+            route,
         )
 
     def test_blank_or_oversized_prompt_is_rejected(self):

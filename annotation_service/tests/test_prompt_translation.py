@@ -2,6 +2,7 @@ import json
 import unittest
 
 from annotation_service.prompt_normalization import (
+    PromptRouteFailure,
     PromptTranslation,
     normalize_grounding_prompt,
 )
@@ -86,6 +87,16 @@ class PromptNormalizationOpenSemanticTest(unittest.TestCase):
             result.translation_target_entities,
             ("helmet", "safety vest", "person"),
         )
+        self.assertEqual(
+            result.as_route(),
+            {
+                "rule_attempted": True,
+                "rule_matched": True,
+                "llm_attempted": False,
+                "llm_succeeded": False,
+                "fallback_used": False,
+            },
+        )
         self.assertEqual(translator.calls, [])
 
     def test_open_query_uses_llm_translation(self):
@@ -107,6 +118,16 @@ class PromptNormalizationOpenSemanticTest(unittest.TestCase):
         )
         self.assertEqual(result.translation_model, "fake-qwen")
         self.assertFalse(result.translation_fallback_used)
+        self.assertEqual(
+            result.as_route(),
+            {
+                "rule_attempted": True,
+                "rule_matched": False,
+                "llm_attempted": True,
+                "llm_succeeded": True,
+                "fallback_used": False,
+            },
+        )
         self.assertEqual(len(translator.calls), 1)
 
     def test_translation_failure_can_fallback_or_fail_job(self):
@@ -126,8 +147,18 @@ class PromptNormalizationOpenSemanticTest(unittest.TestCase):
             fallback.translation_fallback_mode,
             "canonical_terms",
         )
+        self.assertEqual(
+            fallback.as_route(),
+            {
+                "rule_attempted": True,
+                "rule_matched": False,
+                "llm_attempted": True,
+                "llm_succeeded": False,
+                "fallback_used": True,
+            },
+        )
 
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(PromptRouteFailure) as raised:
             normalize_grounding_prompt(
                 "蓝色设备旁的安全帽",
                 mode="llm_grounding_caption",
@@ -135,6 +166,16 @@ class PromptNormalizationOpenSemanticTest(unittest.TestCase):
                 translator=FakeTranslator(fail=True),
                 translation_failure_policy="fail_job",
             )
+        self.assertEqual(
+            raised.exception.route,
+            {
+                "rule_attempted": True,
+                "rule_matched": False,
+                "llm_attempted": True,
+                "llm_succeeded": False,
+                "fallback_used": False,
+            },
+        )
 
 
 class PromptTranslationProviderTest(unittest.TestCase):

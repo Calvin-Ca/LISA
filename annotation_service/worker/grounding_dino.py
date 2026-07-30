@@ -121,6 +121,15 @@ class GroundingDINODetection:
         }
 
 
+@dataclass(frozen=True)
+class GroundingPromptPreparation:
+    caption: str
+    requested_entities: tuple[str, ...]
+    requested_prompt: str
+    metadata: dict[str, object]
+    route: dict[str, bool] | None
+
+
 class DetectionPredictor(Protocol):
     model_version: str
     prompt_version: str
@@ -138,6 +147,7 @@ class DetectionPredictor(Protocol):
         prompt_translation_failure_policy: (
             PromptTranslationFailurePolicy | None
         ) = None,
+        prepared_prompt: GroundingPromptPreparation | None = None,
     ) -> list[GroundingDINODetection]:
         ...
 
@@ -295,12 +305,9 @@ class GroundingDINOAdapter:
         )
         self._get_phrases_from_posmap = get_phrases_from_posmap
 
-    def predict(
+    def prepare_prompt(
         self,
         *,
-        image_path: Path,
-        width: int,
-        height: int,
         prompt: str | None = None,
         categories: Sequence[str | AnnotationCategory] | None = None,
         prompt_normalization_mode: PromptNormalizationMode | None = None,
@@ -308,7 +315,7 @@ class GroundingDINOAdapter:
         prompt_translation_failure_policy: (
             PromptTranslationFailurePolicy | None
         ) = None,
-    ) -> list[GroundingDINODetection]:
+    ) -> GroundingPromptPreparation:
         effective_mode = (
             prompt_normalization_mode
             if prompt_normalization_mode is not None
@@ -332,17 +339,20 @@ class GroundingDINOAdapter:
                 translator=self.prompt_translator,
                 translation_failure_policy=effective_failure_policy,
             )
-            caption = prompt_result.normalized_prompt
-            requested_entities: list[str] = []
-            requested_prompt = prompt_result.original_prompt
-            prompt_metadata = prompt_result.as_metadata()
-        else:
-            requested_entities = list(
-                entities_for_categories(categories or ())
+            return GroundingPromptPreparation(
+                caption=prompt_result.normalized_prompt,
+                requested_entities=(),
+                requested_prompt=prompt_result.original_prompt,
+                metadata=prompt_result.as_metadata(),
+                route=prompt_result.as_route(),
             )
-            caption = build_caption(requested_entities)
-            requested_prompt = caption
-            prompt_metadata = {
+        requested_entities = entities_for_categories(categories or ())
+        caption = build_caption(requested_entities)
+        return GroundingPromptPreparation(
+            caption=caption,
+            requested_entities=requested_entities,
+            requested_prompt=caption,
+            metadata={
                 "grounding_prompt_raw": caption,
                 "grounding_prompt_normalized": caption,
                 "grounding_prompt_normalization_mode": "categories",
@@ -352,7 +362,38 @@ class GroundingDINOAdapter:
                     else None
                 ),
                 "grounding_prompt_applied_aliases": [],
-            }
+            },
+            route=None,
+        )
+
+    def predict(
+        self,
+        *,
+        image_path: Path,
+        width: int,
+        height: int,
+        prompt: str | None = None,
+        categories: Sequence[str | AnnotationCategory] | None = None,
+        prompt_normalization_mode: PromptNormalizationMode | None = None,
+        prompt_normalization_profile: PromptNormalizationProfile | None = None,
+        prompt_translation_failure_policy: (
+            PromptTranslationFailurePolicy | None
+        ) = None,
+        prepared_prompt: GroundingPromptPreparation | None = None,
+    ) -> list[GroundingDINODetection]:
+        preparation = prepared_prompt or self.prepare_prompt(
+            prompt=prompt,
+            categories=categories,
+            prompt_normalization_mode=prompt_normalization_mode,
+            prompt_normalization_profile=prompt_normalization_profile,
+            prompt_translation_failure_policy=(
+                prompt_translation_failure_policy
+            ),
+        )
+        caption = preparation.caption
+        requested_entities = list(preparation.requested_entities)
+        requested_prompt = preparation.requested_prompt
+        prompt_metadata = preparation.metadata
         self.load()
         with Image.open(image_path) as source:
             image_source = source.convert("RGB")

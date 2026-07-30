@@ -86,6 +86,17 @@ class StaticOpenAPIContractTest(unittest.TestCase):
                 static_request[field]["default"],
                 runtime_request[field]["default"],
             )
+        for schema_name in ("GroundingPromptRoute", "Job"):
+            static_schema = static["components"]["schemas"][schema_name]
+            runtime_schema = runtime["components"]["schemas"][schema_name]
+            self.assertEqual(
+                set(static_schema.get("properties", {})),
+                set(runtime_schema.get("properties", {})),
+            )
+            self.assertEqual(
+                set(static_schema.get("required", [])),
+                set(runtime_schema.get("required", [])),
+            )
         for schema_name in (
             "BatchMaskCandidateItem",
             "BatchMaskCandidatesRequest",

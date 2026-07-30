@@ -47,6 +47,7 @@ PUBLIC_JOB_FIELDS = {
     "grounding_prompt_normalization_mode",
     "grounding_prompt_normalization_profile",
     "grounding_prompt_translation_failure_policy",
+    "grounding_prompt_route",
     "progress",
     "stages",
     "errors",
@@ -65,7 +66,7 @@ def _model_json(model: Any) -> dict[str, Any]:
 
 def _public_job(payload: dict[str, Any]) -> dict[str, Any]:
     public = {
-        field: payload[field]
+        field: payload.get(field)
         for field in PUBLIC_JOB_FIELDS
     }
     public["progress"] = {

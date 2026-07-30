@@ -102,6 +102,20 @@ class GroundingPromptTranslator(Protocol):
         ...
 
 
+class PromptRouteFailure(RuntimeError):
+    """Translation failure that still exposes the completed routing trace."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.route = {
+            "rule_attempted": True,
+            "rule_matched": False,
+            "llm_attempted": True,
+            "llm_succeeded": False,
+            "fallback_used": False,
+        }
+
+
 @dataclass(frozen=True)
 class PromptNormalizationResult:
     original_prompt: str
@@ -119,6 +133,35 @@ class PromptNormalizationResult:
     translation_target_entities: tuple[str, ...] = ()
     translation_preserved_constraints: tuple[str, ...] = ()
     translation_warnings: tuple[str, ...] = ()
+
+    def as_route(self) -> dict[str, bool]:
+        rule_attempted = self.mode in {
+            "canonical_terms",
+            "llm_grounding_caption",
+        }
+        if self.mode == "canonical_terms":
+            rule_matched = bool(self.applied_aliases)
+        else:
+            rule_matched = (
+                self.translation_provider
+                == "deterministic-direct-targets"
+            )
+        llm_attempted = (
+            self.mode == "llm_grounding_caption"
+            and not rule_matched
+        )
+        llm_succeeded = (
+            llm_attempted
+            and not self.translation_fallback_used
+            and self.translation_provider is not None
+        )
+        return {
+            "rule_attempted": rule_attempted,
+            "rule_matched": rule_matched,
+            "llm_attempted": llm_attempted,
+            "llm_succeeded": llm_succeeded,
+            "fallback_used": self.translation_fallback_used,
+        }
 
     def as_metadata(self) -> dict[str, object]:
         return {
@@ -233,7 +276,7 @@ def _translation_fallback(
 ) -> PromptNormalizationResult:
     warning = f"prompt translation failed: {type(error).__name__}"
     if policy == "fail_job":
-        raise RuntimeError(warning) from error
+        raise PromptRouteFailure(warning) from error
     if policy == "fallback_canonical_terms":
         normalized, applied = _replace_aliases(
             prompt,

@@ -29,6 +29,7 @@ from .schemas import (
     AnnotationContent,
     BadCaseType,
     CreateReleaseRequest,
+    GroundingPromptRoute,
     JobOptions,
     JobProgress,
     JobStatus,
@@ -54,6 +55,7 @@ from .storage_schema import (
     SCHEMA_V6,
     SCHEMA_V7,
     SCHEMA_V8,
+    SCHEMA_V9,
     SCHEMA_VERSION,
 )
 from .validation import validate_annotation_for_submission
@@ -321,6 +323,24 @@ class AnnotationStore:
                                 ) VALUES (?, ?)
                                 """,
                                 (8, utc_now()),
+                            )
+                            connection.execute("COMMIT")
+                        except Exception:
+                            connection.execute("ROLLBACK")
+                            raise
+                        current = 8
+                    if current < 9:
+                        connection.execute("BEGIN IMMEDIATE")
+                        try:
+                            for statement in SCHEMA_V9:
+                                connection.execute(statement)
+                            connection.execute(
+                                """
+                                INSERT INTO schema_migrations(
+                                    version, applied_at
+                                ) VALUES (?, ?)
+                                """,
+                                (9, utc_now()),
                             )
                             connection.execute("COMMIT")
                         except Exception:
@@ -827,6 +847,7 @@ class AnnotationStore:
                                 "fallback_canonical_terms",
                             )
                         ),
+                        "grounding_prompt_route": None,
                         "requested_categories": categories,
                         "options": option_payload,
                         "progress": progress,
@@ -919,6 +940,10 @@ class AnnotationStore:
             "grounding_prompt_translation_failure_policy": (
                 options.grounding_prompt_translation_failure_policy
             ),
+            "grounding_prompt_route": _json_loads(
+                row["grounding_prompt_route_json"],
+                None,
+            ),
             "requested_categories": _json_loads(
                 row["requested_categories_json"], []
             ),
@@ -947,6 +972,9 @@ class AnnotationStore:
         progress: dict[str, Any] | JobProgress | None = None,
         stages: dict[str, Any] | None = None,
         errors: list[dict[str, Any]] | None = None,
+        grounding_prompt_route: (
+            dict[str, Any] | GroundingPromptRoute | None
+        ) = None,
         worker_id: str | None = None,
     ) -> dict[str, Any]:
         self._ensure_initialized()
@@ -972,6 +1000,18 @@ class AnnotationStore:
                 )
                 stages_payload[normalized_name] = _model_dict(model)
         errors_payload = _to_json_value(errors) if errors is not None else None
+        prompt_route_payload = (
+            _model_dict(
+                grounding_prompt_route
+                if isinstance(
+                    grounding_prompt_route,
+                    GroundingPromptRoute,
+                )
+                else GroundingPromptRoute(**grounding_prompt_route)
+            )
+            if grounding_prompt_route is not None
+            else None
+        )
         normalized_worker_id = (
             self._validate_worker_id(worker_id)
             if worker_id is not None
@@ -1032,7 +1072,8 @@ class AnnotationStore:
                 UPDATE annotation_jobs
                 SET status = ?, stage = ?, progress_json = ?, stages_json = ?,
                     errors_json = ?, started_at = ?, completed_at = ?,
-                    claimed_by = ?, lease_expires_at = ?, heartbeat_at = ?
+                    claimed_by = ?, lease_expires_at = ?, heartbeat_at = ?,
+                    grounding_prompt_route_json = ?
                 WHERE job_id = ?
                 """,
                 (
@@ -1052,6 +1093,9 @@ class AnnotationStore:
                     claimed_by,
                     lease_expires_at,
                     heartbeat_at,
+                    canonical_json(prompt_route_payload)
+                    if prompt_route_payload is not None
+                    else row["grounding_prompt_route_json"],
                     job_id,
                 ),
             )
