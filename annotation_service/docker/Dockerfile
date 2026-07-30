@@ -31,15 +31,13 @@ assert transformers.__version__ == '4.31.0'" \
         /tmp/annotation-worker-requirements.txt
 
 COPY annotation_service /opt/lisa-annotation/annotation_service
-COPY model/segment_anything \
-    /opt/lisa-annotation/model/segment_anything
 
 RUN chown -R lisa:lisa /opt/lisa-annotation
 
 USER lisa
 
 ARG ANNOTATION_SOURCE_COMMIT=unknown
-LABEL org.opencontainers.image.title="LISA Annotation API and Worker" \
+LABEL org.opencontainers.image.title="GroundingDINO Free Detection API" \
     org.opencontainers.image.revision="${ANNOTATION_SOURCE_COMMIT}"
 
 EXPOSE 8001

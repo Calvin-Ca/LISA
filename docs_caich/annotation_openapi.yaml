@@ -1,1735 +1,1339 @@
-openapi: 3.0.3
-info:
-  title: LISA Construction Safety Annotation API
-  version: 1.0.0
-  description: |
-    GroundingDINO + SAM + Qwen assisted annotation service.
-    Coordinates use absolute pixels in the original image coordinate system.
-servers:
-  - url: /
-security:
-  - bearerAuth: []
-  - apiKeyAuth: []
-tags:
-  - name: Service
-  - name: Assets
-  - name: Jobs
-  - name: Tasks
-  - name: Releases
-paths:
-  /health:
-    get:
-      tags: [Service]
-      operationId: getHealth
-      security: []
-      responses:
-        "200":
-          description: Process is alive.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HealthResponse"
-  /ready:
-    get:
-      tags: [Service]
-      operationId: getReadiness
-      responses:
-        "200":
-          description: Service and required dependencies are ready.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReadinessResponse"
-        "503":
-          description: One or more required dependencies are not ready.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReadinessResponse"
-  /v1/annotation/assets:
-    post:
-      tags: [Assets]
-      operationId: createAsset
-      summary: Upload and register one source image.
-      parameters:
-        - $ref: "#/components/parameters/RequestIdHeader"
-        - $ref: "#/components/parameters/IdempotencyKeyHeader"
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              required: [file, group_id]
-              properties:
-                file:
-                  type: string
-                  format: binary
-                  description: JPEG or PNG image.
-                source_id:
-                  type: string
-                  maxLength: 256
-                group_id:
-                  type: string
-                  minLength: 1
-                  maxLength: 256
-                  description: Video, sequence, site, or other split-isolation group.
-                metadata_json:
-                  type: string
-                  maxLength: 16384
-                  description: Optional JSON object encoded as a UTF-8 string.
-      responses:
-        "201":
-          description: Asset created or an idempotent prior result returned.
-          headers:
-            X-Request-ID:
-              $ref: "#/components/headers/RequestId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Asset"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "413":
-          $ref: "#/components/responses/RequestTooLarge"
-        "415":
-          $ref: "#/components/responses/UnsupportedMediaType"
-        "422":
-          $ref: "#/components/responses/ValidationError"
-  /v1/annotation/assets/{asset_id}:
-    get:
-      tags: [Assets]
-      operationId: getAsset
-      parameters:
-        - $ref: "#/components/parameters/AssetId"
-        - $ref: "#/components/parameters/RequestIdHeader"
-      responses:
-        "200":
-          description: Asset metadata.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Asset"
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /v1/annotation/assets/{asset_id}/content:
-    get:
-      tags: [Assets]
-      operationId: getAssetContent
-      parameters:
-        - $ref: "#/components/parameters/AssetId"
-        - $ref: "#/components/parameters/RequestIdHeader"
-      responses:
-        "200":
-          description: Original JPEG or PNG bytes.
-          content:
-            image/jpeg:
-              schema:
-                type: string
-                format: binary
-            image/png:
-              schema:
-                type: string
-                format: binary
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /v1/annotation/jobs:
-    post:
-      tags: [Jobs]
-      operationId: createAnnotationJob
-      summary: Queue an asynchronous automatic annotation job.
-      parameters:
-        - $ref: "#/components/parameters/RequestIdHeader"
-        - $ref: "#/components/parameters/IdempotencyKeyHeader"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateJobRequest"
-      responses:
-        "202":
-          description: Job accepted.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Job"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "422":
-          $ref: "#/components/responses/ValidationError"
-        "429":
-          $ref: "#/components/responses/QueueFull"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-  /v1/annotation/jobs/{job_id}:
-    get:
-      tags: [Jobs]
-      operationId: getAnnotationJob
-      parameters:
-        - $ref: "#/components/parameters/JobId"
-        - $ref: "#/components/parameters/RequestIdHeader"
-      responses:
-        "200":
-          description: Job status and generated task IDs.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Job"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-  /v1/annotation/jobs/{job_id}/detections:
-    get:
-      tags: [Jobs]
-      operationId: listAnnotationJobDetections
-      summary: List GroundingDINO detections generated for a job.
-      parameters:
-        - $ref: "#/components/parameters/JobId"
-        - $ref: "#/components/parameters/RequestIdHeader"
-        - name: asset_id
-          in: query
-          required: false
-          description: Limit results to one asset belonging to the job.
-          schema:
-            type: string
-            minLength: 1
-            maxLength: 128
-      responses:
-        "200":
-          description: Detection boxes in stable job asset order.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/JobDetectionsResponse"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-  /v1/annotation/jobs/{job_id}/hazard-candidates:
-    get:
-      tags: [Jobs]
-      operationId: listAnnotationJobHazardCandidates
-      summary: List explainable hazard candidates derived from detections.
-      parameters:
-        - $ref: "#/components/parameters/JobId"
-        - $ref: "#/components/parameters/RequestIdHeader"
-        - name: asset_id
-          in: query
-          required: false
-          description: Limit results to one asset belonging to the job.
-          schema:
-            type: string
-            minLength: 1
-            maxLength: 128
-      responses:
-        "200":
-          description: Hazard candidates in stable asset and rule order.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/JobHazardCandidatesResponse"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-  /v1/annotation/jobs/{job_id}/review-tasks:
-    post:
-      tags: [Jobs]
-      operationId: buildAnnotationReviewTasks
-      summary: Idempotently build manual review tasks from hazard candidates.
-      parameters:
-        - $ref: "#/components/parameters/JobId"
-        - $ref: "#/components/parameters/RequestIdHeader"
-      responses:
-        "200":
-          description: Existing and newly created review task IDs.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/BuildReviewTasksResponse"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-  /v1/annotation/tasks:
-    get:
-      tags: [Tasks]
-      operationId: listAnnotationTasks
-      parameters:
-        - $ref: "#/components/parameters/RequestIdHeader"
-        - name: status
-          in: query
-          schema:
-            $ref: "#/components/schemas/TaskStatus"
-        - name: category
-          in: query
-          schema:
-            $ref: "#/components/schemas/AnnotationCategory"
-        - name: group_id
-          in: query
-          schema:
-            type: string
-            maxLength: 256
-        - name: job_id
-          in: query
-          schema:
-            type: string
-        - name: annotator_id
-          in: query
-          schema:
-            type: string
-        - name: reviewer_id
-          in: query
-          schema:
-            type: string
-        - name: bad_case_type
-          in: query
-          schema:
-            $ref: "#/components/schemas/BadCaseType"
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 200
-            default: 50
-        - name: cursor
-          in: query
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Cursor-paginated annotation tasks.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TaskList"
-        "422":
-          $ref: "#/components/responses/ValidationError"
-  /v1/annotation/tasks/{task_id}:
-    get:
-      tags: [Tasks]
-      operationId: getAnnotationTask
-      parameters:
-        - $ref: "#/components/parameters/TaskId"
-        - $ref: "#/components/parameters/RequestIdHeader"
-      responses:
-        "200":
-          description: Complete review task.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AnnotationTask"
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /v1/annotation/tasks/{task_id}/versions:
-    get:
-      tags: [Tasks]
-      operationId: listAnnotationTaskVersions
-      parameters:
-        - $ref: "#/components/parameters/TaskId"
-        - $ref: "#/components/parameters/RequestIdHeader"
-      responses:
-        "200":
-          description: Immutable task annotation version history.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TaskVersionList"
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /v1/annotation/tasks/{task_id}/reviews:
-    get:
-      tags: [Tasks]
-      operationId: listAnnotationTaskReviews
-      parameters:
-        - $ref: "#/components/parameters/TaskId"
-        - $ref: "#/components/parameters/RequestIdHeader"
-      responses:
-        "200":
-          description: Immutable review decision history.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReviewList"
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /v1/annotation/tasks/{task_id}/draft:
-    put:
-      tags: [Tasks]
-      operationId: saveAnnotationDraft
-      parameters:
-        - $ref: "#/components/parameters/TaskId"
-        - $ref: "#/components/parameters/RequestIdHeader"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SaveDraftRequest"
-      responses:
-        "200":
-          description: Updated task with incremented version.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AnnotationTask"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/ValidationError"
-  /v1/annotation/tasks/{task_id}/submit:
-    post:
-      tags: [Tasks]
-      operationId: submitAnnotationTask
-      parameters:
-        - $ref: "#/components/parameters/TaskId"
-        - $ref: "#/components/parameters/RequestIdHeader"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SubmitTaskRequest"
-      responses:
-        "200":
-          description: Task submitted for review.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AnnotationTask"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/AnnotationValidationError"
-  /v1/annotation/tasks/{task_id}/review:
-    post:
-      tags: [Tasks]
-      operationId: reviewAnnotationTask
-      parameters:
-        - $ref: "#/components/parameters/TaskId"
-        - $ref: "#/components/parameters/RequestIdHeader"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReviewTaskRequest"
-      responses:
-        "200":
-          description: Reviewed task.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AnnotationTask"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/AnnotationValidationError"
-  /v1/annotation/tasks/{task_id}/prompt-enrichments:
-    post:
-      tags: [Tasks]
-      operationId: createPromptEnrichment
-      parameters:
-        - $ref: "#/components/parameters/TaskId"
-        - $ref: "#/components/parameters/RequestIdHeader"
-        - $ref: "#/components/parameters/IdempotencyKeyHeader"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreatePromptEnrichmentRequest"
-      responses:
-        "202":
-          description: Prompt enrichment operation accepted.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/OperationAccepted"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/ValidationError"
-        "429":
-          $ref: "#/components/responses/QueueFull"
-  /v1/annotation/tasks/{task_id}/mask-candidates:
-    post:
-      tags: [Tasks]
-      operationId: createMaskCandidate
-      parameters:
-        - $ref: "#/components/parameters/TaskId"
-        - $ref: "#/components/parameters/RequestIdHeader"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateMaskCandidateRequest"
-      responses:
-        "202":
-          description: SAM mask generation operation accepted.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/OperationAccepted"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/ValidationError"
-  /v1/annotation/tasks/{task_id}/artifacts/{artifact_type}:
-    get:
-      tags: [Tasks]
-      operationId: getTaskArtifact
-      parameters:
-        - $ref: "#/components/parameters/TaskId"
-        - $ref: "#/components/parameters/RequestIdHeader"
-        - name: artifact_type
-          in: path
-          required: true
-          schema:
-            type: string
-            enum: [detections, mask, mask-overlay, crop]
-      responses:
-        "200":
-          description: Task image artifact.
-          content:
-            image/jpeg:
-              schema:
-                type: string
-                format: binary
-            image/png:
-              schema:
-                type: string
-                format: binary
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /v1/annotation/operations/{operation_id}:
-    get:
-      tags: [Tasks]
-      operationId: getAnnotationOperation
-      parameters:
-        - name: operation_id
-          in: path
-          required: true
-          schema:
-            type: string
-        - $ref: "#/components/parameters/RequestIdHeader"
-      responses:
-        "200":
-          description: Asynchronous mask or prompt operation status.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AnnotationOperation"
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /v1/annotation/releases:
-    post:
-      tags: [Releases]
-      operationId: createAnnotationRelease
-      parameters:
-        - $ref: "#/components/parameters/RequestIdHeader"
-        - $ref: "#/components/parameters/IdempotencyKeyHeader"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateReleaseRequest"
-      responses:
-        "202":
-          description: Release build accepted.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Release"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/ValidationError"
-  /v1/annotation/releases/{release_id}:
-    get:
-      tags: [Releases]
-      operationId: getAnnotationRelease
-      parameters:
-        - $ref: "#/components/parameters/ReleaseId"
-        - $ref: "#/components/parameters/RequestIdHeader"
-      responses:
-        "200":
-          description: Release build status.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Release"
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /v1/annotation/releases/{release_id}/manifest:
-    get:
-      tags: [Releases]
-      operationId: getAnnotationReleaseManifest
-      parameters:
-        - $ref: "#/components/parameters/ReleaseId"
-        - $ref: "#/components/parameters/RequestIdHeader"
-      responses:
-        "200":
-          description: Immutable release manifest.
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-  /v1/annotation/releases/{release_id}/archive:
-    get:
-      tags: [Releases]
-      operationId: getAnnotationReleaseArchive
-      parameters:
-        - $ref: "#/components/parameters/ReleaseId"
-        - $ref: "#/components/parameters/RequestIdHeader"
-      responses:
-        "200":
-          description: Immutable ReasonSeg release archive.
-          content:
-            application/zip:
-              schema:
-                type: string
-                format: binary
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-    apiKeyAuth:
-      type: apiKey
-      in: header
-      name: X-API-Key
-  headers:
-    RequestId:
-      description: Request correlation ID.
-      schema:
-        type: string
-        maxLength: 128
-  parameters:
-    RequestIdHeader:
-      name: X-Request-ID
-      in: header
-      required: false
-      schema:
-        type: string
-        maxLength: 128
-    IdempotencyKeyHeader:
-      name: Idempotency-Key
-      in: header
-      required: false
-      schema:
-        type: string
-        minLength: 8
-        maxLength: 128
-    AssetId:
-      name: asset_id
-      in: path
-      required: true
-      schema:
-        type: string
-    JobId:
-      name: job_id
-      in: path
-      required: true
-      schema:
-        type: string
-    TaskId:
-      name: task_id
-      in: path
-      required: true
-      schema:
-        type: string
-    ReleaseId:
-      name: release_id
-      in: path
-      required: true
-      schema:
-        type: string
-  responses:
-    ValidationError:
-      description: Request fields are invalid.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorResponse"
-    AnnotationValidationError:
-      description: Annotation content failed semantic or geometry validation.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorResponse"
-    Conflict:
-      description: Version, idempotency, or state transition conflict.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorResponse"
-    NotFound:
-      description: Resource does not exist.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorResponse"
-    RequestTooLarge:
-      description: Request body or decoded image is too large.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorResponse"
-    UnsupportedMediaType:
-      description: Uploaded file or request media type is unsupported.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorResponse"
-    QueueFull:
-      description: Asynchronous or GPU work queue is full.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorResponse"
-    ServiceUnavailable:
-      description: Model runtime or downstream service is unavailable.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorResponse"
-  schemas:
-    HealthResponse:
-      type: object
-      required: [status]
-      properties:
-        status:
-          type: string
-          enum: [ok]
-    ReadinessResponse:
-      type: object
-      required: [status]
-      properties:
-        status:
-          type: string
-          enum: [ready, not_ready]
-        dependencies:
-          type: object
-          additionalProperties:
-            type: string
-    ErrorDetail:
-      type: object
-      required: [reason]
-      properties:
-        field:
-          type: string
-          nullable: true
-        reason:
-          type: string
-    ErrorResponse:
-      type: object
-      required: [code, message, details]
-      properties:
-        request_id:
-          type: string
-          nullable: true
-        code:
-          type: string
-          enum:
-            - validation_error
-            - annotation_validation_failed
-            - unauthorized
-            - forbidden
-            - not_found
-            - version_conflict
-            - idempotency_conflict
-            - invalid_state_transition
-            - unsupported_media_type
-            - request_too_large
-            - queue_full
-            - model_unavailable
-            - downstream_unavailable
-            - internal_error
-        message:
-          type: string
-        details:
-          type: array
-          items:
-            $ref: "#/components/schemas/ErrorDetail"
-    AnnotationCategory:
-      type: string
-      enum:
-        - helmet_missing
-        - no_helmet
-        - no_jacket
-        - harness_missing
-        - equipment_proximity
-        - opening_unprotected
-        - guardrail_missing
-        - poor_housekeeping
-        - safe
-        - unsafe
-    Asset:
-      type: object
-      required:
-        - asset_id
-        - group_id
-        - width
-        - height
-        - sha256
-        - media_type
-        - content_url
-        - created_at
-      properties:
-        asset_id:
-          type: string
-        source_id:
-          type: string
-          nullable: true
-        group_id:
-          type: string
-        width:
-          type: integer
-          minimum: 1
-        height:
-          type: integer
-          minimum: 1
-        sha256:
-          type: string
-          pattern: "^[0-9a-f]{64}$"
-        media_type:
-          type: string
-          enum: [image/jpeg, image/png]
-        content_url:
-          type: string
-        duplicate_of:
-          type: string
-          nullable: true
-        metadata:
-          type: object
-          additionalProperties: true
-        created_at:
-          type: string
-          format: date-time
-    JobStatus:
-      type: string
-      enum: [queued, running, succeeded, partial_failed, failed, cancelled]
-    PipelineStage:
-      type: string
-      enum:
-        - grounding_dino
-        - hazard_rules
-        - sam
-        - qwen_facts
-        - qwen_prompts
-        - build_review_tasks
-    StageStatus:
-      type: string
-      enum: [pending, running, succeeded, failed, skipped]
-    StageResult:
-      type: object
-      required: [status]
-      properties:
-        status:
-          $ref: "#/components/schemas/StageStatus"
-        started_at:
-          type: string
-          format: date-time
-          nullable: true
-        completed_at:
-          type: string
-          format: date-time
-          nullable: true
-        message:
-          type: string
-          nullable: true
-    JobOptions:
-      type: object
-      properties:
-        generate_masks:
-          type: boolean
-          default: true
-        enrich_prompts:
-          type: boolean
-          default: true
-        prompt_count:
-          type: integer
-          enum: [6]
-          default: 6
-        stop_after:
-          allOf:
-            - $ref: "#/components/schemas/PipelineStage"
-          nullable: true
-          description: |
-            Optional staged-execution boundary. GroundingDINO Worker claims
-            grounding_dino or hazard_rules jobs; either value requires
-            generate_masks=false and enrich_prompts=false. Omit stop_after
-            for the complete Pipeline Worker; both output flags must then be
-            true.
-    CreateJobRequest:
-      type: object
-      required: [asset_ids, requested_categories, pipeline_version]
-      properties:
-        asset_ids:
-          type: array
-          minItems: 1
-          maxItems: 500
-          uniqueItems: true
-          items:
-            type: string
-        requested_categories:
-          type: array
-          minItems: 1
-          uniqueItems: true
-          items:
-            $ref: "#/components/schemas/AnnotationCategory"
-        pipeline_version:
-          type: string
-          minLength: 1
-          maxLength: 128
-        options:
-          $ref: "#/components/schemas/JobOptions"
-    JobProgress:
-      type: object
-      required: [total_assets, completed_assets, generated_tasks]
-      properties:
-        total_assets:
-          type: integer
-          minimum: 0
-        completed_assets:
-          type: integer
-          minimum: 0
-        generated_tasks:
-          type: integer
-          minimum: 0
-    JobError:
-      type: object
-      required: [code, message]
-      properties:
-        asset_id:
-          type: string
-          nullable: true
-        stage:
-          allOf:
-            - $ref: "#/components/schemas/PipelineStage"
-          nullable: true
-        code:
-          type: string
-        message:
-          type: string
-    Job:
-      type: object
-      required:
-        - job_id
-        - status
-        - pipeline_version
-        - progress
-        - stages
-        - task_ids
-        - errors
-        - created_at
-      properties:
-        job_id:
-          type: string
-        status:
-          $ref: "#/components/schemas/JobStatus"
-        stage:
-          allOf:
-            - $ref: "#/components/schemas/PipelineStage"
-          nullable: true
-        pipeline_version:
-          type: string
-        progress:
-          $ref: "#/components/schemas/JobProgress"
-        stages:
-          type: object
-          additionalProperties:
-            $ref: "#/components/schemas/StageResult"
-        task_ids:
-          type: array
-          items:
-            type: string
-        errors:
-          type: array
-          items:
-            $ref: "#/components/schemas/JobError"
-        created_at:
-          type: string
-          format: date-time
-        started_at:
-          type: string
-          format: date-time
-          nullable: true
-        completed_at:
-          type: string
-          format: date-time
-          nullable: true
-    TaskStatus:
-      type: string
-      enum:
-        - generated
-        - annotating
-        - review_pending
-        - changes_requested
-        - needs_expert
-        - accepted
-        - rejected
-        - frozen
-    BadCaseType:
-      type: string
-      enum:
-        - prompt_ok
-        - prompt_rewritten
-        - prompt_mask_mismatch
-        - mask_overflow
-        - mask_missing
-        - instance_ambiguous
-        - target_unrecognizable
-        - dino_false_positive
-        - dino_false_negative
-        - hazard_rule_error
-        - qwen_visual_hallucination
-        - qwen_prompt_semantic_drift
-        - other
-    PromptType:
-      type: string
-      enum: [visual, risk, agent]
-    ShapeLabel:
-      type: string
-      enum: [target, ignore]
-    Point:
-      type: array
-      minItems: 2
-      maxItems: 2
-      items:
-        type: number
-        minimum: 0
-    BoundingBox:
-      type: array
-      minItems: 4
-      maxItems: 4
-      items:
-        type: number
-        minimum: 0
-    PolygonShape:
-      type: object
-      required: [shape_id, label, shape_type, points]
-      properties:
-        shape_id:
-          type: string
-        label:
-          $ref: "#/components/schemas/ShapeLabel"
-        shape_type:
-          type: string
-          enum: [polygon]
-        points:
-          type: array
-          minItems: 3
-          items:
-            $ref: "#/components/schemas/Point"
-    AnnotationPrompt:
-      type: object
-      required: [prompt_id, type, text]
-      properties:
-        prompt_id:
-          type: string
-        type:
-          $ref: "#/components/schemas/PromptType"
-        text:
-          type: string
-          minLength: 1
-          maxLength: 200
-    AnnotationContent:
-      type: object
-      required:
-        - target_object
-        - instance_count
-        - visual_anchor
-        - mask_granularity
-        - shapes
-        - prompts
-      properties:
-        target_object:
-          type: string
-          maxLength: 300
-        instance_count:
-          type: integer
-          minimum: 1
-        visual_anchor:
-          type: array
-          maxItems: 10
-          items:
-            type: string
-            minLength: 1
-            maxLength: 200
-        mask_granularity:
-          type: string
-          maxLength: 200
-        risk_semantics:
-          type: string
-          maxLength: 500
-          nullable: true
-        shapes:
-          type: array
-          items:
-            $ref: "#/components/schemas/PolygonShape"
-        prompts:
-          type: array
-          maxItems: 6
-          items:
-            $ref: "#/components/schemas/AnnotationPrompt"
-    Detection:
-      type: object
-      required:
-        - detection_id
-        - entity
-        - box_xyxy
-        - box_score
-        - phrase_score
-      properties:
-        detection_id:
-          type: string
-        entity:
-          type: string
-        box_xyxy:
-          $ref: "#/components/schemas/BoundingBox"
-        box_score:
-          type: number
-          minimum: 0
-          maximum: 1
-        phrase_score:
-          type: number
-          minimum: 0
-          maximum: 1
-    JobDetection:
-      allOf:
-        - $ref: "#/components/schemas/Detection"
-        - type: object
-          required: [asset_id, metadata, created_at]
-          properties:
-            asset_id:
-              type: string
-            metadata:
-              type: object
-              additionalProperties: true
-            created_at:
-              type: string
-              format: date-time
-    JobDetectionsResponse:
-      type: object
-      required: [job_id, items, total]
-      properties:
-        job_id:
-          type: string
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/JobDetection"
-        total:
-          type: integer
-          minimum: 0
-    HazardCandidate:
-      type: object
-      required:
-        - hazard_id
-        - asset_id
-        - category
-        - target_entity
-        - target_detection_ids
-        - box_xyxy
-        - confidence
-        - rule_id
-        - rule_version
-        - evidence
-        - metadata
-        - created_at
-      properties:
-        hazard_id:
-          type: string
-        asset_id:
-          type: string
-        category:
-          $ref: "#/components/schemas/AnnotationCategory"
-        target_entity:
-          type: string
-        target_detection_ids:
-          type: array
-          minItems: 1
-          uniqueItems: true
-          items:
-            type: string
-        box_xyxy:
-          $ref: "#/components/schemas/BoundingBox"
-        confidence:
-          type: number
-          minimum: 0
-          maximum: 1
-        rule_id:
-          type: string
-        rule_version:
-          type: string
-        evidence:
-          type: array
-          minItems: 1
-          items:
-            type: string
-        metadata:
-          type: object
-          additionalProperties: true
-        created_at:
-          type: string
-          format: date-time
-    JobHazardCandidatesResponse:
-      type: object
-      required: [job_id, items, total]
-      properties:
-        job_id:
-          type: string
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/HazardCandidate"
-        total:
-          type: integer
-          minimum: 0
-    BuildReviewTasksResponse:
-      type: object
-      required:
-        - job_id
-        - task_ids
-        - created_count
-        - existing_count
-      properties:
-        job_id:
-          type: string
-        task_ids:
-          type: array
-          items:
-            type: string
-        created_count:
-          type: integer
-          minimum: 0
-        existing_count:
-          type: integer
-          minimum: 0
-    TaskAsset:
-      type: object
-      required: [asset_id, group_id, width, height, image_url]
-      properties:
-        asset_id:
-          type: string
-        group_id:
-          type: string
-        width:
-          type: integer
-          minimum: 1
-        height:
-          type: integer
-          minimum: 1
-        image_url:
-          type: string
-    ArtifactLinks:
-      type: object
-      properties:
-        detection_overlay_url:
-          type: string
-          nullable: true
-        mask_overlay_url:
-          type: string
-          nullable: true
-        mask_png_url:
-          type: string
-          nullable: true
-        crop_url:
-          type: string
-          nullable: true
-    Provenance:
-      type: object
-      required: [pipeline_version]
-      properties:
-        pipeline_version:
-          type: string
-        hazard_candidate_id:
-          type: string
-          nullable: true
-        review_task_builder_version:
-          type: string
-          nullable: true
-        grounding_dino_version:
-          type: string
-          nullable: true
-        grounding_dino_prompt_version:
-          type: string
-          nullable: true
-        grounding_dino_thresholds:
-          type: object
-          additionalProperties:
-            type: number
-        hazard_rule_version:
-          type: string
-          nullable: true
-        sam_version:
-          type: string
-          nullable: true
-        sam_qc_version:
-          type: string
-          nullable: true
-        qwen_provider:
-          type: string
-          nullable: true
-        qwen_model:
-          type: string
-          nullable: true
-        qwen_facts_prompt_version:
-          type: string
-          nullable: true
-        qwen_enrichment_prompt_version:
-          type: string
-          nullable: true
-    AnnotationTask:
-      type: object
-      required:
-        - task_id
-        - job_id
-        - asset
-        - category
-        - status
-        - version
-        - detections
-        - annotation
-        - artifacts
-        - provenance
-        - warnings
-        - created_at
-        - updated_at
-      properties:
-        task_id:
-          type: string
-        job_id:
-          type: string
-        asset:
-          $ref: "#/components/schemas/TaskAsset"
-        category:
-          $ref: "#/components/schemas/AnnotationCategory"
-        status:
-          $ref: "#/components/schemas/TaskStatus"
-        version:
-          type: integer
-          minimum: 1
-        detections:
-          type: array
-          items:
-            $ref: "#/components/schemas/Detection"
-        annotation:
-          $ref: "#/components/schemas/AnnotationContent"
-        artifacts:
-          $ref: "#/components/schemas/ArtifactLinks"
-        provenance:
-          $ref: "#/components/schemas/Provenance"
-        source_hazard:
-          allOf:
-            - $ref: "#/components/schemas/HazardCandidate"
-          nullable: true
-        warnings:
-          type: array
-          items:
-            type: string
-        primary_result:
-          allOf:
-            - $ref: "#/components/schemas/BadCaseType"
-          nullable: true
-        annotator_id:
-          type: string
-          nullable: true
-        reviewer_id:
-          type: string
-          nullable: true
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
-    TaskSummary:
-      type: object
-      required:
-        - task_id
-        - asset_id
-        - group_id
-        - category
-        - status
-        - version
-        - created_at
-        - updated_at
-      properties:
-        task_id:
-          type: string
-        asset_id:
-          type: string
-        group_id:
-          type: string
-        category:
-          $ref: "#/components/schemas/AnnotationCategory"
-        status:
-          $ref: "#/components/schemas/TaskStatus"
-        version:
-          type: integer
-        source_hazard_id:
-          type: string
-          nullable: true
-        primary_result:
-          allOf:
-            - $ref: "#/components/schemas/BadCaseType"
-          nullable: true
-        annotator_id:
-          type: string
-          nullable: true
-        reviewer_id:
-          type: string
-          nullable: true
-        thumbnail_url:
-          type: string
-          nullable: true
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
-    TaskList:
-      type: object
-      required: [items, next_cursor]
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/TaskSummary"
-        next_cursor:
-          type: string
-          nullable: true
-    TaskVersionRecord:
-      type: object
-      required:
-        - version
-        - annotation
-        - status
-        - change_kind
-        - created_at
-      properties:
-        version:
-          type: integer
-          minimum: 1
-        annotation:
-          $ref: "#/components/schemas/AnnotationContent"
-        status:
-          $ref: "#/components/schemas/TaskStatus"
-        editor_id:
-          type: string
-          nullable: true
-        change_kind:
-          type: string
-          enum: [generated, draft, submit, review, freeze]
-        comment:
-          type: string
-          nullable: true
-        created_at:
-          type: string
-          format: date-time
-    TaskVersionList:
-      type: object
-      required: [task_id, items]
-      properties:
-        task_id:
-          type: string
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/TaskVersionRecord"
-    ReviewRecord:
-      type: object
-      required:
-        - review_id
-        - task_id
-        - task_version
-        - reviewer_id
-        - decision
-        - primary_result
-        - created_at
-      properties:
-        review_id:
-          type: string
-        task_id:
-          type: string
-        task_version:
-          type: integer
-          minimum: 1
-        reviewer_id:
-          type: string
-        decision:
-          $ref: "#/components/schemas/ReviewDecision"
-        primary_result:
-          $ref: "#/components/schemas/BadCaseType"
-        comment:
-          type: string
-          nullable: true
-        created_at:
-          type: string
-          format: date-time
-    ReviewList:
-      type: object
-      required: [task_id, items]
-      properties:
-        task_id:
-          type: string
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/ReviewRecord"
-    SaveDraftRequest:
-      type: object
-      required: [expected_version, annotation, editor_id]
-      properties:
-        expected_version:
-          type: integer
-          minimum: 1
-        annotation:
-          $ref: "#/components/schemas/AnnotationContent"
-        editor_id:
-          type: string
-          minLength: 1
-          maxLength: 128
-    SubmitTaskRequest:
-      type: object
-      required: [expected_version, annotator_id, primary_result]
-      properties:
-        expected_version:
-          type: integer
-          minimum: 1
-        annotator_id:
-          type: string
-          minLength: 1
-          maxLength: 128
-        primary_result:
-          $ref: "#/components/schemas/BadCaseType"
-        comment:
-          type: string
-          maxLength: 2000
-          nullable: true
-    ReviewDecision:
-      type: string
-      enum: [accept, request_changes, needs_expert, reject]
-    ReviewTaskRequest:
-      type: object
-      required:
-        - expected_version
-        - reviewer_id
-        - decision
-        - primary_result
-      properties:
-        expected_version:
-          type: integer
-          minimum: 1
-        reviewer_id:
-          type: string
-          minLength: 1
-          maxLength: 128
-        decision:
-          $ref: "#/components/schemas/ReviewDecision"
-        primary_result:
-          $ref: "#/components/schemas/BadCaseType"
-        comment:
-          type: string
-          maxLength: 2000
-          nullable: true
-    CreatePromptEnrichmentRequest:
-      type: object
-      required: [expected_version]
-      properties:
-        expected_version:
-          type: integer
-          minimum: 1
-    CreateMaskCandidateRequest:
-      type: object
-      required: [expected_version, box_xyxy]
-      properties:
-        expected_version:
-          type: integer
-          minimum: 1
-        box_xyxy:
-          $ref: "#/components/schemas/BoundingBox"
-    OperationAccepted:
-      type: object
-      required: [operation_id, status, created_at]
-      properties:
-        operation_id:
-          type: string
-        status:
-          type: string
-          enum: [queued, running]
-        created_at:
-          type: string
-          format: date-time
-    OperationStatus:
-      type: string
-      enum: [queued, running, succeeded, failed]
-    OperationType:
-      type: string
-      enum: [mask_candidate, prompt_enrichment]
-    AnnotationOperation:
-      type: object
-      required:
-        - operation_id
-        - operation_type
-        - task_id
-        - task_version
-        - status
-        - created_at
-      properties:
-        operation_id:
-          type: string
-        operation_type:
-          $ref: "#/components/schemas/OperationType"
-        task_id:
-          type: string
-        task_version:
-          type: integer
-          minimum: 1
-        status:
-          $ref: "#/components/schemas/OperationStatus"
-        result:
-          type: object
-          nullable: true
-          additionalProperties: true
-        error:
-          allOf:
-            - $ref: "#/components/schemas/ErrorResponse"
-          nullable: true
-        created_at:
-          type: string
-          format: date-time
-        started_at:
-          type: string
-          format: date-time
-          nullable: true
-        completed_at:
-          type: string
-          format: date-time
-          nullable: true
-    ReleaseStatus:
-      type: string
-      enum: [queued, building, succeeded, failed]
-    SplitPolicy:
-      type: object
-      required:
-        - type
-        - group_field
-        - train_ratio
-        - val_ratio
-        - golden_ratio
-        - seed
-      properties:
-        type:
-          type: string
-          enum: [grouped]
-        group_field:
-          type: string
-          enum: [group_id]
-        train_ratio:
-          type: number
-          minimum: 0
-          maximum: 1
-        val_ratio:
-          type: number
-          minimum: 0
-          maximum: 1
-        golden_ratio:
-          type: number
-          minimum: 0
-          maximum: 1
-        seed:
-          type: integer
-    ReleaseTaskFilter:
-      type: object
-      required: [status]
-      properties:
-        status:
-          type: string
-          enum: [accepted]
-        categories:
-          type: array
-          minItems: 1
-          uniqueItems: true
-          items:
-            $ref: "#/components/schemas/AnnotationCategory"
-    CreateReleaseRequest:
-      type: object
-      required: [name, task_filter, split_policy]
-      properties:
-        name:
-          type: string
-          pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
-        task_filter:
-          $ref: "#/components/schemas/ReleaseTaskFilter"
-        split_policy:
-          $ref: "#/components/schemas/SplitPolicy"
-    ReleaseCounts:
-      type: object
-      required: [train, val, golden]
-      properties:
-        train:
-          type: integer
-          minimum: 0
-        val:
-          type: integer
-          minimum: 0
-        golden:
-          type: integer
-          minimum: 0
-    Release:
-      type: object
-      required:
-        - release_id
-        - name
-        - status
-        - created_at
-      properties:
-        release_id:
-          type: string
-        name:
-          type: string
-        status:
-          $ref: "#/components/schemas/ReleaseStatus"
-        counts:
-          allOf:
-            - $ref: "#/components/schemas/ReleaseCounts"
-          nullable: true
-        manifest_url:
-          type: string
-          nullable: true
-        archive_url:
-          type: string
-          nullable: true
-        error:
-          type: string
-          nullable: true
-        created_at:
-          type: string
-          format: date-time
-        completed_at:
-          type: string
-          format: date-time
-          nullable: true
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "GroundingDINO Free Detection API",
+    "description": "Free-form GroundingDINO detection service returning bounding-box JSON and rendered PNG images. The API process does not load model weights.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Service"
+        ],
+        "summary": "Health",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "tags": [
+          "Service"
+        ],
+        "summary": "Ready",
+        "operationId": "getReadiness",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKeyAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/annotation/assets": {
+      "post": {
+        "tags": [
+          "Assets"
+        ],
+        "summary": "Create Asset",
+        "operationId": "createAsset",
+        "parameters": [
+          {
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 8,
+              "title": "Idempotency-Key"
+            },
+            "name": "Idempotency-Key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_createAsset"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Asset"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Asset was not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Image is too large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported image type.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Upload is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKeyAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/annotation/assets/{asset_id}": {
+      "get": {
+        "tags": [
+          "Assets"
+        ],
+        "summary": "Get Asset",
+        "operationId": "getAsset",
+        "parameters": [
+          {
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Asset Id"
+            },
+            "name": "asset_id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Asset"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Asset was not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Image is too large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported image type.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Upload is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKeyAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/annotation/assets/{asset_id}/content": {
+      "get": {
+        "tags": [
+          "Assets"
+        ],
+        "summary": "Get Asset Content",
+        "operationId": "getAssetContent",
+        "parameters": [
+          {
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Asset Id"
+            },
+            "name": "asset_id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Original JPEG or PNG bytes.",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Asset was not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Image is too large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported image type.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Upload is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKeyAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/annotation/jobs": {
+      "post": {
+        "tags": [
+          "Jobs"
+        ],
+        "summary": "Create Annotation Job",
+        "operationId": "createAnnotationJob",
+        "parameters": [
+          {
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 8,
+              "title": "Idempotency-Key"
+            },
+            "name": "Idempotency-Key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateJobRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Asset was not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Job request is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Job queue is full.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKeyAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/annotation/jobs/{job_id}": {
+      "get": {
+        "tags": [
+          "Jobs"
+        ],
+        "summary": "Get Annotation Job",
+        "operationId": "getAnnotationJob",
+        "parameters": [
+          {
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            },
+            "name": "job_id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job was not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKeyAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/annotation/jobs/{job_id}/detections": {
+      "get": {
+        "tags": [
+          "Jobs"
+        ],
+        "summary": "List Annotation Job Detections",
+        "operationId": "listAnnotationJobDetections",
+        "parameters": [
+          {
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            },
+            "name": "job_id",
+            "in": "path"
+          },
+          {
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Asset Id"
+            },
+            "name": "asset_id",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobDetectionsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job was not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKeyAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/annotation/jobs/{job_id}/assets/{asset_id}/bbox-image": {
+      "get": {
+        "tags": [
+          "Jobs"
+        ],
+        "summary": "Get Annotation Job Bbox Image",
+        "operationId": "getAnnotationJobBoundingBoxImage",
+        "parameters": [
+          {
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            },
+            "name": "job_id",
+            "in": "path"
+          },
+          {
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Asset Id"
+            },
+            "name": "asset_id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PNG image with GroundingDINO bounding boxes.",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job was not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKeyAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Asset": {
+        "properties": {
+          "asset_id": {
+            "type": "string",
+            "title": "Asset Id"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "group_id": {
+            "type": "string",
+            "title": "Group Id"
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Width"
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Height"
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256"
+          },
+          "media_type": {
+            "type": "string",
+            "enum": [
+              "image/jpeg",
+              "image/png"
+            ],
+            "title": "Media Type"
+          },
+          "content_url": {
+            "type": "string",
+            "title": "Content Url"
+          },
+          "duplicate_of": {
+            "type": "string",
+            "title": "Duplicate Of"
+          },
+          "metadata": {
+            "type": "object",
+            "title": "Metadata"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "asset_id",
+          "group_id",
+          "width",
+          "height",
+          "sha256",
+          "media_type",
+          "content_url",
+          "created_at"
+        ],
+        "title": "Asset"
+      },
+      "Body_createAsset": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          },
+          "group_id": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Group Id"
+          },
+          "source_id": {
+            "type": "string",
+            "maxLength": 256,
+            "title": "Source Id"
+          },
+          "metadata_json": {
+            "type": "string",
+            "maxLength": 16384,
+            "title": "Metadata Json"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file",
+          "group_id"
+        ],
+        "title": "Body_createAsset"
+      },
+      "CreateJobRequest": {
+        "properties": {
+          "asset_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Asset Ids"
+          },
+          "grounding_prompt": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Grounding Prompt"
+          },
+          "pipeline_version": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Pipeline Version",
+            "default": "groundingdino-free-form-v1"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "asset_ids",
+          "grounding_prompt"
+        ],
+        "title": "CreateJobRequest"
+      },
+      "DetectionJobProgress": {
+        "properties": {
+          "total_assets": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Assets"
+          },
+          "completed_assets": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Completed Assets"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "total_assets",
+          "completed_assets"
+        ],
+        "title": "DetectionJobProgress"
+      },
+      "ErrorCode": {
+        "type": "string",
+        "enum": [
+          "validation_error",
+          "annotation_validation_failed",
+          "unauthorized",
+          "forbidden",
+          "not_found",
+          "version_conflict",
+          "idempotency_conflict",
+          "invalid_state_transition",
+          "unsupported_media_type",
+          "request_too_large",
+          "queue_full",
+          "model_unavailable",
+          "downstream_unavailable",
+          "internal_error"
+        ],
+        "title": "ErrorCode",
+        "description": "An enumeration."
+      },
+      "ErrorDetail": {
+        "properties": {
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "ErrorDetail"
+      },
+      "ErrorPayload": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "title": "Request Id"
+          },
+          "code": {
+            "$ref": "#/components/schemas/ErrorCode"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "details": {
+            "items": {
+              "$ref": "#/components/schemas/ErrorDetail"
+            },
+            "type": "array",
+            "title": "Details"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorPayload"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok"
+            ],
+            "title": "Status",
+            "default": "ok"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "HealthResponse"
+      },
+      "Job": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "grounding_dino"
+            ],
+            "title": "Stage"
+          },
+          "pipeline_version": {
+            "type": "string",
+            "title": "Pipeline Version"
+          },
+          "grounding_prompt": {
+            "type": "string",
+            "title": "Grounding Prompt"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/DetectionJobProgress"
+          },
+          "stages": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/StageResult"
+            },
+            "type": "object",
+            "title": "Stages"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/JobError"
+            },
+            "type": "array",
+            "title": "Errors"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Completed At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "job_id",
+          "status",
+          "pipeline_version",
+          "grounding_prompt",
+          "progress",
+          "stages",
+          "created_at"
+        ],
+        "title": "Job"
+      },
+      "JobDetection": {
+        "properties": {
+          "detection_id": {
+            "type": "string",
+            "title": "Detection Id"
+          },
+          "entity": {
+            "type": "string",
+            "title": "Entity"
+          },
+          "box_xyxy": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Box Xyxy"
+          },
+          "box_score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Box Score"
+          },
+          "phrase_score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Phrase Score"
+          },
+          "asset_id": {
+            "type": "string",
+            "title": "Asset Id"
+          },
+          "metadata": {
+            "type": "object",
+            "title": "Metadata"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "detection_id",
+          "entity",
+          "box_xyxy",
+          "box_score",
+          "phrase_score",
+          "asset_id",
+          "created_at"
+        ],
+        "title": "JobDetection"
+      },
+      "JobDetectionsResponse": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/JobDetection"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "job_id",
+          "total"
+        ],
+        "title": "JobDetectionsResponse"
+      },
+      "JobError": {
+        "properties": {
+          "asset_id": {
+            "type": "string",
+            "title": "Asset Id"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "grounding_dino"
+            ],
+            "title": "Stage"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "JobError"
+      },
+      "JobStatus": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "running",
+          "succeeded",
+          "partial_failed",
+          "failed",
+          "cancelled"
+        ],
+        "title": "JobStatus",
+        "description": "An enumeration."
+      },
+      "ReadinessResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "not_ready"
+            ],
+            "title": "Status"
+          },
+          "dependencies": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Dependencies"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "ReadinessResponse"
+      },
+      "StageResult": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/StageStatus"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Completed At"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "StageResult"
+      },
+      "StageStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "running",
+          "succeeded",
+          "failed",
+          "skipped"
+        ],
+        "title": "StageStatus",
+        "description": "An enumeration."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      },
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

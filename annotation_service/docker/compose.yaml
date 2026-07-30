@@ -92,7 +92,7 @@ services:
       ANNOTATION_GROUNDING_DINO_BERT: text_encoder/bert-base-uncased
       ANNOTATION_GROUNDING_DINO_DEVICE: cuda
       ANNOTATION_GROUNDING_DINO_MODEL_VERSION: ${ANNOTATION_GROUNDING_DINO_MODEL_VERSION:-groundingdino-swint-ogc}
-      ANNOTATION_GROUNDING_DINO_PROMPT_VERSION: ${ANNOTATION_GROUNDING_DINO_PROMPT_VERSION:-construction-entities-v1}
+      ANNOTATION_GROUNDING_DINO_PROMPT_VERSION: ${ANNOTATION_GROUNDING_DINO_PROMPT_VERSION:-free-form-v1}
       ANNOTATION_GROUNDING_DINO_BOX_THRESHOLD: ${ANNOTATION_GROUNDING_DINO_BOX_THRESHOLD:-0.35}
       ANNOTATION_GROUNDING_DINO_TEXT_THRESHOLD: ${ANNOTATION_GROUNDING_DINO_TEXT_THRESHOLD:-0.25}
       ANNOTATION_WORKER_ID: ${ANNOTATION_WORKER_ID:-grounding-dino-docker-1}
@@ -115,23 +115,3 @@ services:
       api:
         condition: service_healthy
     stop_grace_period: 90s
-
-  release-worker:
-    <<: *common
-    container_name: lisa-annotation-release-worker
-    command:
-      - python3
-      - -m
-      - annotation_service.release_worker
-    environment:
-      ANNOTATION_STORAGE_ROOT: /data
-      ANNOTATION_RELEASE_WORKER_ID: ${ANNOTATION_RELEASE_WORKER_ID:-release-docker-1}
-      ANNOTATION_RELEASE_LEASE_SECONDS: ${ANNOTATION_RELEASE_LEASE_SECONDS:-300}
-      ANNOTATION_RELEASE_HEARTBEAT_SECONDS: ${ANNOTATION_RELEASE_HEARTBEAT_SECONDS:-60}
-      ANNOTATION_RELEASE_POLL_SECONDS: ${ANNOTATION_RELEASE_POLL_SECONDS:-2}
-      HOME: /tmp/annotation-home
-      XDG_CACHE_HOME: /tmp/annotation-home/cache
-    depends_on:
-      api:
-        condition: service_healthy
-    stop_grace_period: 30s
