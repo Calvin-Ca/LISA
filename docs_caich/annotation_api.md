@@ -611,8 +611,9 @@ HTTP 202：
 SAM Worker 会把同一图片的待处理 box 组成一批：图片 embedding 只计算一次，
 所有 box 通过一次批量 `predict_torch` 完成 mask decoder，再为每个 box 从
 候选中选择 `predicted_iou` 最高的结果并保存到对应 Task。同一图片的后续编辑
-会复用进程内 LRU embedding 缓存。不同 Task 的 mask 即使重叠也不会自动合并
-或互相覆盖。
+会复用进程内 LRU embedding 缓存。检测结果落库后，空闲 SAM Worker 会自动
+在后台预编码该图片，使图片 encoder 时间与用户查看、选择检测框的时间重叠。
+不同 Task 的 mask 即使重叠也不会自动合并或互相覆盖。
 
 ### 9.3 轮询并读取 SAM 结果
 

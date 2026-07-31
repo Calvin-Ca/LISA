@@ -1710,6 +1710,33 @@ class AnnotationStore:
             for row in rows
         ]
 
+    def list_detection_asset_ids_created_after(
+        self,
+        *,
+        created_after: str,
+        limit: int = 100,
+    ) -> list[str]:
+        """Return recently detected assets for opportunistic SAM prefetch."""
+
+        self._ensure_initialized()
+        if not created_after.strip():
+            raise ValueError("created_after must not be blank")
+        if limit < 1 or limit > 1000:
+            raise ValueError("limit must be between 1 and 1000")
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT asset_id, MIN(created_at) AS first_detection_at
+                FROM detections
+                WHERE created_at >= ?
+                GROUP BY asset_id
+                ORDER BY first_detection_at, asset_id
+                LIMIT ?
+                """,
+                (created_after, limit),
+            ).fetchall()
+        return [str(row["asset_id"]) for row in rows]
+
     def list_job_detections(
         self,
         *,

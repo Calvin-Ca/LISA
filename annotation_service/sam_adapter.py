@@ -322,6 +322,41 @@ class SAMAdapter:
             boxes_xyxy=[box_xyxy],
         )[0]
 
+    def precompute(self, *, image_path: Path) -> dict[str, Any]:
+        """Populate the image embedding cache before boxes are selected."""
+
+        total_started = time.perf_counter()
+        predictor = self._load()
+        image_started = time.perf_counter()
+        with Image.open(image_path) as source:
+            image_array = np.asarray(source.convert("RGB"))
+        image_read_ms = (time.perf_counter() - image_started) * 1000
+        encode_started = time.perf_counter()
+        cache_hit = self._set_image(
+            predictor=predictor,
+            image_path=image_path,
+            image_array=image_array,
+        )
+        image_encode_ms = (time.perf_counter() - encode_started) * 1000
+        timings = {
+            "embedding_cache_hit": cache_hit,
+            "image_read_ms": round(image_read_ms, 3),
+            "image_encode_ms": round(image_encode_ms, 3),
+            "total_ms": round(
+                (time.perf_counter() - total_started) * 1000,
+                3,
+            ),
+        }
+        LOGGER.info(
+            "SAM embedding precomputed: cache_hit=%s "
+            "image_read_ms=%.1f image_encode_ms=%.1f total_ms=%.1f",
+            cache_hit,
+            image_read_ms,
+            image_encode_ms,
+            timings["total_ms"],
+        )
+        return timings
+
     def predict_many(
         self,
         *,

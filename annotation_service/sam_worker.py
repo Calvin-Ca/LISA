@@ -7,6 +7,7 @@ import socket
 import threading
 import time
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Protocol
 
@@ -229,6 +230,10 @@ class SAMMaskWorker:
                 "max_batch_size must be between 1 and 128"
             )
         self.max_batch_size = max_batch_size
+        self._prefetch_created_after = (
+            datetime.now(timezone.utc) - timedelta(minutes=5)
+        ).isoformat()
+        self._prefetched_asset_ids: set[str] = set()
 
     def run_once(self) -> bool:
         operations = self.store.claim_mask_operation_batch(
@@ -237,8 +242,43 @@ class SAMMaskWorker:
             max_batch_size=self.max_batch_size,
         )
         if not operations:
-            return False
+            return self._prefetch_once()
         self._process_batch(operations)
+        return True
+
+    def _prefetch_once(self) -> bool:
+        precompute = getattr(self.predictor, "precompute", None)
+        if not callable(precompute):
+            return False
+        asset_ids = self.store.list_detection_asset_ids_created_after(
+            created_after=self._prefetch_created_after,
+            limit=100,
+        )
+        asset_id = next(
+            (
+                candidate
+                for candidate in asset_ids
+                if candidate not in self._prefetched_asset_ids
+            ),
+            None,
+        )
+        if asset_id is None:
+            return False
+        self._prefetched_asset_ids.add(asset_id)
+        try:
+            image_path, _ = self.store.asset_file(asset_id)
+            timings = precompute(image_path=image_path)
+            LOGGER.info(
+                "SAM background prefetch completed: asset_id=%s "
+                "timings=%s",
+                asset_id,
+                timings,
+            )
+        except Exception:
+            LOGGER.exception(
+                "SAM background prefetch failed",
+                extra={"asset_id": asset_id},
+            )
         return True
 
     def run_forever(

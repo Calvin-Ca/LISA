@@ -54,6 +54,18 @@ class BatchFakeSAMPredictor(FakeSAMPredictor):
         ]
 
 
+class PrefetchFakeSAMPredictor(FakeSAMPredictor):
+    def __init__(self):
+        self.precompute_calls = []
+
+    def precompute(self, *, image_path):
+        self.precompute_calls.append(image_path)
+        return {
+            "embedding_cache_hit": False,
+            "image_encode_ms": 10.0,
+        }
+
+
 class SAMMaskWorkerTest(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -182,6 +194,28 @@ class SAMMaskWorkerTest(unittest.TestCase):
             )["status"],
             "succeeded",
         )
+
+    def test_worker_prefetches_recently_detected_asset_when_idle(self):
+        self.store.add_detection(
+            job_id=self.task["job_id"],
+            asset_id=self.task["asset"]["asset_id"],
+            entity="person",
+            box_xyxy=[1, 1, 9, 9],
+            box_score=0.9,
+            phrase_score=0.8,
+        )
+        predictor = PrefetchFakeSAMPredictor()
+        worker = SAMMaskWorker(
+            store=self.store,
+            predictor=predictor,
+            worker_id="sam-prefetch-worker",
+            lease_seconds=60,
+            heartbeat_seconds=10,
+        )
+
+        self.assertTrue(worker.run_once())
+        self.assertEqual(len(predictor.precompute_calls), 1)
+        self.assertFalse(worker.run_once())
 
 
 if __name__ == "__main__":
