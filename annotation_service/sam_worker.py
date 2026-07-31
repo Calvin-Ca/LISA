@@ -250,7 +250,7 @@ class SAMMaskWorker:
         precompute = getattr(self.predictor, "precompute", None)
         if not callable(precompute):
             return False
-        asset_ids = self.store.list_asset_ids_created_after(
+        asset_ids = self.store.list_detection_asset_ids_created_after(
             created_after=self._prefetch_created_after,
             limit=100,
         )
@@ -269,14 +269,14 @@ class SAMMaskWorker:
             image_path, _ = self.store.asset_file(asset_id)
             timings = precompute(image_path=image_path)
             LOGGER.info(
-                "SAM upload prefetch completed: asset_id=%s "
+                "SAM background prefetch completed: asset_id=%s "
                 "timings=%s",
                 asset_id,
                 timings,
             )
         except Exception:
             LOGGER.exception(
-                "SAM upload prefetch failed",
+                "SAM background prefetch failed",
                 extra={"asset_id": asset_id},
             )
         return True

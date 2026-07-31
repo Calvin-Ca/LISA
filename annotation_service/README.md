@@ -107,9 +107,8 @@ chmod 600 annotation_service/.env
 - `ANNOTATION_SAM_IMAGE_CACHE_SIZE=2` 缓存最近图片的 SAM embedding。
 - `ANNOTATION_SAM_MAX_BATCH_SIZE=16` 控制一次批量 mask decoder 的 box 数量。
 - GroundingDINO 和 SAM Worker 启动时预加载模型，避免首个用户请求承担权重加载。
-- 图片上传完成后，空闲 SAM Worker 会立即后台预编码该图片，并与
-  GroundingDINO 检测并行；用户选择检测框时通常只需执行几十毫秒级的
-  mask decoder。
+- 检测结果写入后，空闲 SAM Worker 会后台预编码该图片；用户选择检测框时通常
+  只需执行几十毫秒级的 mask decoder。
 
 GroundingDINO 支持可插拔的 prompt 规范化，用于对比不同提示词处理策略：
 
@@ -243,9 +242,8 @@ draft。这样可以避免异步模型结果覆盖用户正在编辑的内容。
 检测框支持单选或多选。`review-tasks` 始终保持一个 detection 对应一个 Task；
 批量 SAM 接口一次接收多个 Task，同一图片只执行一次 `set_image()`，所有 box
 通过一次 `predict_torch` 解码；每个 box 仍独立选择最高 predicted IoU 的
-SAM 候选并保存到自己的 Task。图片上传完成后会自动后台预编码 SAM
-embedding，并与 GroundingDINO 检测并行；同图后续编辑继续复用缓存。
-批量 Prompt 接口同样按 Task 返回 Operation，
+SAM 候选并保存到自己的 Task。检测完成后会自动后台预编码 SAM embedding，
+同图后续编辑继续复用缓存。批量 Prompt 接口同样按 Task 返回 Operation，
 单项失败不会阻止同批其他任务入队。
 需要描述多个目标整体关系时使用 Task Group 接口；它会把同图各成员的 mask
 和 crop 一次交给 Qwen。联合模式只调用一次模型提取视觉事实，再由服务端

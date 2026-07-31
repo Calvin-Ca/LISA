@@ -3,7 +3,7 @@
   "info": {
     "title": "Construction Safety Annotation API",
     "description": "Free-form GroundingDINO detection, SAM box-prompt segmentation, Qwen prompt enrichment, manual annotation review, and dataset release API. The API process does not load model weights.",
-    "version": "1.5.2"
+    "version": "1.5.1"
   },
   "paths": {
     "/health": {

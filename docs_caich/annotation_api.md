@@ -1,17 +1,17 @@
 # 自动标注完整流程 API（Spring 后端对接）
 
-文档版本：`1.5.2`
+文档版本：`1.5.1`
 
 更新时间：`2026-07-31`
 
 开放语义字段要求服务版本不低于 `1.2.0`，多检测框批处理要求不低于
 `1.3.0`，Prompt 处理轨迹要求不低于 `1.4.0`，联合多目标 Prompt 要求
-不低于 `1.5.2`。联调前先调用 `GET /health` 核对 `version`。
+不低于 `1.5.1`。联调前先调用 `GET /health` 核对 `version`。
 
 ```json
 {
   "status": "ok",
-  "version": "1.5.2"
+  "version": "1.5.1"
 }
 ```
 
@@ -611,9 +611,8 @@ HTTP 202：
 SAM Worker 会把同一图片的待处理 box 组成一批：图片 embedding 只计算一次，
 所有 box 通过一次批量 `predict_torch` 完成 mask decoder，再为每个 box 从
 候选中选择 `predicted_iou` 最高的结果并保存到对应 Task。同一图片的后续编辑
-会复用进程内 LRU embedding 缓存。图片上传完成后，空闲 SAM Worker 会立即
-在后台预编码该图片，并与 GroundingDINO 检测并行，使图片 encoder 时间与
-检测及用户查看、选择检测框的时间重叠。
+会复用进程内 LRU embedding 缓存。检测结果落库后，空闲 SAM Worker 会自动
+在后台预编码该图片，使图片 encoder 时间与用户查看、选择检测框的时间重叠。
 不同 Task 的 mask 即使重叠也不会自动合并或互相覆盖。
 
 ### 9.3 轮询并读取 SAM 结果

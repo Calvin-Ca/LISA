@@ -1710,13 +1710,13 @@ class AnnotationStore:
             for row in rows
         ]
 
-    def list_asset_ids_created_after(
+    def list_detection_asset_ids_created_after(
         self,
         *,
         created_after: str,
         limit: int = 100,
     ) -> list[str]:
-        """Return recently uploaded assets for opportunistic SAM prefetch."""
+        """Return recently detected assets for opportunistic SAM prefetch."""
 
         self._ensure_initialized()
         if not created_after.strip():
@@ -1726,10 +1726,11 @@ class AnnotationStore:
         with self._connect() as connection:
             rows = connection.execute(
                 """
-                SELECT asset_id
-                FROM assets
+                SELECT asset_id, MIN(created_at) AS first_detection_at
+                FROM detections
                 WHERE created_at >= ?
-                ORDER BY created_at DESC, asset_id DESC
+                GROUP BY asset_id
+                ORDER BY first_detection_at, asset_id
                 LIMIT ?
                 """,
                 (created_after, limit),

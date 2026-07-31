@@ -195,7 +195,15 @@ class SAMMaskWorkerTest(unittest.TestCase):
             "succeeded",
         )
 
-    def test_worker_prefetches_recently_uploaded_asset_when_idle(self):
+    def test_worker_prefetches_recently_detected_asset_when_idle(self):
+        self.store.add_detection(
+            job_id=self.task["job_id"],
+            asset_id=self.task["asset"]["asset_id"],
+            entity="person",
+            box_xyxy=[1, 1, 9, 9],
+            box_score=0.9,
+            phrase_score=0.8,
+        )
         predictor = PrefetchFakeSAMPredictor()
         worker = SAMMaskWorker(
             store=self.store,
