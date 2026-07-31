@@ -1,9 +1,7 @@
 # 自动标注服务 Docker 部署
 
-当前 Compose 只启动 API 和 GroundingDINO Worker。API 已包含 SAM Operation、
-Qwen Prompt、Task、提交/作废和 Release 路由，但 Compose 尚未启动对应的
-SAM、Qwen 和 Release Worker。完整流程联调按 `annotation_service/README.md`
-使用宿主机 Python 启动各 Worker；本文件保留给后续容器化。
+当前 Compose 将 API、GroundingDINO、SAM、Qwen 和 Release Worker 放在同一个
+`annotation_service` 容器中，由 `start_all.sh` 统一启动和回收。
 
 以下命令均在远程 Linux 服务器执行。
 
@@ -22,6 +20,7 @@ chmod 600 annotation_service/docker/.env
 - `ANNOTATION_STORAGE_HOST_PATH`
 - `GROUNDING_DINO_SOURCE_HOST_PATH`
 - `GROUNDING_DINO_MODEL_HOST_PATH`
+- `ANNOTATION_SAM_MODEL_HOST_PATH`
 - `ANNOTATION_CONTAINER_UID/GID`
 
 `GROUNDING_DINO_MODEL_HOST_PATH` 指向：
@@ -61,15 +60,13 @@ text_encoder/bert-base-uncased/
 
 ```bash
 docker compose \
-  --profile models \
   --env-file annotation_service/docker/.env \
   -f annotation_service/docker/compose.yaml \
   config --quiet
 docker compose \
-  --profile models \
   --env-file annotation_service/docker/.env \
   -f annotation_service/docker/compose.yaml \
-  up -d --build api worker
+  up -d --build annotation_service
 ```
 
 默认地址：
@@ -83,15 +80,13 @@ Swagger: http://<服务器地址>:8008/docs
 
 ```bash
 docker compose \
-  --profile models \
   --env-file annotation_service/docker/.env \
   -f annotation_service/docker/compose.yaml \
   ps
 docker compose \
-  --profile models \
   --env-file annotation_service/docker/.env \
   -f annotation_service/docker/compose.yaml \
-  logs --tail=100 api worker
+  logs --tail=100 annotation_service
 curl -fsS -H "X-API-Key: <API_KEY>" \
   http://127.0.0.1:8008/ready
 ```
