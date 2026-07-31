@@ -117,6 +117,10 @@ class SAMMaskWorkerTest(unittest.TestCase):
             completed["result"]["shapes"][0]["label"],
             "target",
         )
+        self.assertIn(
+            "artifact_write_ms",
+            completed["result"]["timings_ms"],
+        )
         task = self.store.get_task(self.task["task_id"])
         self.assertTrue(task["artifacts"]["mask_png_url"])
         self.assertTrue(task["artifacts"]["mask_overlay_url"])

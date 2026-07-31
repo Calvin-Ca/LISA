@@ -10,7 +10,7 @@ class SettingsTest(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             settings = Settings.from_env()
 
-        self.assertEqual(settings.service_version, "1.5.0")
+        self.assertEqual(settings.service_version, "1.5.1")
         self.assertIsNone(settings.api_key)
         self.assertEqual(settings.cors_origins, ())
         self.assertFalse(settings.cors_allow_credentials)

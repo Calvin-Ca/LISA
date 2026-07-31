@@ -1,17 +1,17 @@
 # 自动标注完整流程 API（Spring 后端对接）
 
-文档版本：`1.5.0`
+文档版本：`1.5.1`
 
 更新时间：`2026-07-31`
 
 开放语义字段要求服务版本不低于 `1.2.0`，多检测框批处理要求不低于
 `1.3.0`，Prompt 处理轨迹要求不低于 `1.4.0`，联合多目标 Prompt 要求
-不低于 `1.5.0`。联调前先调用 `GET /health` 核对 `version`。
+不低于 `1.5.1`。联调前先调用 `GET /health` 核对 `version`。
 
 ```json
 {
   "status": "ok",
-  "version": "1.5.0"
+  "version": "1.5.1"
 }
 ```
 
@@ -609,8 +609,10 @@ HTTP 202：
 该项返回 `status=rejected` 和标准 `error`，其他有效项仍会入队。
 
 SAM Worker 会把同一图片的待处理 box 组成一批：图片 embedding 只计算一次，
-但每个 box 分别从 SAM 候选中选择 `predicted_iou` 最高的一个，并把 mask 保存
-到对应 Task。不同 Task 的 mask 即使重叠也不会自动合并或互相覆盖。
+所有 box 通过一次批量 `predict_torch` 完成 mask decoder，再为每个 box 从
+候选中选择 `predicted_iou` 最高的结果并保存到对应 Task。同一图片的后续编辑
+会复用进程内 LRU embedding 缓存。不同 Task 的 mask 即使重叠也不会自动合并
+或互相覆盖。
 
 ### 9.3 轮询并读取 SAM 结果
 
@@ -656,6 +658,17 @@ cancelled
     },
     "provenance": {
       "sam_version": "sam-vit-h-4b8939"
+    },
+    "timings_ms": {
+      "batch_size": 2,
+      "embedding_cache_hit": false,
+      "image_read_ms": 18.4,
+      "image_encode_ms": 1680.2,
+      "mask_decode_ms": 212.8,
+      "artifact_render_ms": 95.6,
+      "artifact_write_ms": 14.3,
+      "batch_total_ms": 2012.5,
+      "decoder_mode": "batched_predict_torch"
     }
   },
   "error": null,
@@ -873,7 +886,12 @@ Qwen Worker 的一次联合输入包含：
     ],
     "provenance": {
       "qwen_facts_prompt_version": "construction-joint-visible-facts-v2",
-      "qwen_enrichment_prompt_version": "construction-joint-prompts-3-2-1-grounded-v5"
+      "qwen_enrichment_prompt_version": "construction-joint-prompts-3-2-1-grounded-v6"
+    },
+    "timings_ms": {
+      "model_calls": 1,
+      "facts_call_ms": 1830.4,
+      "total_ms": 1832.1
     }
   }
 }
@@ -885,14 +903,11 @@ Qwen Worker 的一次联合输入包含：
 `task_targets[].instance_count` 为准。例如“人员 + 该人员穿着的反光背心”
 是两个 Task 目标，但不能解释成“两个人”。
 
-联合 Prompt 生成还会校验模型声明的 `covered_task_ids` 与 Task Group 完全一致，
-并通过独立复核阶段逐条修订对象遗漏、对象数量错误和安全状态反转。来源
-`category` 只用于限制风险措辞，不作为“未佩戴”“未穿着”等违规事实的证据。
-复核阶段还会移除视觉事实中未出现的光照条件、环境推断和通用风险后果。
-最终 3 条 `visual` 保留模型复核后的开放表达；2 条 `risk` 和 1 条 `agent`
-由已验证的 `target_object`、`visible_facts`、`visual_anchor` 和
-`mask_granularity` 确定性生成，避免模型重新引入未证实条件。
-上述校验字段是 Qwen 内部输出契约，不在最终 `prompts` 数组中重复返回。
+联合模式只调用一次 Qwen，提取包含全部 `task_targets` 的开放视觉事实；服务端
+校验 Task ID、顺序和数量后，使用 `target_object`、`visible_facts`、
+`visual_anchor` 和 `mask_granularity` 确定性生成完整 3+2+1 Prompt。这样不再
+串行执行“Prompt 生成 + Prompt 复核”两次额外模型调用，也避免重新引入对象
+数量错误、安全状态反转、光照条件或通用风险后果。
 
 实际 `prompts` 仍固定返回完整 3+2+1 六条。也可以直接查询持久化的 Group：
 

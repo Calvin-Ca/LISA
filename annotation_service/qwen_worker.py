@@ -156,7 +156,7 @@ class QwenWorkerSettings:
             heartbeat_seconds=heartbeat_seconds,
             poll_seconds=_floating(
                 "ANNOTATION_QWEN_POLL_SECONDS",
-                2.0,
+                0.2,
                 minimum=0.1,
                 maximum=60,
             ),
@@ -338,7 +338,7 @@ class QwenPromptWorker:
         worker_id: str,
         lease_seconds: int = 300,
         heartbeat_seconds: int = 60,
-        poll_seconds: float = 2.0,
+        poll_seconds: float = 0.2,
     ):
         if heartbeat_seconds >= lease_seconds:
             raise ValueError(

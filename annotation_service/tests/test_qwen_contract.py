@@ -136,7 +136,6 @@ class QwenContractTest(unittest.TestCase):
         facts = QwenJointVisualFacts(**joint_facts_payload())
         grounded = ground_joint_prompt_set(
             facts=facts,
-            candidate_prompts=QwenPromptSet(**prompt_payload()),
         )
         by_id = {
             prompt.prompt_id: prompt.text
@@ -145,6 +144,7 @@ class QwenContractTest(unittest.TestCase):
         self.assertIn(facts.visible_facts[0], by_id["risk-1"])
         self.assertIn(facts.visual_anchor[0], by_id["risk-2"])
         self.assertIn(facts.target_object, by_id["agent-1"])
+        self.assertIn(facts.target_object, by_id["visual-1"])
         self.assertNotIn("降低风险", by_id["risk-1"])
 
     def test_messages_separate_candidate_context_from_visible_facts(self):

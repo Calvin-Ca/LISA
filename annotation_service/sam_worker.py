@@ -5,6 +5,7 @@ import logging
 import os
 import socket
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -46,6 +47,7 @@ class SAMWorkerSettings:
     model_version: str
     polygon_epsilon: float
     max_batch_size: int
+    image_embedding_cache_size: int
     worker_id: str
     lease_seconds: int
     heartbeat_seconds: int
@@ -106,6 +108,12 @@ class SAMWorkerSettings:
                 1,
                 128,
             ),
+            image_embedding_cache_size=_integer(
+                "ANNOTATION_SAM_IMAGE_CACHE_SIZE",
+                2,
+                0,
+                16,
+            ),
             worker_id=os.getenv(
                 "ANNOTATION_SAM_WORKER_ID",
                 f"{socket.gethostname()}-{os.getpid()}",
@@ -113,7 +121,7 @@ class SAMWorkerSettings:
             lease_seconds=lease,
             heartbeat_seconds=heartbeat,
             poll_seconds=float(
-                os.getenv("ANNOTATION_SAM_POLL_SECONDS", "2")
+                os.getenv("ANNOTATION_SAM_POLL_SECONDS", "0.2")
             ),
         )
 
@@ -125,6 +133,9 @@ class SAMWorkerSettings:
             python_package=self.python_package,
             model_version=self.model_version,
             polygon_epsilon=self.polygon_epsilon,
+            image_embedding_cache_size=(
+                self.image_embedding_cache_size
+            ),
         )
 
 
@@ -135,11 +146,13 @@ def persist_sam_candidate(
     operation_id: str | None,
     candidate: SAMMaskCandidate,
 ) -> dict:
+    artifact_started = time.perf_counter()
     metadata = {
         "box_xyxy": candidate.box_xyxy,
         "predicted_iou": candidate.predicted_iou,
         "mask_area_pixels": candidate.mask_area_pixels,
         "sam_version": candidate.model_version,
+        "timings_ms": candidate.timings_ms,
     }
     mask = store.store_artifact(
         task_id=task_id,
@@ -165,6 +178,13 @@ def persist_sam_candidate(
         operation_id=operation_id,
         metadata=metadata,
     )
+    timings_ms = {
+        **candidate.timings_ms,
+        "artifact_write_ms": round(
+            (time.perf_counter() - artifact_started) * 1000,
+            3,
+        ),
+    }
     return {
         "box_xyxy": candidate.box_xyxy,
         "predicted_iou": candidate.predicted_iou,
@@ -178,6 +198,7 @@ def persist_sam_candidate(
         "provenance": {
             "sam_version": candidate.model_version,
         },
+        "timings_ms": timings_ms,
     }
 
 
@@ -190,7 +211,7 @@ class SAMMaskWorker:
         worker_id: str,
         lease_seconds: int = 300,
         heartbeat_seconds: int = 60,
-        poll_seconds: float = 2.0,
+        poll_seconds: float = 0.2,
         max_batch_size: int = 16,
     ):
         if heartbeat_seconds >= lease_seconds:
@@ -381,9 +402,13 @@ def main() -> int:
     config.validate()
     store = AnnotationStore(settings.storage_root)
     store.initialize()
+    predictor = SAMAdapter(config)
+    if not args.once:
+        predictor.warmup()
+        LOGGER.info("SAM model preloaded and ready")
     worker = SAMMaskWorker(
         store=store,
-        predictor=SAMAdapter(config),
+        predictor=predictor,
         worker_id=settings.worker_id,
         lease_seconds=settings.lease_seconds,
         heartbeat_seconds=settings.heartbeat_seconds,

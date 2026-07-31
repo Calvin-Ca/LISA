@@ -101,6 +101,13 @@ chmod 600 annotation_service/.env
 - SAM：`ANNOTATION_SAM_CHECKPOINT`、model type、Python package 和 device
 - Qwen：`ANNOTATION_QWEN_BASE_URL`、`ANNOTATION_QWEN_MODEL`
 
+延迟相关默认值：
+
+- GroundingDINO、SAM、Qwen 队列轮询间隔均为 `0.2` 秒。
+- `ANNOTATION_SAM_IMAGE_CACHE_SIZE=2` 缓存最近图片的 SAM embedding。
+- `ANNOTATION_SAM_MAX_BATCH_SIZE=16` 控制一次批量 mask decoder 的 box 数量。
+- GroundingDINO 和 SAM Worker 启动时预加载模型，避免首个用户请求承担权重加载。
+
 GroundingDINO 支持可插拔的 prompt 规范化，用于对比不同提示词处理策略：
 
 - `ANNOTATION_GROUNDING_DINO_PROMPT_NORMALIZATION_MODE=off`
@@ -231,11 +238,13 @@ SAM 和 Qwen 的 Operation 结果是候选，不会自动覆盖人工草稿。Sp
 draft。这样可以避免异步模型结果覆盖用户正在编辑的内容。
 
 检测框支持单选或多选。`review-tasks` 始终保持一个 detection 对应一个 Task；
-批量 SAM 接口一次接收多个 Task，同一图片只执行一次 `set_image()`，每个 box
-仍独立选择最高 predicted IoU 的 SAM 候选并保存到自己的 Task。批量 Prompt
+批量 SAM 接口一次接收多个 Task，同一图片只执行一次 `set_image()`，所有 box
+通过一次 `predict_torch` 解码；每个 box 仍独立选择最高 predicted IoU 的
+SAM 候选并保存到自己的 Task。同图后续编辑会复用 embedding 缓存。批量 Prompt
 接口同样按 Task 返回 Operation，单项失败不会阻止同批其他任务入队。
 需要描述多个目标整体关系时使用 Task Group 接口；它会把同图各成员的 mask
-和 crop 一次交给 Qwen，联合结果只归属 Group，不会覆盖任一单目标 Task。
+和 crop 一次交给 Qwen。联合模式只调用一次模型提取视觉事实，再由服务端
+确定性生成完整 3+2+1 Prompt；结果只归属 Group，不会覆盖任一单目标 Task。
 
 同类别检测框 IoU 不低于 `0.8` 时，`review-tasks.overlap_warnings` 会提示可能
 重复实例，但服务不会自动删除检测框或合并 mask，最终去重由人工确认。

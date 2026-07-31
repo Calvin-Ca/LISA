@@ -20,7 +20,7 @@ QWEN_FACTS_PROMPT_VERSION = "construction-visible-facts-v1"
 QWEN_ENRICHMENT_PROMPT_VERSION = "construction-prompts-3-2-1-v1"
 QWEN_JOINT_FACTS_PROMPT_VERSION = "construction-joint-visible-facts-v2"
 QWEN_JOINT_ENRICHMENT_PROMPT_VERSION = (
-    "construction-joint-prompts-3-2-1-grounded-v5"
+    "construction-joint-prompts-3-2-1-grounded-v6"
 )
 
 RISK_SEMANTIC_BOUNDARIES = {
@@ -404,25 +404,36 @@ def parse_joint_prompt_set(
 def ground_joint_prompt_set(
     *,
     facts: QwenJointVisualFacts,
-    candidate_prompts: QwenPromptSet,
 ) -> QwenPromptSet:
-    visual_prompts = [
-        prompt
-        for prompt in candidate_prompts.prompts
-        if prompt.type == PromptType.VISUAL
-    ]
-    target = facts.target_object
-    visible_fact = facts.visible_facts[0]
-    anchor = facts.visual_anchor[0]
-    mask_granularity = facts.mask_granularity
+    target = facts.target_object[:100].rstrip("，。； ")
+    visible_fact = facts.visible_facts[0][:70].rstrip("，。； ")
+    anchor = facts.visual_anchor[0][:70].rstrip("，。； ")
+    mask_granularity = facts.mask_granularity[:60].rstrip("，。； ")
     grounded = [
-        *visual_prompts,
+        AnnotationPrompt(
+            prompt_id="visual-1",
+            type=PromptType.VISUAL,
+            text=f"分割{target}。",
+        ),
+        AnnotationPrompt(
+            prompt_id="visual-2",
+            type=PromptType.VISUAL,
+            text=f"标出{target}；关系锚点：{anchor}。",
+        ),
+        AnnotationPrompt(
+            prompt_id="visual-3",
+            type=PromptType.VISUAL,
+            text=(
+                f"提取{mask_granularity}对应的{target}；"
+                f"可见事实：{visible_fact}。"
+            ),
+        ),
         AnnotationPrompt(
             prompt_id="risk-1",
             type=PromptType.RISK,
             text=(
-                f"从安全标注角度分割{target}，"
-                f"可见事实为：{visible_fact}。"
+                f"从安全标注角度分割{target}；"
+                f"可见事实：{visible_fact}。"
             ),
         ),
         AnnotationPrompt(

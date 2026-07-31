@@ -293,7 +293,7 @@ class GroundingDINOWorkerSettings:
             heartbeat_seconds=heartbeat_seconds,
             poll_seconds=_floating(
                 "ANNOTATION_WORKER_POLL_SECONDS",
-                2.0,
+                0.2,
                 minimum=0.1,
                 maximum=60.0,
             ),

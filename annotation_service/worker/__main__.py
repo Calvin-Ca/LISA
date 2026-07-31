@@ -52,6 +52,11 @@ def main() -> int:
         ),
         prompt_translator=settings.prompt_translator(),
     )
+    if not args.once:
+        predictor.load()
+        logging.getLogger(__name__).info(
+            "GroundingDINO model preloaded and ready"
+        )
     worker = GroundingDINOJobWorker(
         store=store,
         predictor=predictor,

@@ -194,7 +194,7 @@ class QwenProviderTest(unittest.TestCase):
             ],
         )
 
-        self.assertEqual(len(transport.calls), 3)
+        self.assertEqual(len(transport.calls), 1)
         self.assertIn(
             "多目标联合视觉事实提取器",
             transport.calls[0][2]["messages"][0]["content"],
@@ -206,8 +206,9 @@ class QwenProviderTest(unittest.TestCase):
         )
         self.assertEqual(
             provenance["qwen_enrichment_prompt_version"],
-            "construction-joint-prompts-3-2-1-grounded-v5",
+            "construction-joint-prompts-3-2-1-grounded-v6",
         )
+        self.assertEqual(result.timings_ms["model_calls"], 1)
 
     def test_joint_generation_rejects_omitted_task_target(self):
         incomplete_facts = {
