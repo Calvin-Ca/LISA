@@ -35,9 +35,12 @@ Clean030 LoRA 当前总体指标优于 Relabel303 LoRA。冻结制品 SHA-256、
 
 ### 当前单机常驻部署记录
 
-- 日期：2026-07-21
+- 日期：2026-07-23
 - 常驻容器：`lisa-api`，`restart=unless-stopped`
-- 固定镜像：`sha256:10e9a397aaf9e15e58ac3884cf4beabbbb49e7ee6d0eddc6ded1f4f37f80d928`
+- 固定镜像：
+  `sha256:63a08dc06bcc3d883ca18aeeb33dcc01e80fd058dd7afd23ded85ce57e61a067`
+- 镜像标签：`lisa-safety-seg:lisa13b-clean030-v1-records-20260723`
+- 源码提交：`fd7472201b72eab189bcf9557aaec63f45eb4dc7`
 - 模型版本：`lisa13b-clean030-v1`，bf16、单 GPU worker
 - 服务入口：绑定宿主机内网接口 `172.19.2.2:8200`，容器内监听 `8000`
 - 网络：加入 `lisa-monitoring`，供 Prometheus 通过 `lisa-api:8000` 抓取指标
@@ -45,8 +48,9 @@ Clean030 LoRA 当前总体指标优于 Relabel303 LoRA。冻结制品 SHA-256、
 - 启动状态：Docker `healthy`，`/health=ok`，`/ready=ready`
 - 固定 smoke：启用 API Key 后 HTTP 200，返回 1 个 512×512 有效 PNG mask，
   模型版本正确
-- 最新 smoke 延迟：服务端 `1309.803 ms`，客户端 `1338.388 ms`
-- 运行状态：整卡显存约 `29,952 MiB / 40,960 MiB`，温度 `56°C`；
+- 最新记录版 smoke：服务端响应字段 `latency_ms=1290.752 ms`，返回独立
+  `record_id`
+- 历史运行状态：整卡显存约 `29,952 MiB / 40,960 MiB`，温度 `56°C`；
   原有 `vllm-bge-embed` 保持 healthy
 - 访问控制：已设置 `LISA_API_KEY`；匿名访问受保护指标返回 HTTP 401，
   Prometheus 通过只读 Bearer secret 抓取
@@ -56,17 +60,22 @@ Clean030 LoRA 当前总体指标优于 Relabel303 LoRA。冻结制品 SHA-256、
 - 当前边界：尚未配置 TLS/反向代理，仅允许可信内网通过 HTTP 和 API Key
   调用，不向公网开放
 
-### 2026-07-23 分割记录功能开发状态
+### 2026-07-23 分割记录功能部署状态
 
 - 已完成 SQLite 元数据、原始 JPEG/PNG、PNG mask 的持久化实现。
 - 已完成记录列表、详情、原图、mask 和最终反馈 API；不区分用户，不保存反馈
   变化历史，点赞、点踩和点踩原因均可选。
 - 已完成成功、失败、中断、空 mask、多 mask、反馈覆盖、查询过滤和重启恢复的
   本地纯逻辑测试。
-- 代码默认关闭记录功能以兼容现有常驻容器；`production/.env.example` 已为新
-  部署显式启用，必须同时挂载可写的 `/data/lisa-records` 持久化目录。
-- 当前远程常驻 `lisa-api` 尚未升级到该版本，也未完成真实容器、持久化卷、
-  重启恢复、容量和备份验收，因此不得将本节记为已部署完成。
+- 远程常驻 `lisa-api` 已升级到记录版镜像，容器 healthy、模型 ready，
+  Prometheus 鉴权更新后抓取恢复为 HTTP 200。
+- 已启用 `/data/lisa-records` 持久化挂载；SQLite 初始化完成，
+  `records_enabled=1`、`records_healthy=1`、存储错误为 0。
+- 真实请求已返回 HTTP 200、1 个 512×512 mask 和独立 `record_id`，服务端
+  响应字段 `latency_ms=1290.752 ms`。
+- 记录详情、文件下载、最终反馈和容器重启后的持久化仍待远程验收；记录版
+  并发回归、容量告警、备份和保留周期也未完成，因此尚未形成完整上线闭环。
+- 当前部署与性能口径详见 `production/DEPLOYMENT_PERFORMANCE.md`。
 
 ## P0：模型版本与制品冻结
 
