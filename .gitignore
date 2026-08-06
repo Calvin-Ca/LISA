@@ -2,6 +2,7 @@
 .DS_Store
 /runs/
 /artifacts/
+/LISA13B
 production/.env
 production/.grafana_admin_password
 production/.lisa_api_key
