@@ -77,7 +77,7 @@ HTTP 等待超时后，底层同步 GPU 推理仍会继续，但 semaphore 上�
 远程 Linux GPU 服务器执行：
 
 ```bash
-bash exp/runs/lisa13b-clean030-timeout-guard-v1/command.sh
+bash production/validation/lisa13b-clean030-timeout-guard-v1/command.sh
 ```
 
 脚本自包含模型、CLIP、输入、Prompt、端口、超时和准入条件，不依赖用户
@@ -86,7 +86,7 @@ bash exp/runs/lisa13b-clean030-timeout-guard-v1/command.sh
 ## 预期产物
 
 ```text
-exp/runs/lisa13b-clean030-timeout-guard-v1/outputs/
+production/validation/lisa13b-clean030-timeout-guard-v1/outputs/
 ├── runtime_config.json
 ├── server.log
 ├── requests.json

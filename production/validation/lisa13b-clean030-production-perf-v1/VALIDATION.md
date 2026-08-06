@@ -86,7 +86,7 @@ test。
 远程 Linux GPU 服务器执行：
 
 ```bash
-bash exp/runs/lisa13b-clean030-production-perf-v1/command.sh
+bash production/validation/lisa13b-clean030-production-perf-v1/command.sh
 ```
 
 脚本不依赖用户提前 `export` 环境变量。CLIP优先使用仓库相对路径，不存在
@@ -95,7 +95,7 @@ bash exp/runs/lisa13b-clean030-production-perf-v1/command.sh
 ## 预期产物
 
 ```text
-exp/runs/lisa13b-clean030-production-perf-v1/outputs/
+production/validation/lisa13b-clean030-production-perf-v1/outputs/
 ├── runtime_config.json
 ├── server.log
 ├── gpu_metrics.csv

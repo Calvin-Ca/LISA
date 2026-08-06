@@ -97,7 +97,7 @@ P95 阈值随排队深度放宽，但吞吐阈值不随客户端并发提高。�
 远程 Linux GPU 服务器执行：
 
 ```bash
-bash exp/runs/lisa13b-clean030-api-concurrency-v1/command.sh
+bash production/validation/lisa13b-clean030-api-concurrency-v1/command.sh
 ```
 
 脚本自包含模型、CLIP、固定输入、端口、请求数、正式队列参数和准入阈值，
@@ -106,7 +106,7 @@ bash exp/runs/lisa13b-clean030-api-concurrency-v1/command.sh
 ## 预期产物
 
 ```text
-exp/runs/lisa13b-clean030-api-concurrency-v1/outputs/
+production/validation/lisa13b-clean030-api-concurrency-v1/outputs/
 ├── runtime_config.json
 ├── server.log
 ├── gpu_metrics.csv

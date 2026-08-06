@@ -8,22 +8,16 @@ MODEL_PATH="./artifacts/lisa-safety-seg/lisa13b-clean030-v1/merged_hf"
 CLIP_TOWER="./clip-vit-large-patch14"
 SMOKE_IMAGE="./dataset/reason_seg/ReasonSeg/val/val__002__-helmet_missing-19-_jpg.rf.cef508999f7777acb7cb6470fd767fef__helmet_missing.jpg"
 SMOKE_PROMPT="标出未按规定佩戴安全帽的作业人员。"
-OUTPUT_DIR="./exp/runs/lisa13b-clean030-api-concurrency-v1/outputs"
+OUTPUT_DIR="./production/validation/lisa13b-clean030-timeout-guard-v1/outputs"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 GPU_INDEX="0"
 HOST="127.0.0.1"
-PORT="8003"
+PORT="8002"
+REQUEST_TIMEOUT="0.1"
+QUEUE_TIMEOUT="5"
+COMPLETION_TIMEOUT="30"
+CLIENT_TIMEOUT="30"
 MAX_QUEUE_SIZE="8"
-QUEUE_TIMEOUT="30"
-REQUEST_TIMEOUT="120"
-CLIENT_TIMEOUT="150"
-MIN_THROUGHPUT="2.0"
-MAX_C1_P95_MS="1000"
-MAX_C2_P95_MS="2000"
-MAX_C4_P95_MS="4000"
-MAX_PEAK_MEMORY_MIB="36864"
-MIN_REMAINING_MEMORY_MIB="4096"
-MAX_MEMORY_DRIFT_MIB="500"
 REQUIRED_SHARED_PROCESS="VLLM::EngineCore"
 
 if [ ! -f "$CLIP_TOWER/config.json" ] || [ ! -f "$CLIP_TOWER/preprocessor_config.json" ]; then
@@ -43,20 +37,20 @@ if [ ! -f "$CLIP_TOWER/config.json" ] || [ ! -f "$CLIP_TOWER/preprocessor_config
   exit 1
 fi
 if [ ! -f "$SMOKE_IMAGE" ]; then
-  echo "Missing fixed benchmark image: $SMOKE_IMAGE" >&2
+  echo "Missing fixed smoke image: $SMOKE_IMAGE" >&2
   exit 1
 fi
 if [ -d "$OUTPUT_DIR" ] && [ -n "$(find "$OUTPUT_DIR" -mindepth 1 -print -quit)" ]; then
-  echo "Concurrency output directory is not empty: $OUTPUT_DIR" >&2
+  echo "Timeout verification output directory is not empty: $OUTPUT_DIR" >&2
   echo "Preserve or move the existing outputs before rerunning." >&2
   exit 1
 fi
 if ! command -v nvidia-smi >/dev/null 2>&1; then
-  echo "nvidia-smi is required for the concurrency benchmark." >&2
+  echo "nvidia-smi is required for the timeout verification." >&2
   exit 1
 fi
 
-"$PYTHON_BIN" -m production.benchmark_api_concurrency \
+"$PYTHON_BIN" -m production.verify_timeout_serialization \
   --model-path "$MODEL_PATH" \
   --vision-tower "$CLIP_TOWER" \
   --image "$SMOKE_IMAGE" \
@@ -66,17 +60,11 @@ fi
   --gpu-index "$GPU_INDEX" \
   --host "$HOST" \
   --port "$PORT" \
-  --max-queue-size "$MAX_QUEUE_SIZE" \
-  --queue-timeout "$QUEUE_TIMEOUT" \
   --request-timeout "$REQUEST_TIMEOUT" \
+  --queue-timeout "$QUEUE_TIMEOUT" \
+  --completion-timeout "$COMPLETION_TIMEOUT" \
   --client-timeout "$CLIENT_TIMEOUT" \
-  --min-throughput "$MIN_THROUGHPUT" \
-  --max-c1-p95-ms "$MAX_C1_P95_MS" \
-  --max-c2-p95-ms "$MAX_C2_P95_MS" \
-  --max-c4-p95-ms "$MAX_C4_P95_MS" \
-  --max-peak-memory-mib "$MAX_PEAK_MEMORY_MIB" \
-  --min-remaining-memory-mib "$MIN_REMAINING_MEMORY_MIB" \
-  --max-memory-drift-mib "$MAX_MEMORY_DRIFT_MIB" \
+  --max-queue-size "$MAX_QUEUE_SIZE" \
   --require-existing-process-substring "$REQUIRED_SHARED_PROCESS"
 
-sed -n '1,320p' "$OUTPUT_DIR/summary.md"
+sed -n '1,260p' "$OUTPUT_DIR/summary.md"

@@ -103,7 +103,7 @@ Docker 构建只复制生产运行所需的 `production/`、`model/` 和 `utils/
 远程 Linux GPU 服务器执行：
 
 ```bash
-bash exp/runs/lisa13b-clean030-container-smoke-v1/command.sh
+bash production/validation/lisa13b-clean030-container-smoke-v1/command.sh
 ```
 
 脚本自包含模型、CLIP 发现、镜像、容器、端口、输入、队列和准入参数。不依赖
@@ -116,7 +116,7 @@ bash exp/runs/lisa13b-clean030-container-smoke-v1/command.sh
 ## 预期产物
 
 ```text
-exp/runs/lisa13b-clean030-container-smoke-v1/outputs/
+production/validation/lisa13b-clean030-container-smoke-v1/outputs/
 ├── runtime_config.json
 ├── build.log
 ├── unit_tests.log

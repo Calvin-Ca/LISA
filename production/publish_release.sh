@@ -7,7 +7,7 @@ set -euo pipefail
 
 MODEL_VERSION="lisa13b-clean030-v1"
 MODEL_ARTIFACT="./artifacts/lisa-safety-seg/lisa13b-clean030-v1"
-CONTAINER_SUMMARY="./exp/runs/lisa13b-clean030-container-smoke-v1/outputs/summary.json"
+CONTAINER_SUMMARY="./production/validation/lisa13b-clean030-container-smoke-v1/outputs/summary.json"
 PRECISION_SUMMARY="./exp/runs/lisa13b-clean030-lora-v1/production-preflight/summary.json"
 RELEASE_MANIFEST="$MODEL_ARTIFACT/release-manifest.json"
 

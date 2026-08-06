@@ -130,7 +130,7 @@ Alertmanager、Grafana、DCGM Exporter 和告警接收渠道本轮不部署。
 先拉取本实验提交，再在远程 Linux GPU 服务器仓库根目录执行：
 
 ```bash
-bash exp/runs/lisa13b-clean030-monitoring-v1/command.sh
+bash production/validation/lisa13b-clean030-monitoring-v1/command.sh
 ```
 
 脚本自包含所有路径、端口、模型、输入、告警阈值和验收参数，不依赖用户提前
@@ -139,7 +139,7 @@ bash exp/runs/lisa13b-clean030-monitoring-v1/command.sh
 ## 预期产物
 
 ```text
-exp/runs/lisa13b-clean030-monitoring-v1/outputs/
+production/validation/lisa13b-clean030-monitoring-v1/outputs/
 ├── runtime_config.json
 ├── build.log
 ├── unit_tests.log

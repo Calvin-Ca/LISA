@@ -27,6 +27,10 @@
 - Dockerfile 和环境变量配置
 - 不加载模型的纯逻辑单元测试
 
+生产性能、可靠性和部署准入的验证记录统一保存在
+`production/validation/`，每项验证包含 `VALIDATION.md` 和自包含的
+`command.sh`。
+
 ## 远程启动
 
 以下命令仅在 Linux GPU 服务器执行。

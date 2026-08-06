@@ -81,7 +81,7 @@
 远程 Linux GPU 服务器执行：
 
 ```bash
-bash exp/runs/lisa13b-clean030-production-perf-shared-gpu-v1/command.sh
+bash production/validation/lisa13b-clean030-production-perf-shared-gpu-v1/command.sh
 ```
 
 脚本自包含模型、输入、请求数、阈值和共享进程要求，不依赖用户预先
@@ -90,7 +90,7 @@ bash exp/runs/lisa13b-clean030-production-perf-shared-gpu-v1/command.sh
 ## 预期产物
 
 ```text
-exp/runs/lisa13b-clean030-production-perf-shared-gpu-v1/outputs/
+production/validation/lisa13b-clean030-production-perf-shared-gpu-v1/outputs/
 ├── round-1/
 │   ├── runtime_config.json
 │   ├── server.log

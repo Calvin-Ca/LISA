@@ -19,7 +19,7 @@ CLIP 或 SAM 权重，不给容器挂载 GPU，因此不会占用额外模型显
 
 ## 固定配置
 
-- 实验目录：`exp/runs/lisa13b-request-limit-v1`
+- 验证目录：`production/validation/lisa13b-request-limit-v1`
 - Dockerfile：`production/Dockerfile`
 - 修复后镜像：`lisa-safety-seg:lisa13b-request-limit-v1-fix1`
 - 修复后容器：`lisa-request-limit-v1-fix1`
@@ -92,7 +92,7 @@ CLIP 或 SAM 权重，不给容器挂载 GPU，因此不会占用额外模型显
 远程 Linux 服务器执行：
 
 ```bash
-bash exp/runs/lisa13b-request-limit-v1/command.sh
+bash production/validation/lisa13b-request-limit-v1/command.sh
 ```
 
 脚本自包含镜像、容器、端口、阈值和准入参数，不依赖用户预先 `export`
@@ -147,7 +147,7 @@ Uvicorn 容器验证；正式入口仍需在反向代理配置相同或更小的
 ## 预期产物
 
 ```text
-exp/runs/lisa13b-request-limit-v1/outputs-after-fix/
+production/validation/lisa13b-request-limit-v1/outputs-after-fix/
 ├── runtime_config.json
 ├── build.log
 ├── unit_tests.log
