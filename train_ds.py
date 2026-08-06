@@ -23,7 +23,7 @@ from utils.utils import (DEFAULT_IM_END_TOKEN, DEFAULT_IM_START_TOKEN,
 
 def parse_args(args):
     parser = argparse.ArgumentParser(description="LISA Model Training")
-    parser.add_argument("--local_rank", default=0, type=int, help="node rank")
+    parser.add_argument("--local_rank", default=0, type=int, help="node rank")  # gpu 编号
     parser.add_argument(
         "--version", default="liuhaotian/llava-llama-2-13b-chat-lightning-preview"
     )
@@ -32,22 +32,31 @@ def parse_args(args):
         "--precision",
         default="bf16",
         type=str,
-        choices=["fp32", "bf16", "fp16"],
+        choices=["fp32", "bf16", "fp16"], # 符号位都是1，小数位、指数位：23、8，7、8，5、10
         help="precision for inference",
     )
     parser.add_argument("--image_size", default=1024, type=int, help="image size")
     parser.add_argument("--model_max_length", default=512, type=int)
-    parser.add_argument("--lora_r", default=8, type=int)
+    #   训练采用的长度上限训练采用的长度上限”，真正可用长度还受模型架构、图片 token 和显存限制，包括
+    #     特殊开始 token
+    #   + 用户角色
+    #   + 图片占位
+    #   + 用户 Prompt
+    #   + 助手角色
+    #   + 目标回答
+    #   + [SEG]
+    #     结束 token
+    parser.add_argument("--lora_r", default=8, type=int) # 秩=8，大了容易过拟合
     parser.add_argument(
         "--vision-tower", default="openai/clip-vit-large-patch14", type=str
     )
-    parser.add_argument("--load_in_8bit", action="store_true", default=False)
+    parser.add_argument("--load_in_8bit", action="store_true", default=False) # 基模精度
     parser.add_argument("--load_in_4bit", action="store_true", default=False)
 
     parser.add_argument(
         "--dataset", default="sem_seg||refer_seg||vqa||reason_seg", type=str
     )
-    parser.add_argument("--sample_rates", default="9,3,3,1", type=str)
+    parser.add_argument("--sample_rates", default="9,3,3,1", type=str) # 指定四类任务的采样比例，与 dataset 一一对应
     parser.add_argument(
         "--sem_seg_data",
         default="ade20k||cocostuff||pascal_part||paco_lvis||mapillary",
@@ -95,12 +104,16 @@ def parse_args(args):
     parser.add_argument("--no_eval", action="store_true", default=False)
     parser.add_argument("--eval_only", action="store_true", default=False)
     parser.add_argument("--vision_pretrained", default="PATH_TO_SAM_ViT-H", type=str)
-    parser.add_argument("--out_dim", default=256, type=int)
+    parser.add_argument("--out_dim", default=256, type=int) # 把语言模型的 hidden_size 映射到 out_dim，然后作为 SAM 的文本提示嵌入。
     parser.add_argument("--resume", default="", type=str)
     parser.add_argument("--print_freq", default=1, type=int)
     parser.add_argument("--start_epoch", default=0, type=int)
     parser.add_argument("--gradient_checkpointing", action="store_true", default=True)
-    parser.add_argument("--train_mask_decoder", action="store_true", default=True)
+    parser.add_argument("--train_mask_decoder", action="store_true", default=True) # 是否训练 SAM 的 mask_decoder
+    # sam包括：
+    # Image Encoder
+    # Prompt Encoder
+    # Mask Decoder ： train
     parser.add_argument("--use_mm_start_end", action="store_true", default=True)
     parser.add_argument("--auto_resume", action="store_true", default=True)
     parser.add_argument(

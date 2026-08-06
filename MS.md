@@ -1045,3 +1045,40 @@ latency_ms = 1290.752 ms
   如果只能选两件事：再加上 Clean030 vs Relabel Full 消融。
 
   这两件事最能把当前项目从“成功跑通了一次 LoRA 实验”，提升为“有严谨数据闭环和实验设计的视觉语言模型项目”。
+
+#  一次训练启动的大致顺序如下：
+
+  1. Transformers
+     加载 LISA13B 配置和 tokenizer、预训练权重
+
+  2. LISA 项目代码
+     构建 LISAForCausalLM
+     连接 LLaVA、CLIP 和 SAM mask decoder
+
+  3. PEFT（Parameters Efficient Finetuning）
+     找出 q_proj、v_proj
+     插入 LoRA 层
+     冻结绝大多数基础模型参数
+
+  4. DeepSpeed（基于pytorch之上）
+     包装 LoRA 后的模型
+     创建优化器、DataLoader 和 scheduler
+     管理反向传播、梯度累积、ZeRO 和 checkpoint
+
+  前向传播/反向传播
+     初始化 w，b，带入训练样本 x
+     前向传播：y‘ = wx + b，保留中间结果（求梯度需要）
+     计算损失：l = （y - y’）^2
+     反向传播：
+           目标：改变 w ，使得 l 更小
+           策略：将 l 看作 关于 w 的函数，求导计算 带入此时的 w值 计算梯度 g
+                g > 0,说明 w 向右移动,l 还会上升，故减小 w，减小值：learning rate * g
+                g < 0,说明 w 向右移动,l 减小
+     优化器：根据梯度改变参数的策略，SGD，Adam，WAdam
+
+  数值精度
+  | 格式   | 数值范围 | 精细程度 | 显存 | 稳定性 | 常见用途 |
+  | ---- | ---- | ---- | -- | --- | --------------- |
+  | FP32 | 大    | 高    | 高  | 高   | 调试、数值敏感计算       |
+  | FP16 | 较小   | 中    | 低  | 较低  | 推理、旧 GPU 混合精度训练 |
+  | BF16 | 大    | 较低   | 低  | 较高  | 大模型训练和推理        |
