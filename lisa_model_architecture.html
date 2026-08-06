@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LISA Model Architecture</title>
+  <style>
+    :root{--ink:#eef6ff;--muted:#9db0c7;--paper:#0a1424;--line:#2b4059;--blue:#69a7ff;--purple:#ae83ff;--teal:#43d9d2;--orange:#ffc66d;--green:#62dda0;--red:#ff7b8e}
+    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 12% 8%,rgba(67,217,210,.13),transparent 27rem),radial-gradient(circle at 88% 4%,rgba(174,131,255,.13),transparent 28rem),#07111f;color:var(--ink);font-family:Inter,"Segoe UI","Microsoft YaHei",sans-serif}
+    main{max-width:1520px;margin:auto;padding:34px 30px 46px} header{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:22px}
+    .kicker{font-size:12px;font-weight:800;letter-spacing:.15em;color:var(--teal)} h1{margin:7px 0 5px;font-size:clamp(28px,4vw,44px);letter-spacing:-.035em}
+    header p{margin:0;color:var(--muted);line-height:1.6}.source{font-size:11px;color:#7b8798;text-align:right;white-space:nowrap}
+    .sheet{overflow-x:auto;background:linear-gradient(145deg,rgba(15,31,52,.96),rgba(7,17,31,.98));border:1px solid var(--line);border-radius:20px;box-shadow:0 25px 75px rgba(0,0,0,.34),0 0 50px rgba(67,217,210,.04)}
+    svg{display:block;min-width:1240px;width:100%;height:auto}.box{filter:url(#shadow)}.box>rect:first-child{fill:#111f33;stroke:#3d5875}.title{font-size:17px;font-weight:750;fill:var(--ink)}.sub{font-size:12px;fill:#a9bbcf}.micro{font-size:10.5px;fill:#8da3bc}.cap{font-size:10px;font-weight:800;letter-spacing:.1em}.arr{fill:none;stroke:#7890aa;stroke-width:2.2;marker-end:url(#arrow)}.arr.seg{stroke:var(--purple);stroke-width:2.6}.flow{font-size:10.5px;font-weight:650;fill:#a7b8ca}.status{font-size:9.5px;font-weight:800}.io-label{font:italic 15px Georgia,serif;fill:#a9bbcf}
+    .notes{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}.note{background:rgba(14,29,49,.88);border:1px solid var(--line);border-radius:14px;padding:17px 19px;box-shadow:0 12px 30px rgba(0,0,0,.15)}.note h2{font-size:14px;margin:0 0 10px}.note ul{margin:0;padding-left:18px;color:var(--muted);font-size:12px;line-height:1.75}.pill{display:inline-block;border-radius:10px;padding:2px 7px;margin-right:6px;font-size:10px;color:#07111f;vertical-align:1px}.full{background:var(--red)}.lora{background:var(--green)}footer{margin-top:14px;color:#71869e;font-size:11px;line-height:1.6}
+    @media(max-width:760px){main{padding:22px 12px 34px}header{display:block}.source{text-align:left;margin-top:12px}.notes{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div><div class="kicker">LANGUAGE-INSTRUCTED SEGMENTATION ASSISTANT</div><h1>LISA Model Architecture</h1><p>A special <b>[SEG]</b> token bridges multimodal language reasoning and pixel-level segmentation.</p></div>
+    <div class="source">Architecture: model/LISA.py<br>Layout inspired by Figure 3 of the LISA paper</div>
+  </header>
+
+  <section class="sheet" aria-label="LISA model architecture diagram">
+    <svg viewBox="0 0 1460 700" role="img" aria-labelledby="t d">
+      <title id="t">LISA Model Architecture</title><desc id="d">An image and a text query enter the multimodal LLM. The SEG token hidden state is projected into the SAM Prompt Encoder, while the image is encoded by the SAM Image Encoder. Both paths meet in the Mask Decoder.</desc>
+      <defs>
+        <filter id="shadow" x="-20%" y="-30%" width="140%" height="170%"><feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#243b5a" flood-opacity=".13"/></filter>
+        <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0L10 5 0 10z" fill="#7c8da4"/></marker>
+        <pattern id="loraPattern" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="#eaf7f1"/><rect width="3" height="8" fill="#b9e2cf"/></pattern>
+      </defs>
+
+      <!-- Left: image and text query, following the official composition -->
+      <text x="24" y="132" class="io-label">x_img</text>
+      <g class="box"><rect x="68" y="54" width="315" height="223" rx="12" fill="#e8eef4" stroke="#aebdce"/><rect x="82" y="68" width="287" height="195" rx="8" fill="#d9e4ed"/><circle cx="130" cy="105" r="24" fill="#eca56f"/><ellipse cx="227" cy="113" rx="52" ry="29" fill="#8ead72"/><circle cx="327" cy="111" r="31" fill="#5e9a73"/><path d="M164 245l28-93 75-13 54 106z" fill="#e6c779"/><ellipse cx="118" cy="211" rx="36" ry="28" fill="#f28965"/><ellipse cx="334" cy="209" rx="30" ry="25" fill="#b59580"/><text x="225" y="251" text-anchor="middle" font-size="10" fill="#64748b">Input image preview</text></g>
+      <text x="24" y="357" class="io-label">x_txt</text>
+      <g class="box"><rect x="68" y="307" width="315" height="127" rx="12" fill="#f7f9fc" stroke="#bdc8d6"/><text x="88" y="338" class="cap" fill="#65758a">NATURAL LANGUAGE QUERY</text><text x="88" y="369" class="title">Segment the target of interest</text><text x="88" y="396" class="sub">Visual semantics, spatial relations, and intent</text><text x="88" y="417" class="micro">Tokenizer → text tokens</text></g>
+
+      <!-- Top middle: frozen SAM vision backbone -->
+      <g class="box"><rect x="480" y="54" width="267" height="169" rx="17" fill="#eaf4ff" stroke="#7fa4d1" stroke-width="1.5"/><text x="505" y="84" class="cap" fill="#4278dc">VISION BACKBONE · F_enc</text><text x="505" y="121" class="title">SAM ViT-H Image Encoder</text><text x="505" y="150" class="sub">High-resolution image → image embedding</text><text x="505" y="176" class="micro">Resize + pad · longest side 1024</text><rect x="505" y="190" width="62" height="20" rx="10" fill="#d7e0eb"/><text x="536" y="204" text-anchor="middle" class="status" fill="#53657b">❄ Frozen</text></g>
+
+      <!-- Bottom middle: MLLM plus LoRA -->
+      <g class="box"><rect x="480" y="293" width="350" height="190" rx="17" fill="#eef4fb" stroke="#809bbd" stroke-width="1.5"/><text x="505" y="324" class="cap" fill="#526f95">MULTI-MODAL LLM · F</text><text x="505" y="360" class="title">CLIP + MM Projector</text><text x="505" y="384" class="sub">Align visual tokens with text tokens</text><path d="M505 402H805" stroke="#c8d2de"/><text x="505" y="431" class="title">LLaVA / LLaMA</text><text x="505" y="457" class="micro">Generate a text response and the special [SEG] token</text><rect x="659" y="416" width="55" height="24" rx="7" fill="#eaf7f1" stroke="#70b68c"/><text x="686" y="432" text-anchor="middle" class="status" fill="#21724f">q_proj</text><rect x="721" y="416" width="55" height="24" rx="7" fill="#eaf7f1" stroke="#70b68c"/><text x="748" y="432" text-anchor="middle" class="status" fill="#21724f">v_proj</text><text x="805" y="458" text-anchor="end" class="micro" fill="#25865c">LoRA injection · r=8</text><rect x="736" y="305" width="69" height="21" rx="10" fill="#f9e8eb"/><text x="770" y="320" text-anchor="middle" class="status" fill="#b33d50">Full FT</text></g>
+
+      <!-- Decoder: same content, grouped like official F_dec -->
+      <g class="box"><rect x="837" y="54" width="294" height="169" rx="17" fill="#fff3e8" stroke="#d99a62" stroke-width="1.5"/><text x="861" y="84" class="cap" fill="#dc7a2d">DECODER · F_dec</text><text x="861" y="119" class="title">SAM Prompt Encoder</text><text x="861" y="143" class="micro">[SEG] embedding → sparse prompt</text><path d="M861 157H1107" stroke="#ead1bb"/><text x="861" y="184" class="title">SAM Mask Decoder</text><rect x="1025" y="178" width="82" height="20" rx="10" fill="#e5f4ec"/><text x="1066" y="192" text-anchor="middle" class="status" fill="#25865c">Trainable</text></g>
+
+      <!-- Token row and projection bridge -->
+      <g class="box"><rect x="976" y="280" width="155" height="70" rx="13" fill="#f4effc" stroke="#9479cd"/><text x="994" y="307" class="cap" fill="#ae83ff">TEXT PROJECTION</text><text x="994" y="332" class="sub">Linear · ReLU · Linear</text></g>
+      <g class="box"><rect x="958" y="410" width="173" height="70" rx="13" fill="#fff0f3" stroke="#df9ba7"/><rect x="977" y="429" width="24" height="30" rx="5" fill="#f8dce1" stroke="#dd8d9b"/><rect x="1009" y="429" width="24" height="30" rx="5" fill="#f8dce1" stroke="#dd8d9b"/><rect x="1041" y="429" width="24" height="30" rx="5" fill="#f8dce1" stroke="#dd8d9b"/><rect x="1073" y="429" width="38" height="30" rx="5" fill="#7957c8"/><text x="1092" y="449" text-anchor="middle" font-size="9" font-weight="800" fill="white">SEG</text></g>
+      <text x="958" y="509" class="title">It is [SEG].</text><text x="958" y="531" class="micro">Last-layer hidden state h_seg</text>
+
+      <!-- Output mask -->
+      <g class="box"><rect x="1218" y="54" width="202" height="223" rx="12" fill="#e8eef4" stroke="#d99a62"/><rect x="1232" y="68" width="174" height="195" rx="8" fill="#d9e4ed"/><circle cx="1266" cy="105" r="24" fill="#eca56f"/><ellipse cx="1323" cy="113" rx="42" ry="26" fill="#8ead72"/><circle cx="1371" cy="111" r="26" fill="#5e9a73"/><path d="M1276 245l18-93 49-13 48 106z" fill="#e6c779"/><ellipse cx="1267" cy="211" rx="29" ry="26" fill="#ef5268"/><ellipse cx="1380" cy="209" rx="22" ry="23" fill="#b59580"/></g>
+      <text x="1319" y="307" text-anchor="middle" class="title">Predicted Mask M̂</text><text x="1319" y="330" text-anchor="middle" class="micro">Postprocess → original image size</text>
+
+      <!-- Official-style arrows -->
+      <path class="arr" d="M383 139H480"/><path class="arr" d="M383 350H480"/><path class="arr" d="M383 213H432V335H480"/>
+      <path class="arr" d="M747 139H837"/><text x="783" y="126" class="io-label">f</text>
+      <path class="arr" d="M830 445H958"/><text x="855" y="433" class="flow">Generated tokens</text>
+      <path class="arr seg" d="M1092 410V350"/><text x="1103" y="385" class="io-label">h_seg</text>
+      <path class="arr seg" d="M1053 280V223"/><text x="1064" y="257" class="flow">SAM text embedding</text>
+      <path class="arr" d="M1131 139H1218"/>
+
+      <!-- Bottom legend/training scope -->
+      <rect x="68" y="588" width="1352" height="72" rx="13" fill="#0e1d31" stroke="#314862"/>
+      <text x="90" y="615" class="cap" fill="#65758a">TRAINING SCOPE</text>
+      <circle cx="205" cy="625" r="7" fill="#8796aa"/><text x="220" y="629" font-size="11.5" font-weight="700" fill="#dbe7f5">Always frozen</text><text x="303" y="629" class="micro">CLIP, MM Projector, SAM Image Encoder</text>
+      <circle cx="566" cy="625" r="7" fill="#ff7b8e"/><text x="581" y="629" font-size="11.5" font-weight="700" fill="#dbe7f5">Full fine-tuning</text><text x="675" y="629" class="micro">lora_r=0: all LLM parameters</text>
+      <circle cx="851" cy="625" r="7" fill="#62dda0"/><text x="866" y="629" font-size="11.5" font-weight="700" fill="#dbe7f5">LoRA fine-tuning</text><text x="968" y="629" class="micro">q_proj/v_proj LoRA</text>
+      <text x="1120" y="629" class="micro">Both: embeddings, lm_head, Text Projection, Mask Decoder</text>
+    </svg>
+  </section>
+
+</main>
+</body>
+</html>
