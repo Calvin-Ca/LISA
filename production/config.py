@@ -2,6 +2,46 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
+
+
+def _clip_tower_is_complete(path: Path) -> bool:
+    return (
+        (path / "config.json").is_file()
+        and (path / "preprocessor_config.json").is_file()
+        and any(
+            (path / filename).is_file()
+            for filename in ("model.safetensors", "pytorch_model.bin")
+        )
+    )
+
+
+def _default_vision_tower() -> str:
+    local_tower = Path("./clip-vit-large-patch14")
+    model_store_tower = (
+        Path.home()
+        / "MODEL_STORE"
+        / "clip"
+        / "clip-vit-large-patch14"
+        / "upstream-v1"
+        / "snapshot"
+    )
+    for candidate in (local_tower, model_store_tower):
+        if _clip_tower_is_complete(candidate):
+            return str(candidate)
+
+    hf_root = Path(
+        os.getenv("HF_HOME", str(Path.home() / ".cache" / "huggingface"))
+    )
+    cache_patterns = (
+        "hub/models--openai--clip-vit-large-patch14/snapshots/*",
+        "models--openai--clip-vit-large-patch14/snapshots/*",
+    )
+    for pattern in cache_patterns:
+        for candidate in sorted(hf_root.glob(pattern)):
+            if _clip_tower_is_complete(candidate):
+                return str(candidate)
+    return str(local_tower)
 
 
 def _get_bool(name: str, default: bool) -> bool:
@@ -98,6 +138,11 @@ class Settings:
             raise ValueError(
                 "LISA_RECORDS_ROOT must not be empty when records are enabled"
             )
+        vision_tower = os.getenv("LISA_VISION_TOWER")
+        if vision_tower is None:
+            vision_tower = _default_vision_tower()
+        else:
+            vision_tower = vision_tower.strip()
 
         return cls(
             model_version=os.getenv(
@@ -107,9 +152,7 @@ class Settings:
                 "LISA_MODEL_PATH",
                 "./runs/lisa13b-clean030-lora-v1/merged_hf",
             ).strip(),
-            vision_tower=os.getenv(
-                "LISA_VISION_TOWER", "./clip-vit-large-patch14"
-            ).strip(),
+            vision_tower=vision_tower,
             precision=precision,
             load_in_8bit=load_in_8bit,
             load_in_4bit=load_in_4bit,

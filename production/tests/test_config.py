@@ -1,5 +1,7 @@
 import os
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from production.config import Settings
@@ -23,6 +25,40 @@ class SettingsTest(unittest.TestCase):
         self.assertFalse(settings.records_enabled)
         self.assertEqual(settings.records_root, "/data/lisa-records")
         self.assertEqual(settings.feedback_comment_max_chars, 500)
+
+    def test_default_vision_tower_finds_model_store_snapshot(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home = Path(temp_dir)
+            snapshot = (
+                home
+                / "MODEL_STORE"
+                / "clip"
+                / "clip-vit-large-patch14"
+                / "upstream-v1"
+                / "snapshot"
+            )
+            snapshot.mkdir(parents=True)
+            for filename in (
+                "config.json",
+                "preprocessor_config.json",
+                "model.safetensors",
+            ):
+                (snapshot / filename).touch()
+
+            with patch("production.config.Path.home", return_value=home):
+                with patch.dict(os.environ, {}, clear=True):
+                    settings = Settings.from_env()
+
+        self.assertEqual(settings.vision_tower, str(snapshot))
+
+    def test_explicit_vision_tower_overrides_discovery(self):
+        with patch.dict(
+            os.environ,
+            {"LISA_VISION_TOWER": " /models/clip-vit-large-patch14 "},
+            clear=True,
+        ):
+            settings = Settings.from_env()
+        self.assertEqual(settings.vision_tower, "/models/clip-vit-large-patch14")
 
     def test_record_settings_from_environment(self):
         env = {
