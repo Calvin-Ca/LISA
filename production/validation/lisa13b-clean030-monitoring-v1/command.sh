@@ -5,6 +5,8 @@ set -euo pipefail
 
 MODEL_VERSION="lisa13b-clean030-v1"
 MODEL_ARTIFACT="./artifacts/lisa-safety-seg/lisa13b-clean030-v1"
+CLIP_TOWER="${LISA_VISION_TOWER:-}"
+MODEL_STORE_CLIP="${MODEL_STORE_ROOT:-${HOME}/MODEL_STORE}/clip/clip-vit-large-patch14/upstream-v1/snapshot"
 DOCKERFILE="./production/Dockerfile"
 IMAGE_TAG="lisa-safety-seg:lisa13b-clean030-monitoring-v1"
 CONTAINER_NAME="lisa-clean030-monitoring-v1"
@@ -60,21 +62,42 @@ if docker container inspect "$CONTAINER_NAME" >/dev/null 2>&1; then
   exit 1
 fi
 
-HF_CACHE_ROOT="${HF_HOME:-${HOME}/.cache/huggingface}"
-CLIP_CONFIG="$(find "$HF_CACHE_ROOT" \
-  -path "*/models--openai--clip-vit-large-patch14/snapshots/*/config.json" \
-  -print \
-  -quit)"
-if [ -z "$CLIP_CONFIG" ]; then
-  echo "CLIP snapshot config was not found under: $HF_CACHE_ROOT" >&2
-  exit 1
-fi
-CLIP_TOWER="$(dirname "$CLIP_CONFIG")"
-CLIP_MODEL_DIR="$(dirname "$(dirname "$CLIP_TOWER")")"
-CLIP_SNAPSHOT="$(basename "$CLIP_TOWER")"
-if [ ! -f "$CLIP_TOWER/preprocessor_config.json" ] || [ ! -d "$CLIP_MODEL_DIR/blobs" ]; then
-  echo "CLIP snapshot or blobs directory is incomplete: $CLIP_MODEL_DIR" >&2
-  exit 1
+clip_tower_is_complete() {
+  [ -f "$1/config.json" ] &&
+    [ -f "$1/preprocessor_config.json" ] &&
+    { [ -f "$1/model.safetensors" ] || [ -f "$1/pytorch_model.bin" ]; }
+}
+
+VISION_ARGS=()
+if clip_tower_is_complete "$CLIP_TOWER"; then
+  VISION_ARGS=(--vision-tower "$CLIP_TOWER")
+elif clip_tower_is_complete "$MODEL_STORE_CLIP"; then
+  CLIP_TOWER="$MODEL_STORE_CLIP"
+  VISION_ARGS=(--vision-tower "$CLIP_TOWER")
+else
+  HF_CACHE_ROOT="${HF_HOME:-${HOME}/.cache/huggingface}"
+  CLIP_CONFIG=""
+  if [ -d "$HF_CACHE_ROOT" ]; then
+    CLIP_CONFIG="$(find "$HF_CACHE_ROOT" \
+      -path "*/models--openai--clip-vit-large-patch14/snapshots/*/config.json" \
+      -print \
+      -quit)"
+  fi
+  if [ -z "$CLIP_CONFIG" ]; then
+    echo "CLIP was not found under MODEL_STORE or Hugging Face cache." >&2
+    exit 1
+  fi
+  CLIP_TOWER="$(dirname "$CLIP_CONFIG")"
+  CLIP_MODEL_DIR="$(dirname "$(dirname "$CLIP_TOWER")")"
+  CLIP_SNAPSHOT="$(basename "$CLIP_TOWER")"
+  if ! clip_tower_is_complete "$CLIP_TOWER" || [ ! -d "$CLIP_MODEL_DIR/blobs" ]; then
+    echo "CLIP snapshot or blobs directory is incomplete: $CLIP_MODEL_DIR" >&2
+    exit 1
+  fi
+  VISION_ARGS=(
+    --vision-model-dir "$CLIP_MODEL_DIR"
+    --vision-snapshot "$CLIP_SNAPSHOT"
+  )
 fi
 
 (
@@ -92,8 +115,7 @@ set +e
   --image-tag "$IMAGE_TAG" \
   --container-name "$CONTAINER_NAME" \
   --model-artifact "$MODEL_ARTIFACT" \
-  --vision-model-dir "$CLIP_MODEL_DIR" \
-  --vision-snapshot "$CLIP_SNAPSHOT" \
+  "${VISION_ARGS[@]}" \
   --image "$SMOKE_IMAGE" \
   --prompt "$SMOKE_PROMPT" \
   --output-dir "$OUTPUT_DIR" \

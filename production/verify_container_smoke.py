@@ -705,8 +705,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--image-tag", required=True)
     parser.add_argument("--container-name", required=True)
     parser.add_argument("--model-artifact", type=Path, required=True)
-    parser.add_argument("--vision-model-dir", type=Path, required=True)
-    parser.add_argument("--vision-snapshot", required=True)
+    parser.add_argument("--vision-model-dir", type=Path)
+    parser.add_argument("--vision-snapshot")
+    parser.add_argument(
+        "--vision-tower",
+        type=Path,
+        help="standalone CLIP directory; mutually exclusive with HF cache arguments",
+    )
     parser.add_argument("--image", type=Path, required=True)
     parser.add_argument("--prompt", required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -732,12 +737,31 @@ def main() -> int:
     repo_root = Path(__file__).resolve().parents[1]
     dockerfile = args.dockerfile.resolve()
     model_artifact = args.model_artifact.resolve()
-    vision_model_dir = args.vision_model_dir.resolve()
+    if args.vision_tower is not None:
+        if args.vision_model_dir is not None or args.vision_snapshot is not None:
+            raise ValueError(
+                "--vision-tower cannot be combined with --vision-model-dir "
+                "or --vision-snapshot"
+            )
+        vision_tower = args.vision_tower.resolve()
+        vision_model_dir = vision_tower
+        vision_uses_hf_cache = False
+        vision_reference = f"local://{vision_tower.name}"
+    else:
+        if args.vision_model_dir is None or not args.vision_snapshot:
+            raise ValueError(
+                "provide --vision-tower or both --vision-model-dir and "
+                "--vision-snapshot"
+            )
+        vision_model_dir = args.vision_model_dir.resolve()
+        vision_tower = vision_model_dir / "snapshots" / args.vision_snapshot
+        vision_uses_hf_cache = True
+        vision_reference = (
+            "huggingface://openai/clip-vit-large-patch14@"
+            f"{args.vision_snapshot}"
+        )
     image_path = args.image.resolve()
     output_dir = args.output_dir.resolve()
-    vision_tower = (
-        vision_model_dir / "snapshots" / args.vision_snapshot
-    )
 
     required_files = [
         (dockerfile, "Dockerfile"),
@@ -753,8 +777,13 @@ def main() -> int:
     for path, description in required_files:
         if not path.is_file():
             raise FileNotFoundError(f"missing {description}: {path}")
+    if not any(
+        (vision_tower / filename).is_file()
+        for filename in ("model.safetensors", "pytorch_model.bin")
+    ):
+        raise FileNotFoundError(f"missing CLIP weights under: {vision_tower}")
     validate_docker_ignore_files(repo_root)
-    if not (vision_model_dir / "blobs").is_dir():
+    if vision_uses_hf_cache and not (vision_model_dir / "blobs").is_dir():
         raise FileNotFoundError(
             f"CLIP cache blobs directory is missing: {vision_model_dir / 'blobs'}"
         )
@@ -799,10 +828,7 @@ def main() -> int:
         "container_name": args.container_name,
         "model_version": args.model_version,
         "model_artifact": portable_path(model_artifact, repo_root),
-        "vision_tower": (
-            "huggingface://openai/clip-vit-large-patch14@"
-            f"{args.vision_snapshot}"
-        ),
+        "vision_tower": vision_reference,
         "smoke_image": portable_path(image_path, repo_root),
         "prompt": args.prompt,
         "precision": "bf16",
@@ -933,10 +959,14 @@ def main() -> int:
             text=True,
         )
         container_model_path = f"/models/{args.model_version}"
-        container_clip_root = "/models/clip-cache"
-        container_clip_path = (
-            f"{container_clip_root}/snapshots/{args.vision_snapshot}"
-        )
+        if vision_uses_hf_cache:
+            container_clip_root = "/models/clip-cache"
+            container_clip_path = (
+                f"{container_clip_root}/snapshots/{args.vision_snapshot}"
+            )
+        else:
+            container_clip_root = "/models/clip-vit-large-patch14"
+            container_clip_path = container_clip_root
         environment = {
             "LISA_MODEL_VERSION": args.model_version,
             "LISA_MODEL_PATH": f"{container_model_path}/merged_hf",
