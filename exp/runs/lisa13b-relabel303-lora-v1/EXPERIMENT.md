@@ -35,7 +35,7 @@
 ## 模型与权重
 
 - 基础模型：`./LISA13B`
-- CLIP vision tower：优先 `./clip-vit-large-patch14`，不存在时从服务器 HuggingFace cache 查找
+- CLIP vision tower：可由 `LISA_VISION_TOWER` 显式指定；默认依次查找 `./clip-vit-large-patch14`、`${HOME}/MODEL_STORE` 中的 standalone snapshot 和服务器 Hugging Face cache，并要求配置、预处理器及权重文件完整
 - SAM 权重：`./data_pipeline/sam_vit_h_4b8939.pth`
 - 初始化方式：从 Base LISA-13B 独立开始
 - 运行环境：远程 Linux + GPU

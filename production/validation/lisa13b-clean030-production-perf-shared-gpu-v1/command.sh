@@ -5,7 +5,8 @@ set -euo pipefail
 
 MODEL_VERSION="lisa13b-clean030-v1"
 MODEL_PATH="./artifacts/lisa-safety-seg/lisa13b-clean030-v1/merged_hf"
-CLIP_TOWER="./clip-vit-large-patch14"
+CLIP_TOWER="${LISA_VISION_TOWER:-./clip-vit-large-patch14}"
+MODEL_STORE_CLIP="${MODEL_STORE_ROOT:-${HOME}/MODEL_STORE}/clip/clip-vit-large-patch14/upstream-v1/snapshot"
 SMOKE_IMAGE="./dataset/reason_seg/ReasonSeg/val/val__002__-helmet_missing-19-_jpg.rf.cef508999f7777acb7cb6470fd767fef__helmet_missing.jpg"
 SMOKE_PROMPT="标出未按规定佩戴安全帽的作业人员。"
 OUTPUT_ROOT="./production/validation/lisa13b-clean030-production-perf-shared-gpu-v1/outputs"
@@ -22,11 +23,24 @@ MAX_MEMORY_DRIFT_MIB="500"
 REQUIRED_SHARED_PROCESS="VLLM::EngineCore"
 ROUNDS="3"
 
-if [ ! -f "$CLIP_TOWER/config.json" ] || [ ! -f "$CLIP_TOWER/preprocessor_config.json" ]; then
-  HF_CACHE_ROOT="${HF_HOME:-${HOME}/.cache/huggingface}"
-  CLIP_CONFIG="$(find "$HF_CACHE_ROOT" -path "*/models--openai--clip-vit-large-patch14/snapshots/*/config.json" -print -quit)"
-  if [ -n "$CLIP_CONFIG" ]; then
-    CLIP_TOWER="$(dirname "$CLIP_CONFIG")"
+clip_tower_is_complete() {
+  [ -f "$1/config.json" ] &&
+    [ -f "$1/preprocessor_config.json" ] &&
+    { [ -f "$1/model.safetensors" ] || [ -f "$1/pytorch_model.bin" ]; }
+}
+
+if ! clip_tower_is_complete "$CLIP_TOWER"; then
+  if clip_tower_is_complete "$MODEL_STORE_CLIP"; then
+    CLIP_TOWER="$MODEL_STORE_CLIP"
+  else
+    HF_CACHE_ROOT="${HF_HOME:-${HOME}/.cache/huggingface}"
+    CLIP_CONFIG=""
+    if [ -d "$HF_CACHE_ROOT" ]; then
+      CLIP_CONFIG="$(find "$HF_CACHE_ROOT" -path "*/models--openai--clip-vit-large-patch14/snapshots/*/config.json" -print -quit)"
+    fi
+    if [ -n "$CLIP_CONFIG" ] && clip_tower_is_complete "$(dirname "$CLIP_CONFIG")"; then
+      CLIP_TOWER="$(dirname "$CLIP_CONFIG")"
+    fi
   fi
 fi
 
@@ -34,7 +48,7 @@ if [ ! -f "$MODEL_PATH/config.json" ]; then
   echo "Missing frozen model config: $MODEL_PATH/config.json" >&2
   exit 1
 fi
-if [ ! -f "$CLIP_TOWER/config.json" ] || [ ! -f "$CLIP_TOWER/preprocessor_config.json" ]; then
+if ! clip_tower_is_complete "$CLIP_TOWER"; then
   echo "Missing local CLIP files under: $CLIP_TOWER" >&2
   exit 1
 fi

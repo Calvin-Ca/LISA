@@ -14,7 +14,7 @@
 
 - 模型: `./LISA13B`
 - 权重路径: `./LISA13B`
-- CLIP vision tower: `/home/ths/.cache/huggingface/hub/models--openai--clip-vit-large-patch14/snapshots/32bd64288804d66eefd0ccbe215aa642df71cc41`
+- CLIP vision tower：可由 `LISA_VISION_TOWER` 显式指定；默认依次查找仓库本地目录、`${HOME}/MODEL_STORE` 中的 standalone snapshot 和本机 Hugging Face cache
 - SAM 权重: `./data_pipeline/sam_vit_h_4b8939.pth`
 - 数据集: ReasonSeg
 - 数据划分: `ReasonSeg|val`

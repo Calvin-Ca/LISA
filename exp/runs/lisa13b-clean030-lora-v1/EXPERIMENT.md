@@ -21,7 +21,7 @@
 
 - 模型: `./LISA13B`
 - 权重路径: `./LISA13B`
-- CLIP vision tower: 优先 `./clip-vit-large-patch14`,不存在时从本机 HuggingFace cache 自动查找 `openai/clip-vit-large-patch14`
+- CLIP vision tower：可由 `LISA_VISION_TOWER` 显式指定；默认依次查找 `./clip-vit-large-patch14`、`${HOME}/MODEL_STORE` 中的 standalone snapshot 和本机 Hugging Face cache，并要求配置、预处理器及权重文件完整
 - SAM 权重: `./data_pipeline/sam_vit_h_4b8939.pth`
 - 训练数据集: `ReasonSegClean030|train`
 - 训练样本数: 202

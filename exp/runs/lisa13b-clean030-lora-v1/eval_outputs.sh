@@ -7,7 +7,8 @@ set -euo pipefail
 EXP_NAME="lisa13b-clean030-lora-v1"
 MERGED_MODEL="./runs/${EXP_NAME}/merged_hf"
 SAM_CKPT="./data_pipeline/sam_vit_h_4b8939.pth"
-CLIP_TOWER="./clip-vit-large-patch14"
+CLIP_TOWER="${LISA_VISION_TOWER:-./clip-vit-large-patch14}"
+MODEL_STORE_CLIP="${MODEL_STORE_ROOT:-${HOME}/MODEL_STORE}/clip/clip-vit-large-patch14/upstream-v1/snapshot"
 CLEAN_DATASET="./dataset/reason_seg/ReasonSegClean030"
 FULL_DATASET="./dataset/reason_seg/ReasonSeg"
 CLEAN_OUTPUT_DIR="./exp/runs/${EXP_NAME}/clean-eval-outputs"
@@ -18,10 +19,24 @@ COMPARISON_PAGE_SCRIPT="./exp/build_annotation_prediction_report.py"
 EXPERIMENT_DOC="./exp/runs/${EXP_NAME}/EXPERIMENT.md"
 LISA_BENCHMARK_FONT_PATH="/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
 
-if [ ! -d "$CLIP_TOWER" ]; then
-  CLIP_CONFIG="$(find "$HOME/.cache/huggingface/hub" -path "*/models--openai--clip-vit-large-patch14/snapshots/*/config.json" -print -quit)"
-  if [ -n "$CLIP_CONFIG" ]; then
-    CLIP_TOWER="$(dirname "$CLIP_CONFIG")"
+clip_tower_is_complete() {
+  [ -f "$1/config.json" ] &&
+    [ -f "$1/preprocessor_config.json" ] &&
+    { [ -f "$1/model.safetensors" ] || [ -f "$1/pytorch_model.bin" ]; }
+}
+
+if ! clip_tower_is_complete "$CLIP_TOWER"; then
+  if clip_tower_is_complete "$MODEL_STORE_CLIP"; then
+    CLIP_TOWER="$MODEL_STORE_CLIP"
+  else
+    HF_CACHE_ROOT="${HF_HOME:-${HOME}/.cache/huggingface}"
+    CLIP_CONFIG=""
+    if [ -d "$HF_CACHE_ROOT" ]; then
+      CLIP_CONFIG="$(find "$HF_CACHE_ROOT" -path "*/models--openai--clip-vit-large-patch14/snapshots/*/config.json" -print -quit)"
+    fi
+    if [ -n "$CLIP_CONFIG" ] && clip_tower_is_complete "$(dirname "$CLIP_CONFIG")"; then
+      CLIP_TOWER="$(dirname "$CLIP_CONFIG")"
+    fi
   fi
 fi
 
@@ -33,7 +48,7 @@ if [ ! -f "$SAM_CKPT" ]; then
   echo "Missing SAM checkpoint: $SAM_CKPT" >&2
   exit 1
 fi
-if [ ! -f "$CLIP_TOWER/config.json" ] || [ ! -f "$CLIP_TOWER/preprocessor_config.json" ]; then
+if ! clip_tower_is_complete "$CLIP_TOWER"; then
   echo "Missing CLIP vision tower files under: $CLIP_TOWER" >&2
   exit 1
 fi
