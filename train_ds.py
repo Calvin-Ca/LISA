@@ -141,19 +141,22 @@ def main(args):
         writer = None
 
     # Create model
-    pretrained_config = transformers.AutoConfig.from_pretrained(args.version)
+    pretrained_config = transformers.AutoConfig.from_pretrained(args.version)  # 读取 LISA13B/config.json
     if args.vision_tower:
         pretrained_config.vision_tower = args.vision_tower
         pretrained_config.mm_vision_tower = args.vision_tower
     has_pretrained_lisa_modules = hasattr(pretrained_config, "train_mask_decoder")
-    tokenizer = transformers.AutoTokenizer.from_pretrained(
+
+    # 分词器："施工人员未佩戴安全帽"  ["施工", "人员", "未", "佩戴", "安全帽"]  [1256, 873, 341, 9201, 15678]
+    # embedding 矩阵：[vocab_size, hidden_size]
+    tokenizer = transformers.AutoTokenizer.from_pretrained(         # 分词器恢复：  LISA13B/tokenizer_config.json、tokenizer.model、special_tokens_map.json、config.json
         args.version,
         cache_dir=None,
-        model_max_length=args.model_max_length,
+        model_max_length=args.model_max_length,   # 设置 tokenizer 认为的最大序列长度，包括BOS、用户文本、图像token等
         padding_side="right",
         use_fast=False,
     )
-    tokenizer.pad_token = tokenizer.unk_token
+    tokenizer.pad_token = tokenizer.unk_token # 把不同长度的文本补成相同长度而加入的占位 token；它本身没有训练语义，必须通过 attention_mask 和 IGNORE_INDEX 从有效计算与损失中排除。
     num_added_tokens = tokenizer.add_tokens("[SEG]")
     args.seg_token_idx = tokenizer("[SEG]", add_special_tokens=False).input_ids[0]
 
@@ -162,6 +165,7 @@ def main(args):
             [DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN], special_tokens=True
         )
 
+    # 模型配置
     model_args = {
         "train_mask_decoder": args.train_mask_decoder,
         "out_dim": args.out_dim,
@@ -213,6 +217,7 @@ def main(args):
         args.conv_type
     ]
 
+    # lora 相关
     lora_r = args.lora_r
     if lora_r > 0:
 
@@ -439,7 +444,7 @@ def main(args):
                 if os.path.exists(save_dir):
                     shutil.rmtree(save_dir)
             torch.distributed.barrier()
-            model_engine.save_checkpoint(save_dir)
+            model_engine.save_checkpoint(save_dir)  # 保存权重
 
 
 def train(
